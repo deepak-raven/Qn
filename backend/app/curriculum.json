@@ -1,0 +1,197 @@
+{
+  "college_name": "Jaya Engineering College",
+  "curriculum_data": [
+    {
+      "regulation": "2021",
+      "subjects": [
+        {
+          "sub_code": "IP3151",
+          "sub_name": "Induction Programme",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "HS3151",
+          "sub_name": "Professional English – I",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "MA3151",
+          "sub_name": "Matrices and Calculus",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "PH3151",
+          "sub_name": "Engineering Physics",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "CY3151",
+          "sub_name": "Engineering Chemistry",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "GE3151",
+          "sub_name": "Problem Solving and Python Programming",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "GE3152",
+          "sub_name": "Heritage of Tamils (தமிழர் மரபு)",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "MA3251",
+          "sub_name": "Statistics and Numerical Methods",
+          "semester": 2,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "GE3252",
+          "sub_name": "Tamils and Technology (தமிழர்களும் தொழில்நுட்பமும்)",
+          "semester": 2,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "MA3354",
+          "sub_name": "Discrete Mathematics",
+          "semester": 3,
+          "year": 2,
+          "common_branches": ["Computer Science and Engineering", "Information Technology"]
+        },
+        {
+          "sub_code": "CS3351",
+          "sub_name": "Digital Principles and Computer Organization",
+          "semester": 3,
+          "year": 2,
+          "common_branches": ["Computer Science and Engineering", "Information Technology"]
+        },
+        {
+          "sub_code": "CS3492",
+          "sub_name": "Database Management Systems",
+          "semester": 4,
+          "year": 2,
+          "common_branches": ["Computer Science and Engineering", "Information Technology"]
+        },
+        {
+          "sub_code": "GE3451",
+          "sub_name": "Environmental Sciences and Sustainability",
+          "semester": 4,
+          "year": 2,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering"]
+        },
+        {
+          "sub_code": "CS3591",
+          "sub_name": "Computer Networks",
+          "semester": 5,
+          "year": 3,
+          "common_branches": ["Computer Science and Engineering", "Information Technology"]
+        },
+        {
+          "sub_code": "BA4101",
+          "sub_name": "Statistics for Management",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Master of Business Administration (MBA)"]
+        },
+        {
+          "sub_code": "MC4101",
+          "sub_name": "Mathematical Foundations for Computer Applications",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Master of Computer Applications (MCA)"]
+        }
+      ]
+    },
+    {
+      "regulation": "2025",
+      "subjects": [
+        {
+          "sub_code": "MA25C01",
+          "sub_name": "Applied Calculus",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "EN25C01",
+          "sub_name": "English Essentials – I",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "UC25H01",
+          "sub_name": "Heritage of Tamils (தமிழர் மரபு)",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "PH25C01",
+          "sub_name": "Applied Physics – I",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "CY25C01",
+          "sub_name": "Applied Chemistry – I",
+          "semester": 1,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "MA25C02",
+          "sub_name": "Linear Algebra",
+          "semester": 2,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering"]
+        },
+        {
+          "sub_code": "EE25C01",
+          "sub_name": "Basic Electrical and Electronics Engineering",
+          "semester": 2,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Mechanical Engineering", "Civil Engineering"]
+        },
+        {
+          "sub_code": "UC25H02",
+          "sub_name": "Tamils and Technology (தமிழர்களும் தொழில்நுட்பமும்)",
+          "semester": 2,
+          "year": 1,
+          "common_branches": ["Computer Science and Engineering", "Information Technology", "Electronics and Communication Engineering", "Electrical and Electronics Engineering", "Electronics and Instrumentation Engineering", "Aeronautical Engineering", "Mechanical Engineering", "Civil Engineering", "Textile Technology"]
+        },
+        {
+          "sub_code": "MA25C08",
+          "sub_name": "Discrete Mathematics",
+          "semester": 3,
+          "year": 2,
+          "common_branches": ["Computer Science and Engineering", "Information Technology"]
+        },
+        {
+          "sub_code": "MA25C07",
+          "sub_name": "Probability and Statistics",
+          "semester": 4,
+          "year": 2,
+          "common_branches": ["Computer Science and Engineering", "Information Technology"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,141 @@
+import React from 'react';
+import { Search, GripVertical } from 'lucide-react';
+
+export default function QuestionPool({
+  searchQuery,
+  setSearchQuery,
+  filterUnit,
+  setFilterUnit,
+  activeTabSub,
+  setActiveTabSub,
+  filteredPool,
+  isAssigned,
+  handleDragStart,
+  handleToggleQuestion
+}) {
+  return (
+    <div className="glass-panel card-body" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '1rem', 
+      height: 'calc(100vh - 64px)', 
+      overflowY: 'auto', 
+      position: 'sticky', 
+      top: '64px',
+      borderRadius: 0,
+      borderTop: 'none',
+      borderBottom: 'none',
+      borderLeft: 'none'
+    }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+          Question Bank Pool
+        </h3>
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+          Drag items from here and drop them into the document page preview on the right.
+        </p>
+      </div>
+
+      {/* SEARCH & FILTERS */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+        <div style={{ position: 'relative', flex: 4 }}>
+          <input 
+            type="text" 
+            placeholder="Search questions..." 
+            className="form-input" 
+            style={{ paddingLeft: '2rem' }}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '0.7rem', color: 'var(--text-dimmed)' }} />
+        </div>
+
+        <select 
+          className="form-select" 
+          value={filterUnit} 
+          onChange={(e) => setFilterUnit(e.target.value)}
+          style={{ flex: 1, fontSize: '0.8rem', padding: '0.4rem 0.5rem' }}
+        >
+          <option value="All">All Units</option>
+          <option value="Unit I">Unit I</option>
+          <option value="Unit II">Unit II</option>
+          <option value="Unit III">Unit III</option>
+          <option value="Unit IV">Unit IV</option>
+          <option value="Unit V">Unit V</option>
+        </select>
+      </div>
+
+      {/* POOL TAB SUB-SELECTOR */}
+      <div className="part-tabs" style={{ marginTop: '0.5rem' }}>
+        {['Part A (2m)', 'Part B (13m)', 'Part C (15m)'].map((label, idx) => {
+          const keys = ['A', 'B', 'C'];
+          const active = activeTabSub === keys[idx];
+          return (
+            <button
+              key={idx}
+              onClick={() => {
+                setActiveTabSub(keys[idx]);
+                setSearchQuery('');
+              }}
+              className={`tab-btn ${active ? 'active' : ''}`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* DRAGGABLE LIST */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto' }}>
+        {filteredPool.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-dimmed)', fontSize: '0.85rem' }}>
+            No questions match search/filters.
+          </div>
+        ) : (
+          filteredPool.map((q, idx) => {
+            const assigned = isAssigned(q._id);
+            return (
+              <div 
+                key={q._id || idx}
+                className={`pool-item ${assigned ? 'assigned' : ''}`}
+                draggable={!assigned}
+                onDragStart={(e) => handleDragStart(e, q)}
+              >
+                <div className="pool-item-drag-handle">
+                  <GripVertical size={14} />
+                </div>
+                <div className="pool-item-content">
+                  <p className="pool-item-text">{q.text}</p>
+                  <div className="pool-item-tags">
+                    <span className="tag tag-unit">{q.unit}</span>
+                    <span className="tag tag-kl">{q.kl}</span>
+                    <span className="tag tag-co">{q.co}</span>
+                    {assigned && (
+                      <span className="tag tag-unit" style={{ background: 'var(--success-light)', color: 'var(--success)', borderColor: 'var(--success)' }}>
+                        Added
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', paddingLeft: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={assigned}
+                    onChange={() => handleToggleQuestion(q)}
+                    title={assigned ? "Remove question from paper" : "Add question to paper"}
+                    style={{ 
+                      width: '16px', 
+                      height: '16px', 
+                      cursor: 'pointer',
+                      accentColor: 'var(--primary)' 
+                    }}
+                  />
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}

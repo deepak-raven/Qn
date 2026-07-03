@@ -1,0 +1,861 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Segoe+UI:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --font-display: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --font-body: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+
+  /* Microsoft Word Fluent Light Theme Colors */
+  --bg-app: #f3f2f1; /* Office Workspace Canvas background */
+  --bg-card: #ffffff; /* Page Background */
+  --bg-card-hover: #faf9f8;
+  --border-color: #dad9d8; /* Office border grey */
+  --border-focus: #185abd; /* Word Blue */
+  
+  --primary: #185abd; /* Classic Word Blue */
+  --primary-hover: #104a8e;
+  --primary-light: #eff6fc; /* Selected tab / highlight light blue */
+  
+  --secondary: #0078d4; /* Fluent Primary Blue */
+  --secondary-hover: #005a9e;
+  --secondary-light: #f3f9fe;
+  
+  --accent: #2b579a; /* Deep Word blue */
+  --accent-light: #e1dfdd;
+  
+  --text-main: #201f1e; /* Dark grey for body text */
+  --text-muted: #605e5c; /* Muted grey for descriptions */
+  --text-dimmed: #a19f9d;
+  
+  --success: #107c41; /* Excel green for success/configured states */
+  --success-light: #dff6dd;
+  --warning: #d83b01; /* Warning orange */
+  --warning-light: #fde7e9;
+  --danger: #a80000;
+  --danger-light: #fde7e9;
+
+  /* Office-style clean shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.08);
+  
+  --radius-sm: 4px; /* Crisp corners for Office look */
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s ease;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #111111;
+}
+
+/* Document Paper Layout - resembles a printed page */
+.glass-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+
+.glass-panel:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Main Layout - Top Nav Layout (Flex column) */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Top Navigation Bar Header (styled to replace Sidebar) */
+.sidebar {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem 2rem;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.logo-icon {
+  background: var(--primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.logo-text h1 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.logo-text p {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.nav-menu {
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  margin-left: 2rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.85rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nav-item:hover {
+  color: var(--text-main);
+  background: #f3f2f1;
+}
+
+.nav-item.active {
+  color: var(--primary);
+  background: var(--primary-light);
+  font-weight: 600;
+  border-bottom: 3px solid var(--primary);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+/* Main Content Area */
+.main-content {
+  padding: 2rem 2.5rem;
+  flex: 1;
+}
+
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--primary);
+  padding-bottom: 0.5rem;
+}
+
+.header-title h2 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.header-title p {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  margin-top: 0.15rem;
+}
+
+/* Grid & Layout Utilities */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1.2fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+
+/* 50/50 Split for Drag Workspace */
+.workspace-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-bottom: 2rem;
+}
+
+.card-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 1.25rem;
+  background-color: #faf9f8;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.card-title-bar h3 {
+  font-size: 1rem;
+  color: #323130;
+  font-weight: 600;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+/* Form Styles (Office Fluent inputs) */
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.form-input, .form-select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid #a19f9d;
+  border-radius: 2px;
+  color: var(--text-main);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  transition: all var(--transition-fast);
+}
+
+.form-input:focus, .form-select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 1px var(--border-focus);
+}
+
+/* Tab selections (Office Ribbon-style design) */
+.part-tabs {
+  display: flex;
+  background: #edebe9;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 1rem;
+}
+
+.tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.5rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-btn:hover {
+  color: var(--text-main);
+  background: #f3f2f1;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* Question Pool Item (Grabbable) */
+.pool-item {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border-radius: 4px;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.15s ease;
+  position: relative;
+  align-items: flex-start;
+}
+
+.pool-item:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  background: var(--primary-light);
+}
+
+.pool-item:active {
+  cursor: grabbing;
+}
+
+.pool-item.assigned {
+  opacity: 0.65;
+  background: #f3f2f1;
+  border-style: dashed;
+}
+
+.pool-item-drag-handle {
+  color: var(--text-dimmed);
+  margin-top: 2px;
+  cursor: grab;
+}
+
+.pool-item-content {
+  flex: 1;
+}
+
+.pool-item-text {
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text-main);
+  margin-bottom: 0.35rem;
+}
+
+.pool-item-tags {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+/* Question Selection Lists */
+.question-item {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f3f2f1;
+  transition: background var(--transition-fast);
+  align-items: flex-start;
+  border-radius: 2px;
+}
+
+.question-item:hover {
+  background: var(--primary-light);
+}
+
+.question-checkbox {
+  width: 16px;
+  height: 16px;
+  margin-top: 0.15rem;
+  cursor: pointer;
+}
+
+.question-content {
+  flex: 1;
+}
+
+.question-text {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--text-main);
+  margin-bottom: 0.35rem;
+}
+
+.question-tags {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  display: inline-block;
+}
+
+.tag-unit { 
+  background: #f2f6fa; 
+  color: #185abd;
+  border-color: #d2e3f7;
+}
+.tag-kl { 
+  background: #f3f9fe; 
+  color: #0078d4;
+  border-color: #c7e0f4;
+}
+.tag-co { 
+  background: #fcf4f6; 
+  color: #a80000;
+  border-color: #fcdbdc;
+}
+
+/* Part B slot selections (Clean nested box look) */
+.slot-card {
+  background: #faf9f8;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+}
+
+.slot-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #edebe9;
+  padding-bottom: 0.4rem;
+}
+
+.slot-sub-header {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.slot-question-select {
+  margin-bottom: 0.75rem;
+}
+
+/* Office Word Document Table Design */
+.tos-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.tos-table th, .tos-table td {
+  border: 1px solid var(--border-color);
+  padding: 0.5rem;
+  text-align: center;
+  color: var(--text-main);
+}
+
+.tos-table th {
+  background: var(--primary-light);
+  font-weight: 600;
+  color: var(--primary);
+  border-bottom: 2px solid var(--primary);
+}
+
+.tos-table td.total, .tos-table th.total {
+  font-weight: 700;
+  color: var(--text-main);
+  background: #f3f2f1;
+}
+
+.tos-table tr:nth-child(even) td {
+  background-color: #faf9f8;
+}
+
+/* Microsoft Style Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 2px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--text-main);
+  border-color: #a19f9d;
+}
+
+.btn-secondary:hover {
+  background: #f3f2f1;
+  border-color: #8a8886;
+}
+
+/* Drag and Drop Area */
+.drag-drop-zone {
+  border: 2px dashed #a19f9d;
+  border-radius: var(--radius-sm);
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  background: #faf9f8;
+  transition: all var(--transition-fast);
+}
+
+.drag-drop-zone:hover, .drag-drop-zone.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.drag-drop-zone p {
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Custom Checkbox (crisp Fluent square look) */
+.custom-checkbox {
+  position: relative;
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border: 1px solid #8a8886;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s;
+  flex-shrink: 0;
+}
+
+.custom-checkbox:hover {
+  border-color: var(--primary);
+}
+
+.custom-checkbox.checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.custom-checkbox.checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 2px;
+  width: 4px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+/* Real A4 Paper Preview Style */
+.paper-preview {
+  background: #ffffff;
+  border: 1px solid #c8c6c4;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  padding: 3rem 2.5rem;
+  font-family: 'Times New Roman', Times, Georgia, serif;
+  color: #000000;
+  line-height: 1.4;
+  min-height: 1000px;
+  height: auto;
+  flex-shrink: 0;
+  border-radius: 2px;
+  position: relative;
+}
+
+.paper-header {
+  text-align: center;
+  border-bottom: 3px double #000000;
+  padding-bottom: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.paper-header h3 {
+  font-family: 'Times New Roman', Times, Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+  color: #000000;
+}
+
+.paper-header h4 {
+  font-family: 'Times New Roman', Times, Georgia, serif;
+  font-size: 1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+  color: #000000;
+}
+
+.paper-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  font-size: 0.9rem;
+  text-align: left;
+  row-gap: 0.25rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #000000;
+  padding-top: 0.4rem;
+}
+
+.paper-meta-item span {
+  font-weight: bold;
+}
+
+.paper-part-title {
+  text-align: center;
+  font-weight: bold;
+  text-transform: uppercase;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #000000;
+  padding-bottom: 0.15rem;
+}
+
+/* Drag and drop placeholders inside document preview */
+.paper-drop-zone {
+  border: 1.5px dashed #a19f9d;
+  background: #fbfbfb;
+  padding: 0.65rem 1rem;
+  margin: 0.35rem 0;
+  border-radius: 3px;
+  text-align: center;
+  color: #605e5c;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.paper-drop-zone:hover, .paper-drop-zone.drag-over {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.paper-filled-question {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.5rem 0.75rem;
+  background: #fcfcfc;
+  border: 1px solid #edebe9;
+  border-left: 3px solid var(--primary);
+  margin: 0.35rem 0;
+  font-size: 0.95rem;
+  position: relative;
+}
+
+.paper-filled-question-text {
+  flex: 1;
+}
+
+.paper-filled-question-meta {
+  font-size: 0.75rem;
+  color: #605e5c;
+  font-family: var(--font-body);
+  margin-top: 0.25rem;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.paper-remove-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dimmed);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 1.1rem;
+  transition: color 0.15s ease;
+}
+
+.paper-remove-btn:hover {
+  color: var(--danger);
+}
+
+.paper-question-layout-part-b {
+  margin-bottom: 1.25rem;
+}
+
+.paper-question-or {
+  text-align: center;
+  font-weight: bold;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+/* Collapsible Accordion Panel for TOS matrices */
+.tos-accordion {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  margin-top: 1.5rem;
+}
+
+.tos-accordion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  background: #faf9f8;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  border-bottom: 1px solid transparent;
+}
+
+.tos-accordion-header.open {
+  border-bottom-color: var(--border-color);
+}
+
+.tos-accordion-content {
+  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 1200px) {
+  .tos-accordion-content {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Animation utilities */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+/* Real A4 Paper Table Styles (Matches Word Document Template) */
+.paper-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-family: 'Times New Roman', Times, Georgia, serif;
+}
+
+.paper-table th, .paper-table td {
+  border: 1px solid #000000; /* Word table black borders */
+  padding: 0.5rem;
+  font-size: 0.95rem;
+  color: #000000;
+  vertical-align: top;
+  line-height: 1.35;
+}
+
+.paper-table th {
+  font-weight: bold;
+  text-align: center;
+  background-color: #faf9f8;
+}
+
+.paper-table td.center {
+  text-align: center;
+}
+
+.paper-drop-zone-cell {
+  border: 1.5px dashed var(--primary);
+  background: #fbfcfd;
+  padding: 0.4rem 0.6rem;
+  color: #605e5c;
+  text-align: center;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 2px;
+  font-family: var(--font-body);
+  transition: all var(--transition-fast);
+}
+
+.paper-drop-zone-cell:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.paper-filled-cell-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+/* Editable Text Fields in Paper Preview */
+[contenteditable="true"] {
+  outline: none;
+  cursor: text;
+  transition: all var(--transition-fast);
+  border-radius: 2px;
+  min-width: 20px;
+  display: inline-block;
+}
+
+[contenteditable="true"]:hover {
+  background-color: #f3f2f1;
+  box-shadow: 0 0 0 1px #a19f9d;
+}
+
+[contenteditable="true"]:focus {
+  background-color: #ffffff;
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+
+/* Specific alignments for block elements that are editable */
+h3[contenteditable="true"], h4[contenteditable="true"], h5[contenteditable="true"] {
+  display: block;
+}
+
+/* Sidebar split layout overrides */
+.main-content.workspace-layout {
+  padding: 0;
+}
+
+.main-content.workspace-layout .workspace-grid {
+  gap: 0;
+  margin-bottom: 0;
+}
