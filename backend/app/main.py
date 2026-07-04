@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,8 +9,15 @@ import json
 
 from app.models import Subject, Question, PaperConfig, GenerateRequest
 from app.database import get_subjects, add_subject, add_questions, get_questions
-from app.parser import parse_question_bank_docx
+from app.parser import parse_question_bank_docx, parse_question_bank_pdf
 from app.generator import generate_question_paper
+
+UPLOADED_QBS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploaded_qbs"))
+os.makedirs(UPLOADED_QBS_DIR, exist_ok=True)
+
+def sanitize_filename(name: str) -> str:
+    # Remove characters that aren't letters, numbers, spaces, hyphens, or underscores
+    return re.sub(r'[^\w\s-]', '', name).strip()
 
 app = FastAPI(title="Question Paper Generator API")
 
@@ -66,24 +74,42 @@ async def upload_question_bank(
     subject_code: str = Form(...),
     subject_name: str = Form(...),
     semester: str = Form(...),
-    regulation: str = Form("2021")
+    regulation: str = Form("2021"),
+    uploader_name: str = Form("System")
 ):
-    if not file.filename.endswith(".docx"):
-        raise HTTPException(status_code=400, detail="Only .docx files are supported.")
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".docx", ".pdf"]:
+        raise HTTPException(status_code=400, detail="Only .docx and .pdf files are supported.")
         
     try:
+        # Read file bytes
+        file_bytes = await file.read()
+        
+        # Save file under formatted name: <subcode> <Subject> QB <uploadername>.<ext>
+        safe_subject_name = sanitize_filename(subject_name)
+        safe_uploader = sanitize_filename(uploader_name)
+        filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}{ext}"
+        file_path = os.path.join(UPLOADED_QBS_DIR, filename)
+        
+        with open(file_path, "wb") as f:
+            f.write(file_bytes)
+            
         # 1. Upsert Subject in database
         subject_data = {
             "code": subject_code,
             "name": subject_name,
             "semester": semester,
-            "regulation": regulation
+            "regulation": regulation,
+            "uploader_name": uploader_name,
+            "qb_filename": filename
         }
         add_subject(subject_data)
         
-        # 2. Parse Question Bank Docx
-        file_bytes = await file.read()
-        questions = parse_question_bank_docx(file_bytes, subject_code, semester)
+        # 2. Parse Question Bank Docx or Pdf
+        if ext == ".pdf":
+            questions = parse_question_bank_pdf(file_bytes, subject_code, semester)
+        else:
+            questions = parse_question_bank_docx(file_bytes, subject_code, semester)
         
         if not questions:
             raise HTTPException(status_code=400, detail="No questions were extracted from the document. Please verify the table structure.")

@@ -6,6 +6,8 @@ class Subject(BaseModel):
     name: str = Field(..., description="Subject name, e.g., Data Science fundamentals")
     semester: str = Field(..., description="Semester, e.g., VII")
     regulation: str = Field("2021", description="Regulation year, e.g., 2021")
+    uploader_name: Optional[str] = Field(None, description="Name of the person who uploaded this subject")
+    qb_filename: Optional[str] = Field(None, description="Filename of the uploaded question bank docx")
 
 class Question(BaseModel):
     id: Optional[str] = Field(None, alias="_id", description="MongoDB ObjectId string")

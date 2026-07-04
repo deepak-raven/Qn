@@ -329,6 +329,7 @@ export function useAppState() {
   });
 
   return {
+    API_BASE,
     activeTab,
     setActiveTab,
     activeTabSub,
