@@ -14,3 +14,14 @@ frontend/dist/
 .DS_Store
 .vscode/
 .idea/
+
+# Office Temp Files
+~$*
+
+# Log Files
+vba_debug.log
+*.log
+
+# Generated outputs
+QuestionPaper_OCS353_*
+QuestionBank_temp_tests.docx
