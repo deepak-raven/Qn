@@ -46,7 +46,7 @@ payload = {
         "degree_branch_sem": "BE/BTECH/ CIVIL/AERO/MECH/EEE/TEXT/VII",
         "time": "3 Hours",
         "max_marks": 100,
-        "set": "SET-III",
+        "set": "SET-IV",
         "date": "03-07-2026"
     },
     "part_a": questions_a,
