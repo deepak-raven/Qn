@@ -1,20 +1,22 @@
 import { useState } from 'react';
 import { API_BASE } from '../config';
 
-
-
 export function usePaperDownloader() {
   const [downloading, setDownloading] = useState(false);
 
   const generatePaper = async (config, selectedPartA, selectedPartB, selectedPartC) => {
+    const isIAT = config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2';
+    const reqPartA = isIAT ? 5 : 10;
+    const reqPartB = isIAT ? 2 : 5;
+
     const filledPartA = selectedPartA.filter(Boolean);
-    if (filledPartA.length !== 10) {
-      alert(`Please select exactly 10 questions for Part A (currently chosen: ${filledPartA.length})`);
+    if (filledPartA.length !== reqPartA) {
+      alert(`Please select exactly ${reqPartA} questions for Part A (currently chosen: ${filledPartA.length})`);
       return;
     }
     
-    for (let i = 0; i < 5; i++) {
-      if (!selectedPartB[i].a || !selectedPartB[i].b) {
+    for (let i = 0; i < reqPartB; i++) {
+      if (!selectedPartB[i] || !selectedPartB[i].a || !selectedPartB[i].b) {
         alert(`Please complete both choices (a and b) for Question ${11 + i} in Part B.`);
         return;
       }
@@ -30,7 +32,7 @@ export function usePaperDownloader() {
       const payload = {
         config,
         part_a: filledPartA,
-        part_b: selectedPartB.map(slot => [slot.a, slot.b]),
+        part_b: selectedPartB.slice(0, reqPartB).map(slot => [slot.a, slot.b]),
         part_c: [selectedPartC.a, selectedPartC.b]
       };
 
@@ -45,7 +47,7 @@ export function usePaperDownloader() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Question_Paper_${config.subject_code}.docx`;
+        a.download = `Question_Paper_${config.subject_code}_${config.set || 'SET-I'}.docx`;
         document.body.appendChild(a);
         a.click();
         a.remove();

@@ -27,10 +27,6 @@ def set_cell_text_preserve_style(cell, text: str):
         run.font.size = Pt(12)
 
 def replace_text_runs(doc, old_text: str, new_text: str):
-    """
-    Replaces old_text with new_text inside the runs of the document,
-    handling cases where old_text is split across multiple runs.
-    """
     if not old_text:
         return
     if old_text == new_text:
@@ -94,6 +90,14 @@ def replace_text_runs(doc, old_text: str, new_text: str):
                 for p in cell.paragraphs:
                     replace_in_paragraph(p, old_text, new_text)
 
+def remove_table_rows(table, start_row_idx: int):
+    """
+    Safely removes rows from start_row_idx to the end of the table.
+    """
+    for row_idx in range(len(table.rows) - 1, start_row_idx - 1, -1):
+        tr = table.rows[row_idx]._tr
+        tr.getparent().remove(tr)
+
 def generate_question_paper(
     template_path: str,
     output_path: str,
@@ -110,7 +114,7 @@ def generate_question_paper(
     if len(doc.tables) < 6:
         raise ValueError(f"Template document structure invalid. Expected at least 6 tables, found {len(doc.tables)}.")
 
-    logger.info(f"Generating question paper for {config.subject_code} ({config.set})")
+    logger.info(f"Generating question paper for {config.subject_code} ({config.set}) - Exam Type: {config.exam_type}")
 
     # 1. Replace metadata placeholders
     replace_text_runs(doc, "OCS353", config.subject_code)
@@ -120,6 +124,8 @@ def generate_question_paper(
     replace_text_runs(doc, "BE/BTECH/ CIVIL/AERO/MECH/EEE/TEXT/VII", config.degree_branch_sem)
     replace_text_runs(doc, "3 Hours", config.time)
     replace_text_runs(doc, "Maximum Marks: 100", f"Maximum Marks: {config.max_marks}")
+    replace_text_runs(doc, "10 X 2 = 20 MARKS", f"{len(part_a)} X 2 = {len(part_a)*2} MARKS")
+    replace_text_runs(doc, "5 X 13 = 65 MARKS", f"{len(part_b)} X 13 = {len(part_b)*13} MARKS")
     replace_text_runs(doc, "SET-III", config.set)
     replace_text_runs(doc, "MODEL EXAMINATION", config.exam_name)
     if config.date:
@@ -128,19 +134,19 @@ def generate_question_paper(
     # 2. Populate Part A (Table 1)
     t1 = doc.tables[1]
     for idx, q in enumerate(part_a):
-        if idx >= 10:
-            break
         row_idx = 1 + idx
         if row_idx < len(t1.rows):
             set_cell_text_preserve_style(t1.rows[row_idx].cells[1], q.text)
             set_cell_text_preserve_style(t1.rows[row_idx].cells[2], q.kl)
             set_cell_text_preserve_style(t1.rows[row_idx].cells[3], q.co)
+
+    # If Part A has fewer questions (e.g. 5 for IAT-1/IAT-2), trim extra rows
+    if len(part_a) < 10 and len(t1.rows) > (1 + len(part_a)):
+        remove_table_rows(t1, 1 + len(part_a))
             
     # 3. Populate Part B (Table 2)
     t2 = doc.tables[2]
     for idx, pair in enumerate(part_b):
-        if idx >= 5:
-            break
         row_a_idx = 1 + idx * 3
         row_b_idx = 3 + idx * 3
         
@@ -155,7 +161,11 @@ def generate_question_paper(
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], q_b.text)
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], q_b.kl)
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], q_b.co)
-            
+
+    # If Part B has fewer pairs (e.g. 2 for IAT-1/IAT-2), trim extra rows
+    if len(part_b) < 5 and len(t2.rows) > (1 + len(part_b) * 3):
+        remove_table_rows(t2, 1 + len(part_b) * 3)
+
     # 4. Populate Part C (Table 3)
     t3 = doc.tables[3]
     if len(part_c) >= 2:

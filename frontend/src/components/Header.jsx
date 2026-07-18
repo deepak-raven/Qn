@@ -2,6 +2,7 @@ import React from 'react';
 import { Upload, CheckSquare, Settings, RefreshCw, Download, ShieldCheck, LogOut, User } from 'lucide-react';
 
 export default function Header({
+  config,
   activeTab,
   setActiveTab,
   questions,
@@ -17,9 +18,13 @@ export default function Header({
 }) {
   const { user, logout, isAdmin } = auth || {};
 
+  const reqPartA = config?.exam_type === 'IAT-1' || config?.exam_type === 'IAT-2' ? 5 : 10;
+  const reqPartB = config?.exam_type === 'IAT-1' || config?.exam_type === 'IAT-2' ? 2 : 5;
+
   const partACount = selectedPartA.filter(Boolean).length;
-  const partBCount = selectedPartB.filter(s => s.a && s.b).length;
+  const partBCount = selectedPartB.filter(s => s && s.a && s.b).length;
   const partCCount = (selectedPartC.a && selectedPartC.b) ? 1 : 0;
+
 
   return (
     <header className="sidebar" style={{
@@ -114,11 +119,11 @@ export default function Header({
         {!isAdmin && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '0.35rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', fontWeight: 600 }}>
-              <span style={{ color: partACount === 10 ? 'var(--success)' : 'var(--text-muted)' }}>
-                Part A: <strong>{partACount}/10</strong>
+              <span style={{ color: partACount === reqPartA ? 'var(--success)' : 'var(--text-muted)' }}>
+                Part A: <strong>{partACount}/{reqPartA}</strong>
               </span>
-              <span style={{ color: partBCount === 5 ? 'var(--success)' : 'var(--text-muted)' }}>
-                Part B: <strong>{partBCount}/5</strong>
+              <span style={{ color: partBCount === reqPartB ? 'var(--success)' : 'var(--text-muted)' }}>
+                Part B: <strong>{partBCount}/{reqPartB}</strong>
               </span>
               <span style={{ color: partCCount === 1 ? 'var(--success)' : 'var(--text-muted)' }}>
                 Part C: <strong>{partCCount}/1</strong>

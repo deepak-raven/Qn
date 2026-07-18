@@ -1,10 +1,45 @@
 import React from 'react';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Award, Layers } from 'lucide-react';
 
 export default function ConfigTab({ config, setConfig, setActiveTab }) {
   return (
     <div className="glass-panel card-body" style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        
+        {/* Exam Type Quick Selector */}
+        <div style={{ background: 'var(--primary-light, #eff6fc)', padding: '1.25rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: 'var(--primary)', fontWeight: 700 }}>
+            <Layers size={20} />
+            <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Select Examination Rule & Type</h4>
+          </div>
+          
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Exam Pattern / Assessment Type</label>
+            <select
+              className="form-select"
+              value={config.exam_type || 'MODEL EXAMINATION'}
+              onChange={e => setConfig({ ...config, exam_type: e.target.value })}
+              style={{ fontSize: '0.95rem', fontWeight: 600, padding: '0.6rem' }}
+            >
+              <option value="MODEL EXAMINATION">
+                MODEL EXAMINATION (Full Syllabus: Unit I - V | 100 Marks | 10 Part A, 5 Part B pairs, 1 Part C pair)
+              </option>
+              <option value="IAT-1">
+                IAT - I: Internal Assessment Test 1 (Syllabus: Unit I & II | 50 Marks | 5 Part A, 2 Part B pairs, 1 Part C pair)
+              </option>
+              <option value="IAT-2">
+                IAT - II: Internal Assessment Test 2 (Syllabus: Unit III & IV | 50 Marks | 5 Part A, 2 Part B pairs, 1 Part C pair)
+              </option>
+            </select>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <span className="tag tag-unit" style={{ background: '#fff' }}>
+              Selected Rule: {config.exam_type === 'IAT-1' ? 'Unit I & II (50 Marks)' : config.exam_type === 'IAT-2' ? 'Unit III & IV (50 Marks)' : 'Full Syllabus (100 Marks)'}
+            </span>
+          </div>
+        </div>
+
         <div className="form-group">
           <label className="form-label">Name of Institution</label>
           <input 
@@ -16,7 +51,7 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
         </div>
 
         <div className="form-group">
-          <label className="form-label">Exam Title</label>
+          <label className="form-label">Exam Title Header</label>
           <input 
             type="text" 
             className="form-input"
@@ -79,7 +114,7 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem' }}>
           <div className="form-group">
-            <label className="form-label">Exam duration</label>
+            <label className="form-label">Exam Duration</label>
             <input 
               type="text" 
               className="form-input"

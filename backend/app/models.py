@@ -27,6 +27,7 @@ class Question(BaseModel):
 
 class PaperConfig(BaseModel):
     institution_name: str = "JAYA EDUCATIONAL TRUST"
+    exam_type: str = "MODEL EXAMINATION"
     exam_name: str = "MODEL EXAMINATION"
     regulation: str = "2021-Regulation"
     semester: str = "ODD SEMESTER-2025-26"

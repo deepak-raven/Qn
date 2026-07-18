@@ -134,6 +134,29 @@ export default function PaperPreview({
         >
           +
         </button>
+
+        {/* Exam Type Selector in Question Selection Section */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', paddingBottom: '0.2rem' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
+          <select
+            value={config.exam_type || 'MODEL EXAMINATION'}
+            onChange={(e) => setConfig({ ...config, exam_type: e.target.value })}
+            style={{
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              padding: '0.2rem 0.5rem',
+              borderRadius: '4px',
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: 'var(--primary)',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="MODEL EXAMINATION">MODEL EXAM (Unit I-V | 100 Marks)</option>
+            <option value="IAT-1">IAT - I (Unit I & II | 50 Marks)</option>
+            <option value="IAT-2">IAT - II (Unit III & IV | 50 Marks)</option>
+          </select>
+        </div>
       </div>
 
       <div className="paper-preview">
@@ -268,7 +291,7 @@ export default function PaperPreview({
 
         {/* PART A PREVIEW TABLE */}
         <div ref={partARef} className="paper-part-title">
-          PART &ndash; A (10 x 2 = 20 Marks)<br />
+          PART &ndash; A ({selectedPartA.length} x 2 = {selectedPartA.length * 2} Marks)<br />
           <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer all the questions</span>
         </div>
 
@@ -351,7 +374,7 @@ export default function PaperPreview({
 
         {/* PART B PREVIEW TABLE */}
         <div ref={partBRef} className="paper-part-title">
-          PART &ndash; B (5 x 13 = 65 Marks)<br />
+          PART &ndash; B ({selectedPartB.length} x 13 = {selectedPartB.length * 13} Marks)<br />
           <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer all the questions</span>
         </div>
 
@@ -370,7 +393,13 @@ export default function PaperPreview({
           <tbody>
             {selectedPartB.map((slot, idx) => {
               const qNo = 11 + idx;
-              const expectedUnit = `Unit ${['I', 'II', 'III', 'IV', 'V'][idx]}`;
+              const unitsMap = config.exam_type === 'IAT-1' 
+                ? ['Unit I', 'Unit II'] 
+                : config.exam_type === 'IAT-2' 
+                ? ['Unit III', 'Unit IV'] 
+                : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+              const expectedUnit = unitsMap[idx] || `Unit ${idx + 1}`;
+
               return (
                 <React.Fragment key={idx}>
                   {/* Option A Row */}

@@ -2,35 +2,47 @@ import { useState } from 'react';
 
 export const DEFAULT_CONFIG = {
   institution_name: 'Jaya Engineering College',
-  exam_name: '',
+  exam_type: 'MODEL EXAMINATION', // 'MODEL EXAMINATION' | 'IAT-1' | 'IAT-2'
+  exam_name: 'MODEL EXAMINATION',
   regulation: '',
   semester: '',
   subject_code: '',
   subject_name: '',
   degree_branch_sem: '',
-  time: '',
+  time: '3 Hours',
   max_marks: 100,
   set: 'SET-I',
   date: ''
 };
 
+export function getSlotCounts(exam_type) {
+  if (exam_type === 'IAT-1' || exam_type === 'IAT-2') {
+    return { partA: 5, partB: 2, partC: 1, defaultMarks: 50, defaultTime: '1.5 Hours' };
+  }
+  return { partA: 10, partB: 5, partC: 1, defaultMarks: 100, defaultTime: '3 Hours' };
+}
+
+export function createDefaultSetData(config) {
+  const counts = getSlotCounts(config.exam_type);
+  return {
+    config: {
+      ...config,
+      max_marks: config.max_marks || counts.defaultMarks,
+      time: config.time || counts.defaultTime
+    },
+    selectedPartA: Array(counts.partA).fill(null),
+    selectedPartB: Array(counts.partB).fill(null).map(() => ({ a: null, b: null })),
+    selectedPartC: { a: null, b: null }
+  };
+}
+
 export function useSetsManager() {
   const [sets, setSets] = useState({
-    'SET-I': {
-      config: { ...DEFAULT_CONFIG, set: 'SET-I' },
-      selectedPartA: Array(10).fill(null),
-      selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
-      selectedPartC: { a: null, b: null }
-    }
+    'SET-I': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-I' })
   });
   const [currentSetId, setCurrentSetId] = useState('SET-I');
 
-  const currentSet = sets[currentSetId] || {
-    config: DEFAULT_CONFIG,
-    selectedPartA: Array(10).fill(null),
-    selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
-    selectedPartC: { a: null, b: null }
-  };
+  const currentSet = sets[currentSetId] || createDefaultSetData(DEFAULT_CONFIG);
   const { config, selectedPartA, selectedPartB, selectedPartC } = currentSet;
 
   const updateCurrentSet = (updater) => {
@@ -51,6 +63,31 @@ export function useSetsManager() {
   const setConfig = (newConfig) => {
     updateCurrentSet(set => {
       const nextConfig = typeof newConfig === 'function' ? newConfig(set.config) : newConfig;
+      
+      // If exam_type changed, resize slots appropriately if needed
+      if (nextConfig.exam_type && nextConfig.exam_type !== set.config.exam_type) {
+        const counts = getSlotCounts(nextConfig.exam_type);
+        const newPartA = [...set.selectedPartA].slice(0, counts.partA);
+        while (newPartA.length < counts.partA) newPartA.push(null);
+        
+        const newPartB = [...set.selectedPartB].slice(0, counts.partB);
+        while (newPartB.length < counts.partB) newPartB.push({ a: null, b: null });
+        
+        nextConfig.max_marks = counts.defaultMarks;
+        nextConfig.time = counts.defaultTime;
+        nextConfig.exam_name = nextConfig.exam_type === 'MODEL EXAMINATION' 
+          ? 'MODEL EXAMINATION' 
+          : nextConfig.exam_type === 'IAT-1' 
+          ? 'INTERNAL ASSESSMENT TEST - I' 
+          : 'INTERNAL ASSESSMENT TEST - II';
+
+        return {
+          config: nextConfig,
+          selectedPartA: newPartA,
+          selectedPartB: newPartB
+        };
+      }
+
       return { config: nextConfig };
     });
   };
@@ -94,13 +131,7 @@ export function useSetsManager() {
       }
     }
 
-    const newSetData = {
-      config: { ...config, set: nextSetId },
-      selectedPartA: Array(10).fill(null),
-      selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
-      selectedPartC: { a: null, b: null }
-    };
-
+    const newSetData = createDefaultSetData({ ...config, set: nextSetId });
     setSets(prev => ({ ...prev, [nextSetId]: newSetData }));
     setCurrentSetId(nextSetId);
   };
