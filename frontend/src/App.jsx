@@ -1,46 +1,84 @@
-import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 import Header from './components/Header';
 import UploadTab from './components/UploadTab';
 import ConfigTab from './components/ConfigTab';
+import AdminTab from './components/AdminTab';
 import QuestionPool from './components/QuestionPool';
 import PaperPreview from './components/PaperPreview';
+import LoginPage from './components/LoginPage';
 import { useAppState } from './useAppState';
+import { useAuth } from './hooks/useAuth';
 
 export default function App() {
+  const auth = useAuth();
   const state = useAppState();
+
+  // Route redirection based on role
+  useEffect(() => {
+    if (auth.user) {
+      if (auth.isAdmin) {
+        state.setActiveTab('admin');
+      } else if (state.activeTab === 'admin') {
+        state.setActiveTab('upload');
+      }
+    }
+  }, [auth.user, auth.isAdmin]);
+
+  if (auth.authLoading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#fff' }}>
+        <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <RefreshCw size={36} className="animate-spin" style={{ color: '#6366f1' }} />
+          <span>Verifying authentication...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!auth.user || !auth.token) {
+    return <LoginPage onLogin={auth.login} onRegister={auth.register} />;
+  }
 
   return (
     <div className="app-container">
-      <Header {...state} />
+      <Header {...state} auth={auth} />
 
       <div className={`main-content ${state.activeTab === 'questions' ? 'workspace-layout' : ''}`}>
-        {state.activeTab === 'upload' && (
-          <UploadTab {...state} />
-        )}
+        {auth.isAdmin ? (
+          /* Dedicated Admin Control Page for Logged-In Admin */
+          <AdminTab {...state} auth={auth} />
+        ) : (
+          /* Faculty Workspace Pages */
+          <>
+            {state.activeTab === 'upload' && (
+              <UploadTab {...state} auth={auth} />
+            )}
 
-        {state.activeTab === 'questions' && (
-          <div>
-            {state.questions.length === 0 ? (
-              <div className="glass-panel card-body" style={{ textAlign: 'center', padding: '3rem 0' }}>
-                <AlertCircle size={48} style={{ color: 'var(--text-dimmed)', margin: '0 auto 1rem' }} />
-                <h3>No Database Selected</h3>
-                <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
-                  Go to the 'Upload Bank' tab, upload a docx file, or select a parsed database.
-                </p>
-              </div>
-            ) : (
-              <div className="workspace-grid">
-                <QuestionPool {...state} />
-                <PaperPreview {...state} />
+            {state.activeTab === 'questions' && (
+              <div>
+                {state.questions.length === 0 ? (
+                  <div className="glass-panel card-body" style={{ textAlign: 'center', padding: '3rem 0' }}>
+                    <AlertCircle size={48} style={{ color: 'var(--text-dimmed)', margin: '0 auto 1rem' }} />
+                    <h3>No Database Selected</h3>
+                    <p className="text-muted" style={{ marginTop: '0.5rem', fontSize: '0.9rem' }}>
+                      Go to the 'Upload Bank' tab, upload a docx file, or select a parsed database.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="workspace-grid">
+                    <QuestionPool {...state} />
+                    <PaperPreview {...state} />
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {state.activeTab === 'config' && (
-          <ConfigTab {...state} />
+            {state.activeTab === 'config' && (
+              <ConfigTab {...state} auth={auth} />
+            )}
+          </>
         )}
       </div>
     </div>

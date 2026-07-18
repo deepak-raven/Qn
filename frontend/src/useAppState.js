@@ -3,7 +3,8 @@ import { useSetsManager, DEFAULT_CONFIG } from './hooks/useSetsManager';
 import { useTOSCalculator } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
 
-const API_BASE = 'http://localhost:8000/api';
+import { API_BASE } from './config';
+
 
 export function useAppState() {
   const [activeTab, setActiveTab] = useState('upload');

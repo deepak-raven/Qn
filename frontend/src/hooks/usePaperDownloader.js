@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { API_BASE } from '../config';
 
-const API_BASE = 'http://localhost:8000/api';
+
 
 export function usePaperDownloader() {
   const [downloading, setDownloading] = useState(false);

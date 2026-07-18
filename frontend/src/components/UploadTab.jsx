@@ -8,7 +8,8 @@ export default function UploadTab({
   setSelectedSubCode,
   loadQuestionsForSubject,
   setActiveTab,
-  fetchSubjects
+  fetchSubjects,
+  auth
 }) {
   const [curriculumData, setCurriculumData] = useState({
     college_name: "Jaya Engineering College",
@@ -31,10 +32,17 @@ export default function UploadTab({
   const [upSem, setUpSem] = useState('');
   const [upReg, setUpReg] = useState('2021');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploaderName, setUploaderName] = useState('');
+  const [uploaderName, setUploaderName] = useState(auth?.user?.name || '');
   const [forceReupload, setForceReupload] = useState(false);
   const [existingQuestions, setExistingQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
+
+  useEffect(() => {
+    if (auth?.user?.name && !uploaderName) {
+      setUploaderName(auth.user.name);
+    }
+  }, [auth?.user?.name]);
+
 
   // Curriculum dropdown states
   const [selReg, setSelReg] = useState('2021');
