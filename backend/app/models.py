@@ -65,3 +65,10 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: dict
+
+class AdminCreateUserRequest(BaseModel):
+    username: str
+    password: str
+    name: str
+    role: str = "user" # "user" or "admin"
+

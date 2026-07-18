@@ -14,7 +14,7 @@ from fastapi.exceptions import RequestValidationError
 import anyio
 
 from app.config import settings
-from app.models import Subject, Question, PaperConfig, GenerateRequest, LoginRequest, RegisterRequest, TokenResponse
+from app.models import Subject, Question, PaperConfig, GenerateRequest, LoginRequest, RegisterRequest, TokenResponse, AdminCreateUserRequest
 from app.database import (
     init_db,
     close_db,
@@ -28,6 +28,7 @@ from app.database import (
     get_all_uploads_detailed,
     delete_question_bank,
     create_user,
+    delete_user,
     get_user_by_username
 )
 from app.auth import (
@@ -436,3 +437,46 @@ async def delete_subject_bank(subject_code: str, semester: str, admin_user: Dict
     except Exception as e:
         logger.error(f"Error deleting question bank: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete question bank.")
+
+@app.post("/api/admin/users")
+async def create_user_by_admin(
+    payload: AdminCreateUserRequest,
+    admin_user: Dict[str, Any] = Depends(get_current_admin)
+):
+    try:
+        existing = await get_user_by_username(payload.username)
+        if existing:
+            raise HTTPException(status_code=400, detail=f"Username '{payload.username}' already exists.")
+        
+        user_data = await create_user(
+            username=payload.username,
+            name=payload.name,
+            password=payload.password,
+            role=payload.role
+        )
+        return {"status": "success", "message": f"User '{payload.username}' created successfully.", "user": user_data}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user by admin: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+@app.delete("/api/admin/users/{username}")
+async def remove_user_by_admin(
+    username: str,
+    admin_user: Dict[str, Any] = Depends(get_current_admin)
+):
+    if username == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete default system administrator account.")
+        
+    try:
+        success = await delete_user(username)
+        if not success:
+            raise HTTPException(status_code=404, detail=f"User '{username}' not found.")
+        return {"status": "success", "message": f"User '{username}' deleted successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
+

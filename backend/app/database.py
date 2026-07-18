@@ -94,6 +94,12 @@ async def get_all_users_list() -> List[Dict[str, Any]]:
         u["_id"] = str(u["_id"])
     return users
 
+async def delete_user(username: str) -> bool:
+    database = get_db()
+    result = await database["users"].delete_one({"username": username})
+    return result.deleted_count > 0
+
+
 # --- Subject & Question Operations ---
 
 async def get_subjects() -> List[Dict[str, Any]]:
