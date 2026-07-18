@@ -160,7 +160,7 @@ export default function QuestionPool({
           </div>
         ) : (
           displayList.map((q, idx) => {
-            const assigned = isAssigned(q._id);
+            const assigned = isAssigned(q);
             return (
               <div 
                 key={q._id || idx}

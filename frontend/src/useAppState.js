@@ -132,45 +132,76 @@ export function useAppState() {
     }
   };
 
+  const isSameQ = (a, b) => {
+    if (!a || !b) return false;
+    const aObj = typeof a === 'object' ? a : null;
+    const bObj = typeof b === 'object' ? b : null;
+    const aId = aObj ? aObj._id : a;
+    const bId = bObj ? bObj._id : b;
+    
+    if (aId && bId && String(aId) === String(bId)) return true;
+    if (aObj && bObj) {
+      return aObj.text === bObj.text && aObj.unit === bObj.unit;
+    }
+    return false;
+  };
+
+  const isAssigned = (qTarget) => {
+    if (!qTarget) return false;
+    if (selectedPartA.some(item => isSameQ(item, qTarget))) return true;
+    if (selectedPartB.some(slot => slot && (isSameQ(slot.a, qTarget) || isSameQ(slot.b, qTarget)))) return true;
+    if (selectedPartC && (isSameQ(selectedPartC.a, qTarget) || isSameQ(selectedPartC.b, qTarget))) return true;
+    return false;
+  };
+
   const handleGeneratePaper = () => {
     generatePaper(config, selectedPartA, selectedPartB, selectedPartC);
   };
 
   const handleToggleQuestion = (q) => {
-    const assigned = isAssigned(q._id);
+    const assigned = isAssigned(q);
     updateCurrentSet(set => {
       if (assigned) {
-        if (activeTabSub === 'A') {
-          return { selectedPartA: set.selectedPartA.map(item => (item && item._id === q._id) ? null : item) };
-        } else if (activeTabSub === 'B') {
-          return { selectedPartB: set.selectedPartB.map(slot => {
-            const newSlot = { ...slot };
-            if (newSlot.a && newSlot.a._id === q._id) newSlot.a = null;
-            if (newSlot.b && newSlot.b._id === q._id) newSlot.b = null;
-            return newSlot;
-          }) };
-        } else if (activeTabSub === 'C') {
-          const next = { ...set.selectedPartC };
-          if (next.a && next.a._id === q._id) next.a = null;
-          if (next.b && next.b._id === q._id) next.b = null;
-          return { selectedPartC: next };
-        }
+        // Universal cancel / unassign across all parts and slots
+        return {
+          selectedPartA: set.selectedPartA.map(item => isSameQ(item, q) ? null : item),
+          selectedPartB: set.selectedPartB.map(slot => ({
+            a: isSameQ(slot.a, q) ? null : slot.a,
+            b: isSameQ(slot.b, q) ? null : slot.b
+          })),
+          selectedPartC: {
+            a: isSameQ(set.selectedPartC.a, q) ? null : set.selectedPartC.a,
+            b: isSameQ(set.selectedPartC.b, q) ? null : set.selectedPartC.b
+          }
+        };
       } else {
         if (activeTabSub === 'A') {
+          const reqCount = (config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2') ? 5 : 10;
           const emptyIdx = set.selectedPartA.findIndex(item => item === null);
-          if (emptyIdx === -1) {
-            alert('All 10 Part A slots are full.');
+          if (emptyIdx === -1 || emptyIdx >= reqCount) {
+            alert(`All ${reqCount} Part A slots are full.`);
             return {};
           }
           const next = [...set.selectedPartA];
           next[emptyIdx] = q;
           return { selectedPartA: next };
         } else if (activeTabSub === 'B') {
-          const slotIdx = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'].indexOf(q.unit);
-          if (slotIdx === -1) return {};
+          let slotIdx = -1;
+          if (config.exam_type === 'IAT-1') {
+            slotIdx = ['Unit I', 'Unit II'].indexOf(q.unit);
+          } else if (config.exam_type === 'IAT-2') {
+            slotIdx = ['Unit III', 'Unit IV'].indexOf(q.unit);
+          } else {
+            slotIdx = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'].indexOf(q.unit);
+          }
+
+          if (slotIdx === -1 || slotIdx >= set.selectedPartB.length) {
+            alert(`Part B question for ${config.exam_type || 'MODEL EXAM'} must belong to valid syllabus units.`);
+            return {};
+          }
           const next = [...set.selectedPartB];
           const slot = next[slotIdx];
-          if (!slot.a) {
+          if (!slot || !slot.a) {
             next[slotIdx] = { ...slot, a: q };
           } else if (!slot.b) {
             next[slotIdx] = { ...slot, b: q };
@@ -200,7 +231,9 @@ export function useAppState() {
         return { selectedPartA: set.selectedPartA.map((q, qIdx) => qIdx === idx ? null : q) };
       } else if (part === 'B') {
         const next = [...set.selectedPartB];
-        next[idx] = { ...next[idx], [key]: null };
+        if (next[idx]) {
+          next[idx] = { ...next[idx], [key]: null };
+        }
         return { selectedPartB: next };
       } else if (part === 'C') {
         return { selectedPartC: { ...set.selectedPartC, [key]: null } };
@@ -309,18 +342,7 @@ export function useAppState() {
     }
   };
 
-  const isAssigned = (qId) => {
-    if (activeTabSub === 'A') {
-      return selectedPartA.some(item => item && item._id === qId);
-    }
-    if (activeTabSub === 'B') {
-      return selectedPartB.some(slot => (slot.a && slot.a._id === qId) || (slot.b && slot.b._id === qId));
-    }
-    if (activeTabSub === 'C') {
-      return (selectedPartC.a && selectedPartC.a._id === qId) || (selectedPartC.b && selectedPartC.b._id === qId);
-    }
-    return false;
-  };
+
 
   const filteredPool = questions.filter(q => {
     if (q.part !== activeTabSub) return false;
