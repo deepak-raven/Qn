@@ -41,6 +41,7 @@ export default function UploadTab({
   const [selSemNum, setSelSemNum] = useState('1');
   const [selCurriculumSubCode, setSelCurriculumSubCode] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
+  const [showManualFields, setShowManualFields] = useState(false);
 
   // Fetch existing questions when upCode matches an already imported subject
   useEffect(() => {
@@ -117,16 +118,72 @@ export default function UploadTab({
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      try {
+        setUploadStatus('Analyzing document to auto-detect subject details...');
+        const res = await fetch(`${API_BASE}/analyze-file`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          let detectedMsg = [];
+          if (data.subject_code) {
+            setUpCode(data.subject_code);
+            detectedMsg.push(`Code: ${data.subject_code}`);
+          }
+          if (data.subject_name) {
+            setUpName(data.subject_name);
+            detectedMsg.push(`Name: ${data.subject_name}`);
+          }
+          if (data.semester) {
+            setUpSem(data.semester);
+            detectedMsg.push(`Semester: ${data.semester}`);
+          }
+          if (data.regulation) {
+            setUpReg(data.regulation);
+            detectedMsg.push(`Regulation: ${data.regulation}`);
+          }
+          
+          if (detectedMsg.length > 0) {
+            setUploadStatus(`Auto-detected: ${detectedMsg.join(', ')}`);
+            // Attempt to update curriculum dropdown selection if there is a match in our syllabus list
+            if (curriculumData && curriculumData.curriculum_data) {
+              const regData = curriculumData.curriculum_data.find(r => r.regulation === data.regulation);
+              if (regData) {
+                const matchedSub = regData.subjects.find(s => s.sub_code === data.subject_code);
+                if (matchedSub) {
+                  setSelReg(data.regulation);
+                  setSelSemNum(matchedSub.semester.toString());
+                  setSelCurriculumSubCode(matchedSub.sub_code);
+                }
+              }
+            }
+          } else {
+            setUploadStatus('No details could be auto-detected from the file. Please select in dropdown or manually enter them.');
+          }
+        } else {
+          setUploadStatus('');
+        }
+      } catch (err) {
+        console.error("Error analyzing file:", err);
+        setUploadStatus('');
+      }
     }
   };
 
   const handleUploadQuestionBank = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
-      alert('Please select a .docx or .pdf file first.');
+      alert('Please select a .docx, .pdf, or .doc file first.');
       return;
     }
     setUploadStatus('Uploading and parsing question bank tables...');
@@ -252,55 +309,72 @@ export default function UploadTab({
             })()}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Subject Code</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={upCode} 
-                onChange={e => setUpCode(e.target.value)} 
-                placeholder="e.g. OCS353" 
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Subject Name</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={upName} 
-                onChange={e => setUpName(e.target.value)} 
-                placeholder="e.g. Data Science fundamentals" 
-                required
-              />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.25rem 0' }}>
+            <input 
+              type="checkbox" 
+              id="toggle-manual-fields" 
+              checked={showManualFields} 
+              onChange={e => setShowManualFields(e.target.checked)} 
+              style={{ width: 'auto', cursor: 'pointer' }}
+            />
+            <label htmlFor="toggle-manual-fields" style={{ fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600, color: 'var(--text-muted)' }}>
+              Manually edit details (Subject Code, Name, Semester, Regulation)
+            </label>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div className="form-group">
-              <label className="form-label">Semester</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={upSem} 
-                onChange={e => setUpSem(e.target.value)} 
-                placeholder="e.g. VII" 
-                required
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Regulation</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                value={upReg} 
-                onChange={e => setUpReg(e.target.value)} 
-                placeholder="e.g. 2021" 
-                required
-              />
-            </div>
-          </div>
+          {showManualFields && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Subject Code</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={upCode} 
+                    onChange={e => setUpCode(e.target.value)} 
+                    placeholder="e.g. OCS353" 
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Subject Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={upName} 
+                    onChange={e => setUpName(e.target.value)} 
+                    placeholder="e.g. Data Science fundamentals" 
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Semester</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={upSem} 
+                    onChange={e => setUpSem(e.target.value)} 
+                    placeholder="e.g. VII" 
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Regulation</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    value={upReg} 
+                    onChange={e => setUpReg(e.target.value)} 
+                    placeholder="e.g. 2021" 
+                    required
+                  />
+                </div>
+              </div>
+            </>
+          )}
 
           {isQBAvailable && !forceReupload ? (
             <div style={{ 
@@ -425,11 +499,11 @@ export default function UploadTab({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Question Bank File (.docx, .pdf)</label>
+                <label className="form-label">Question Bank File (.docx, .pdf, .doc)</label>
                 <div className="drag-drop-zone" onClick={() => document.getElementById('docx-file-input').click()}>
                   <FileText size={44} style={{ color: 'var(--primary)', margin: '0 auto' }} />
                   <p style={{ fontWeight: 600 }}>Click to choose or drag file here</p>
-                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Only standard Word (.docx) or PDF (.pdf) Question Banks containing tables are parsed.</p>
+                  <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Only standard Word (.docx, .doc) or PDF (.pdf) Question Banks containing tables are parsed.</p>
                   {selectedFile && (
                     <div style={{ marginTop: '1rem', color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 700 }}>
                       Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
@@ -439,7 +513,7 @@ export default function UploadTab({
                 <input 
                   type="file" 
                   id="docx-file-input" 
-                  accept=".docx,.pdf" 
+                  accept=".docx,.pdf,.doc" 
                   style={{ display: 'none' }} 
                   onChange={handleFileChange}
                   required={!isQBAvailable}

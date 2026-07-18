@@ -33,15 +33,21 @@ def replace_text_runs(doc, old_text: str, new_text: str):
     """
     if not old_text:
         return
+    if old_text == new_text:
+        return
         
     def replace_in_paragraph(paragraph, old, new):
         if old not in paragraph.text:
             return
         
-        while old in paragraph.text:
+        search_start = 0
+        while True:
             runs = paragraph.runs
             text = "".join(run.text for run in runs)
-            start_idx = text.find(old)
+            start_idx = text.find(old, search_start)
+            if start_idx == -1:
+                break
+                
             end_idx = start_idx + len(old)
             
             current_len = 0
@@ -74,6 +80,9 @@ def replace_text_runs(doc, old_text: str, new_text: str):
                         
                     end_run = runs[end_run_idx]
                     end_run.text = end_run.text[end_run_offset:]
+                
+                # Advance search_start to avoid matching inside the newly inserted text
+                search_start = start_idx + len(new)
             else:
                 break
 
@@ -98,6 +107,9 @@ def generate_question_paper(
 ):
     doc = docx.Document(template_path)
     
+    print(f"[DEBUG GENERATOR] Received config: {config}")
+    print(f"[DEBUG GENERATOR] config.set = {repr(config.set)}")
+    
     # 1. Replace metadata placeholders in the document
     replace_text_runs(doc, "OCS353", config.subject_code)
     replace_text_runs(doc, "Data Science fundamentals", config.subject_name)
@@ -106,6 +118,7 @@ def generate_question_paper(
     replace_text_runs(doc, "BE/BTECH/ CIVIL/AERO/MECH/EEE/TEXT/VII", config.degree_branch_sem)
     replace_text_runs(doc, "3 Hours", config.time)
     replace_text_runs(doc, "Maximum Marks: 100", f"Maximum Marks: {config.max_marks}")
+    print(f"[DEBUG GENERATOR] Replacing SET-III with {repr(config.set)}")
     replace_text_runs(doc, "SET-III", config.set)
     replace_text_runs(doc, "MODEL EXAMINATION", config.exam_name)
     if config.date:

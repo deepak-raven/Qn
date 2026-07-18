@@ -137,3 +137,88 @@ def parse_question_bank_pdf(file_bytes: bytes, subject_code: str, semester: str)
             })
             
     return questions
+
+
+import re
+
+def extract_text_from_docx(file_bytes: bytes) -> str:
+    doc = docx.Document(io.BytesIO(file_bytes))
+    full_text = []
+    # Extract from first 30 paragraphs
+    for p in doc.paragraphs[:30]:
+        if p.text.strip():
+            full_text.append(p.text.strip())
+            
+    # Also extract from first few rows of first table if it exists
+    if doc.tables:
+        for row in doc.tables[0].rows[:10]:
+            row_text = " | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()])
+            if row_text:
+                full_text.append(row_text)
+                
+    return "\n".join(full_text)
+
+def extract_text_from_pdf(file_bytes: bytes) -> str:
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        if pdf.pages:
+            return pdf.pages[0].extract_text() or ""
+    return ""
+
+def parse_text_metadata(text: str) -> dict:
+    metadata = {
+        "subject_code": None,
+        "subject_name": None,
+        "semester": None,
+        "regulation": None
+    }
+    
+    # 1. Subject Code & Subject Name
+    # Look for "Sub. Code/Sub.Name: OCS353/ Data Science fundamentals"
+    match_both = re.search(r'(?:Sub\.\s*Code/Sub\.\s*Name|Sub\s*Code\s*/\s*Sub\s*Name)\s*:\s*([A-Za-z0-9\-]+)\s*/\s*([^\n\r]+)', text, re.IGNORECASE)
+    if match_both:
+        metadata["subject_code"] = match_both.group(1).strip()
+        metadata["subject_name"] = match_both.group(2).strip()
+    else:
+        # Look for "Subject Code   : OCS353"
+        match_code = re.search(r'Subject\s*Code\s*:\s*([A-Za-z0-9\-]+)', text, re.IGNORECASE)
+        if match_code:
+            metadata["subject_code"] = match_code.group(1).strip()
+            
+        # Look for "Subject  : Data Science fundamentals" (avoiding Staff In Charge)
+        match_name = re.search(r'Subject\s*:\s*([^:\n\r\t]+)', text, re.IGNORECASE)
+        if match_name:
+            name_val = match_name.group(1).strip()
+            # Clean up if tab or multiple spaces followed by Staff or other fields
+            name_val = re.split(r'\s{2,}', name_val)[0]
+            metadata["subject_name"] = name_val.strip()
+
+    # 2. Semester
+    # Look for Sem: IV/VII or Sem: VII or Degree/Branch/Sem: .../VII
+    match_sem_line = re.search(r'(?:Sem|Semester|Year\s*/\s*Sem)\s*:\s*([^\n\r\t]+)', text, re.IGNORECASE)
+    if match_sem_line:
+        sem_str = match_sem_line.group(1).strip()
+        # Clean up multiple spaces
+        sem_str = re.split(r'\s{2,}', sem_str)[0]
+        # If it has a slash (e.g. IV/VII), extract the last part
+        if "/" in sem_str:
+            sem_str = sem_str.split("/")[-1].strip()
+        metadata["semester"] = sem_str
+    else:
+        # Fallback to searching for Roman numerals or words in the branch sem line
+        match_branch_sem = re.search(r'(?:Degree\s*/\s*Branch\s*/\s*Sem)\s*:\s*([^\n\r]+)', text, re.IGNORECASE)
+        if match_branch_sem:
+            sem_str = match_branch_sem.group(1).strip().split("/")[-1].strip()
+            metadata["semester"] = sem_str
+
+    # 3. Regulation
+    # Look for "Regulation    : 2021" or "2021-Regulation"
+    match_reg = re.search(r'Regulation\s*:\s*(\d{4})', text, re.IGNORECASE)
+    if match_reg:
+        metadata["regulation"] = match_reg.group(1).strip()
+    else:
+        match_reg_dash = re.search(r'(\d{4})\s*-\s*Regulation', text, re.IGNORECASE)
+        if match_reg_dash:
+            metadata["regulation"] = match_reg_dash.group(1).strip()
+            
+    return metadata
+

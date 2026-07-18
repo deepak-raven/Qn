@@ -9,7 +9,7 @@ import json
 
 from app.models import Subject, Question, PaperConfig, GenerateRequest
 from app.database import get_subjects, add_subject, add_questions, get_questions
-from app.parser import parse_question_bank_docx, parse_question_bank_pdf
+from app.parser import parse_question_bank_docx, parse_question_bank_pdf, extract_text_from_docx, extract_text_from_pdf, parse_text_metadata
 from app.generator import generate_question_paper
 
 UPLOADED_QBS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploaded_qbs"))
@@ -68,6 +68,35 @@ def create_subject(subject: Subject):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+def convert_doc_to_docx(doc_path: str, docx_path: str):
+    import os
+    import sys
+    
+    # Add pywin32 DLL directory to search path for Python 3.8+ on Windows
+    for p in sys.path:
+        candidate = os.path.join(p, "pywin32_system32")
+        if os.path.isdir(candidate):
+            try:
+                os.add_dll_directory(candidate)
+                break
+            except Exception:
+                pass
+
+    import pythoncom
+    import win32com.client
+    pythoncom.CoInitialize()
+    word = None
+    try:
+        word = win32com.client.Dispatch("Word.Application")
+        word.Visible = False
+        doc = word.Documents.Open(os.path.abspath(doc_path))
+        doc.SaveAs2(os.path.abspath(docx_path), FileFormat=16) # FileFormat=16 for .docx
+        doc.Close()
+    finally:
+        if word:
+            word.Quit()
+        pythoncom.CoUninitialize()
+
 @app.post("/api/upload-docx")
 async def upload_question_bank(
     file: UploadFile = File(...),
@@ -78,8 +107,8 @@ async def upload_question_bank(
     uploader_name: str = Form("System")
 ):
     ext = os.path.splitext(file.filename)[1].lower()
-    if ext not in [".docx", ".pdf"]:
-        raise HTTPException(status_code=400, detail="Only .docx and .pdf files are supported.")
+    if ext not in [".docx", ".pdf", ".doc"]:
+        raise HTTPException(status_code=400, detail="Only .docx, .pdf, and .doc files are supported.")
         
     try:
         # Read file bytes
@@ -105,9 +134,24 @@ async def upload_question_bank(
         }
         add_subject(subject_data)
         
-        # 2. Parse Question Bank Docx or Pdf
+        # 2. Parse Question Bank Docx, Pdf, or Doc
         if ext == ".pdf":
             questions = parse_question_bank_pdf(file_bytes, subject_code, semester)
+        elif ext == ".doc":
+            docx_filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}.docx"
+            docx_file_path = os.path.join(UPLOADED_QBS_DIR, docx_filename)
+            try:
+                convert_doc_to_docx(file_path, docx_file_path)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to convert .doc to .docx: {str(e)}")
+            
+            with open(docx_file_path, "rb") as f:
+                docx_bytes = f.read()
+            questions = parse_question_bank_docx(docx_bytes, subject_code, semester)
+            
+            # Update database to point to the converted docx
+            subject_data["qb_filename"] = docx_filename
+            add_subject(subject_data)
         else:
             questions = parse_question_bank_docx(file_bytes, subject_code, semester)
         
@@ -122,6 +166,47 @@ async def upload_question_bank(
             "message": f"Question bank uploaded successfully. Parsed {len(questions)} questions.",
             "subject": subject_data
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/analyze-file")
+async def analyze_file(file: UploadFile = File(...)):
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in [".docx", ".pdf", ".doc"]:
+        raise HTTPException(status_code=400, detail="Only .docx, .pdf, and .doc files are supported.")
+        
+    try:
+        file_bytes = await file.read()
+        
+        # Save temp file for conversion if .doc
+        if ext == ".doc":
+            temp_doc_path = os.path.join(UPLOADED_QBS_DIR, f"temp_analyze_{file.filename}")
+            temp_docx_path = temp_doc_path + "x"
+            with open(temp_doc_path, "wb") as f:
+                f.write(file_bytes)
+            try:
+                convert_doc_to_docx(temp_doc_path, temp_docx_path)
+                with open(temp_docx_path, "rb") as f:
+                    file_bytes = f.read()
+                ext = ".docx"
+            except Exception as conv_err:
+                raise HTTPException(status_code=500, detail=f"Failed to convert .doc for analysis: {str(conv_err)}")
+            finally:
+                if os.path.exists(temp_doc_path):
+                    try: os.remove(temp_doc_path)
+                    except: pass
+                if os.path.exists(temp_docx_path):
+                    try: os.remove(temp_docx_path)
+                    except: pass
+                    
+        # Extract text based on final file type (.docx or .pdf)
+        if ext == ".pdf":
+            text = extract_text_from_pdf(file_bytes)
+        else:
+            text = extract_text_from_docx(file_bytes)
+            
+        metadata = parse_text_metadata(text)
+        return metadata
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
