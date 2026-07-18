@@ -22,6 +22,7 @@ from app.database import (
     add_subject,
     add_questions,
     get_questions,
+    get_common_questions_pool,
     get_admin_stats,
     get_user_storage_breakdown,
     get_all_uploads_detailed,
@@ -340,6 +341,25 @@ async def fetch_questions(subject_code: str, semester: str):
     except Exception as e:
         logger.error(f"Error fetching questions: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch questions from database.")
+
+@app.get("/api/questions/common")
+async def fetch_common_questions(
+    part: str,
+    unit: str = "All",
+    search: str = "",
+    exclude_subject_code: str = ""
+):
+    try:
+        return await get_common_questions_pool(
+            part=part,
+            unit=unit,
+            search=search,
+            exclude_subject_code=exclude_subject_code
+        )
+    except Exception as e:
+        logger.error(f"Error fetching common questions: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch common questions pool.")
+
 
 @app.post("/api/generate-docx")
 async def generate_docx(payload: GenerateRequest):

@@ -1,7 +1,9 @@
-import React from 'react';
-import { Search, GripVertical } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, GripVertical, Globe, BookOpen } from 'lucide-react';
 
 export default function QuestionPool({
+  API_BASE,
+  selectedSubCode,
   searchQuery,
   setSearchQuery,
   filterUnit,
@@ -13,6 +15,39 @@ export default function QuestionPool({
   handleDragStart,
   handleToggleQuestion
 }) {
+  const [poolSource, setPoolSource] = useState('current'); // 'current' | 'common'
+  const [commonQuestions, setCommonQuestions] = useState([]);
+  const [loadingCommon, setLoadingCommon] = useState(false);
+
+  useEffect(() => {
+    if (poolSource === 'common') {
+      fetchCommonQuestions();
+    }
+  }, [poolSource, activeTabSub, filterUnit, searchQuery]);
+
+  const fetchCommonQuestions = async () => {
+    setLoadingCommon(true);
+    try {
+      const queryParams = new URLSearchParams({
+        part: activeTabSub,
+        unit: filterUnit,
+        search: searchQuery,
+        exclude_subject_code: selectedSubCode || ''
+      });
+      const res = await fetch(`${API_BASE}/questions/common?${queryParams.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setCommonQuestions(data);
+      }
+    } catch (err) {
+      console.error("Error fetching common questions:", err);
+    } finally {
+      setLoadingCommon(false);
+    }
+  };
+
+  const displayList = poolSource === 'current' ? filteredPool : commonQuestions;
+
   return (
     <div className="glass-panel card-body" style={{ 
       display: 'flex', 
@@ -28,20 +63,48 @@ export default function QuestionPool({
       borderLeft: 'none'
     }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
-          Question Bank Pool
-        </h3>
-        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-          Drag items from here and drop them into the document page preview on the right.
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>
+            Question Bank Pool
+          </h3>
+
+          {/* Toggle Pool Source: Current Subject vs Common DB */}
+          <div style={{ display: 'flex', gap: '0.2rem', background: '#e0e0e0', padding: '2px', borderRadius: '4px' }}>
+            <button
+              type="button"
+              className={`btn ${poolSource === 'current' ? 'btn-primary' : ''}`}
+              onClick={() => setPoolSource('current')}
+              style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem', background: poolSource === 'current' ? undefined : 'transparent', color: poolSource === 'current' ? undefined : '#444' }}
+              title="Show questions from current selected subject"
+            >
+              <BookOpen size={12} /> My QB Pool
+            </button>
+            <button
+              type="button"
+              className={`btn ${poolSource === 'common' ? 'btn-primary' : ''}`}
+              onClick={() => setPoolSource('common')}
+              style={{ fontSize: '0.72rem', padding: '0.25rem 0.5rem', background: poolSource === 'common' ? undefined : 'transparent', color: poolSource === 'common' ? undefined : '#444' }}
+              title="Search common questions across all databases in MongoDB"
+            >
+              <Globe size={12} /> Common DB
+            </button>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+          {poolSource === 'current' 
+            ? 'Showing questions from selected subject. Drag items into the paper preview.'
+            : 'Searching shared questions across all uploaded databases in MongoDB.'
+          }
         </p>
       </div>
 
       {/* SEARCH & FILTERS */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
         <div style={{ position: 'relative', flex: 4 }}>
           <input 
             type="text" 
-            placeholder="Search questions..." 
+            placeholder={poolSource === 'current' ? "Search questions..." : "Search common DB questions..."} 
             className="form-input" 
             style={{ paddingLeft: '2rem' }}
             value={searchQuery}
@@ -66,7 +129,7 @@ export default function QuestionPool({
       </div>
 
       {/* POOL TAB SUB-SELECTOR */}
-      <div className="part-tabs" style={{ marginTop: '0.5rem' }}>
+      <div className="part-tabs" style={{ marginTop: '0.25rem' }}>
         {['Part A (2m)', 'Part B (13m)', 'Part C (15m)'].map((label, idx) => {
           const keys = ['A', 'B', 'C'];
           const active = activeTabSub === keys[idx];
@@ -87,12 +150,16 @@ export default function QuestionPool({
 
       {/* DRAGGABLE LIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto' }}>
-        {filteredPool.length === 0 ? (
+        {loadingCommon ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            Searching common questions in database...
+          </div>
+        ) : displayList.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-dimmed)', fontSize: '0.85rem' }}>
-            No questions match search/filters.
+            {poolSource === 'current' ? 'No questions match search/filters.' : 'No common questions found in database matching search criteria.'}
           </div>
         ) : (
-          filteredPool.map((q, idx) => {
+          displayList.map((q, idx) => {
             const assigned = isAssigned(q._id);
             return (
               <div 
@@ -110,6 +177,11 @@ export default function QuestionPool({
                     <span className="tag tag-unit">{q.unit}</span>
                     <span className="tag tag-kl">{q.kl}</span>
                     <span className="tag tag-co">{q.co}</span>
+                    {poolSource === 'common' && (
+                      <span className="tag tag-unit" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd' }}>
+                        [{q.subject_code}] {q.uploader_name || 'System'}
+                      </span>
+                    )}
                     {assigned && (
                       <span className="tag tag-unit" style={{ background: 'var(--success-light)', color: 'var(--success)', borderColor: 'var(--success)' }}>
                         Added
