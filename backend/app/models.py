@@ -1,6 +1,12 @@
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from typing import List, Optional
 from datetime import datetime
+import re
+
+ALLOWED_DOMAINS = {
+    'gmail.com', 'outlook.com', 'yahoo.com', 'hotmail.com', 
+    'icloud.com', 'zoho.com', 'proton.me', 'protonmail.com'
+}
 
 class Subject(BaseModel):
     code: str = Field(..., description="Subject code, e.g., OCS353")
@@ -8,6 +14,7 @@ class Subject(BaseModel):
     semester: str = Field(..., description="Semester, e.g., VII")
     regulation: str = Field("2021", description="Regulation year, e.g., 2021")
     uploader_name: Optional[str] = Field(None, description="Name of the person who uploaded this subject")
+    uploaded_by: Optional[str] = Field(None, description="Email address of the staff member who uploaded this subject")
     qb_filename: Optional[str] = Field(None, description="Filename of the uploaded question bank docx")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -22,6 +29,7 @@ class Question(BaseModel):
     marks: int # 2, 13, 15
     kl: str    # K1, K2, K3, K4, K5, K6
     co: str    # CO1, CO2, CO3, CO4, CO5
+    uploaded_by: Optional[str] = Field(None, description="Email address of the staff member who uploaded this question")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -61,6 +69,17 @@ class RegisterRequest(BaseModel):
     email: Optional[str] = ""
     role: Optional[str] = "user" # "user" or "admin"
 
+    @field_validator('username')
+    @classmethod
+    def validate_username_email(cls, v: str) -> str:
+        email = v.strip().lower()
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            raise ValueError('Username must be a valid email address.')
+        domain = email.split('@')[-1]
+        if domain not in ALLOWED_DOMAINS:
+            raise ValueError(f"Registration is restricted to conventional email providers (e.g. {', '.join(sorted(ALLOWED_DOMAINS))}).")
+        return email
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -72,3 +91,13 @@ class AdminCreateUserRequest(BaseModel):
     name: str
     role: str = "user" # "user" or "admin"
 
+    @field_validator('username')
+    @classmethod
+    def validate_username_email(cls, v: str) -> str:
+        email = v.strip().lower()
+        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
+            raise ValueError('Username must be a valid email address.')
+        domain = email.split('@')[-1]
+        if domain not in ALLOWED_DOMAINS:
+            raise ValueError(f"Username must be a conventional email address (e.g. {', '.join(sorted(ALLOWED_DOMAINS))}).")
+        return email

@@ -43,119 +43,126 @@ export default function PaperPreview({
       height: 'calc(100vh - 64px)' 
     }}>
       {/* Sets Manager Bar (Browser-Style Inline Tabs) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px solid #d1d5db', padding: '0.25rem 0.5rem 0 0.5rem', background: '#f3f4f6', borderTopLeftRadius: '6px', borderTopRightRadius: '6px' }}>
-        {Object.keys(sets).map((setId) => {
-          const isActive = currentSetId === setId;
-          return (
-            <div 
-              key={setId} 
-              onClick={() => handleSwitchSet(setId)}
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '0.4rem',
-                background: isActive ? '#ffffff' : 'transparent',
-                border: '1px solid ' + (isActive ? '#d1d5db' : 'transparent'),
-                borderBottom: isActive ? '1px solid #ffffff' : '1px solid transparent',
-                borderTopLeftRadius: '4px',
-                borderTopRightRadius: '4px',
-                padding: '0.35rem 0.75rem',
-                cursor: 'pointer',
-                marginBottom: '-1px',
-                transition: 'all 0.15s ease',
-                position: 'relative',
-                zIndex: isActive ? 2 : 1
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #d1d5db', padding: '0.25rem 0.5rem 0 0.5rem', background: '#f3f4f6', borderTopLeftRadius: '6px', borderTopRightRadius: '6px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          {Object.keys(sets).map((setId) => {
+            const isActive = currentSetId === setId;
+            return (
+              <div 
+                key={setId} 
+                onClick={() => handleSwitchSet(setId)}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem',
+                  background: isActive ? '#ffffff' : 'transparent',
+                  border: '1px solid ' + (isActive ? '#d1d5db' : 'transparent'),
+                  borderBottom: isActive ? '1px solid #ffffff' : '1px solid transparent',
+                  borderTopLeftRadius: '4px',
+                  borderTopRightRadius: '4px',
+                  padding: '0.35rem 0.75rem',
+                  cursor: 'pointer',
+                  marginBottom: '-1px',
+                  transition: 'all 0.15s ease',
+                  position: 'relative',
+                  zIndex: isActive ? 2 : 1
+                }}
+              >
+                <span style={{ fontSize: '0.8rem', fontWeight: isActive ? 600 : 500, color: isActive ? 'var(--primary)' : 'var(--text-dimmed)' }}>
+                  {setId}
+                </span>
+                {Object.keys(sets).length > 1 && (
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const nextSets = { ...sets };
+                      delete nextSets[setId];
+                      setSets(nextSets);
+                      if (currentSetId === setId) {
+                        const firstRemaining = Object.keys(nextSets)[0];
+                        setCurrentSetId(firstRemaining);
+                        setConfig(nextSets[firstRemaining].config);
+                        setSelectedPartA(nextSets[firstRemaining].selectedPartA);
+                        setSelectedPartB(nextSets[firstRemaining].selectedPartB);
+                        setSelectedPartC(nextSets[firstRemaining].selectedPartC);
+                      }
+                    }}
+                    style={{ 
+                      border: 'none', 
+                      background: 'transparent', 
+                      color: '#9ca3af', 
+                      fontSize: '0.9rem', 
+                      cursor: 'pointer', 
+                      padding: '0 2px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      lineHeight: 1 
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.color = '#9ca3af'; }}
+                    title="Delete Set"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+            );
+          })}
+          
+          {/* Plus button next to last tab */}
+          <button 
+            onClick={handleCreateNewSet}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              width: '20px', 
+              height: '20px', 
+              borderRadius: '4px', 
+              border: 'none', 
+              background: 'transparent', 
+              color: 'var(--text-dimmed)', 
+              fontSize: '1rem', 
+              fontWeight: 'bold', 
+              cursor: 'pointer',
+              marginBottom: '0.2rem',
+              marginLeft: '0.2rem',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#e5e7eb'; e.currentTarget.style.color = 'var(--text-main)'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dimmed)'; }}
+            title="Create new paper set"
+          >
+            +
+          </button>
+        </div>
+        
+        {/* Tip & Exam Type Selector */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem', paddingBottom: '0.2rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-dimmed)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            💡 <strong>Tip:</strong> Click on any text in the header below to edit it directly!
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
+            <select
+              value={config.exam_type || 'MODEL EXAMINATION'}
+              onChange={(e) => setConfig({ ...config, exam_type: e.target.value })}
+              style={{
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                padding: '0.2rem 0.5rem',
+                borderRadius: '4px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: 'var(--primary)',
+                cursor: 'pointer'
               }}
             >
-              <span style={{ fontSize: '0.8rem', fontWeight: isActive ? 600 : 500, color: isActive ? 'var(--primary)' : 'var(--text-dimmed)' }}>
-                {setId}
-              </span>
-              {Object.keys(sets).length > 1 && (
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const nextSets = { ...sets };
-                    delete nextSets[setId];
-                    setSets(nextSets);
-                    if (currentSetId === setId) {
-                      const firstRemaining = Object.keys(nextSets)[0];
-                      setCurrentSetId(firstRemaining);
-                      setConfig(nextSets[firstRemaining].config);
-                      setSelectedPartA(nextSets[firstRemaining].selectedPartA);
-                      setSelectedPartB(nextSets[firstRemaining].selectedPartB);
-                      setSelectedPartC(nextSets[firstRemaining].selectedPartC);
-                    }
-                  }}
-                  style={{ 
-                    border: 'none', 
-                    background: 'transparent', 
-                    color: '#9ca3af', 
-                    fontSize: '0.9rem', 
-                    cursor: 'pointer', 
-                    padding: '0 2px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    lineHeight: 1 
-                  }}
-                  onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                  onMouseOut={(e) => { e.currentTarget.style.color = '#9ca3af'; }}
-                  title="Delete Set"
-                >
-                  &times;
-                </button>
-              )}
-            </div>
-          );
-        })}
-        
-        {/* Plus button next to last tab */}
-        <button 
-          onClick={handleCreateNewSet}
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            width: '20px', 
-            height: '20px', 
-            borderRadius: '4px', 
-            border: 'none', 
-            background: 'transparent', 
-            color: 'var(--text-dimmed)', 
-            fontSize: '1rem', 
-            fontWeight: 'bold', 
-            cursor: 'pointer',
-            marginBottom: '0.2rem',
-            marginLeft: '0.2rem',
-            transition: 'all 0.15s ease'
-          }}
-          onMouseOver={(e) => { e.currentTarget.style.background = '#e5e7eb'; e.currentTarget.style.color = 'var(--text-main)'; }}
-          onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dimmed)'; }}
-          title="Create new paper set"
-        >
-          +
-        </button>
-
-        {/* Exam Type Selector in Question Selection Section */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', paddingBottom: '0.2rem' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
-          <select
-            value={config.exam_type || 'MODEL EXAMINATION'}
-            onChange={(e) => setConfig({ ...config, exam_type: e.target.value })}
-            style={{
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-              border: '1px solid #cbd5e1',
-              background: '#ffffff',
-              color: 'var(--primary)',
-              cursor: 'pointer'
-            }}
-          >
-            <option value="MODEL EXAMINATION">MODEL EXAM (Unit I-V | 100 Marks)</option>
-            <option value="IAT-1">IAT - I (Unit I & II | 50 Marks)</option>
-            <option value="IAT-2">IAT - II (Unit III & IV | 50 Marks)</option>
-          </select>
+              <option value="MODEL EXAMINATION">MODEL EXAM (Unit I-V | 100 Marks)</option>
+              <option value="IAT-1">IAT - I (Unit I & II | 50 Marks)</option>
+              <option value="IAT-2">IAT - II (Unit III & IV | 50 Marks)</option>
+            </select>
+          </div>
         </div>
       </div>
 

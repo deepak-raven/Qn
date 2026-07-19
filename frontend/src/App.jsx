@@ -26,6 +26,15 @@ export default function App() {
     }
   }, [auth.user, auth.isAdmin]);
 
+  // Sync currentUser with auth.user for state scoping in components
+  useEffect(() => {
+    if (auth.user) {
+      state.setCurrentUser(auth.user);
+    } else {
+      state.setCurrentUser(null);
+    }
+  }, [auth.user]);
+
   if (auth.authLoading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: '#fff' }}>

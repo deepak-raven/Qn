@@ -32,7 +32,7 @@ export default function UploadTab({
   const [upSem, setUpSem] = useState('');
   const [upReg, setUpReg] = useState('2021');
   const [selectedFile, setSelectedFile] = useState(null);
-  const [uploaderName, setUploaderName] = useState(auth?.user?.name || '');
+  const [uploaderName, setUploaderName] = useState(auth?.user?.name || auth?.user?.username || '');
   const [forceReupload, setForceReupload] = useState(false);
   const [existingQuestions, setExistingQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
@@ -40,11 +40,10 @@ export default function UploadTab({
 
 
   useEffect(() => {
-    if (auth?.user?.name && !uploaderName) {
-      setUploaderName(auth.user.name);
+    if (auth?.user) {
+      setUploaderName(auth.user.name || auth.user.username);
     }
-  }, [auth?.user?.name]);
-
+  }, [auth?.user]);
 
   // Curriculum dropdown states
   const [selReg, setSelReg] = useState('2021');
@@ -59,7 +58,8 @@ export default function UploadTab({
     const existingSubject = subjects.find(s => s.code === upCode);
     if (existingSubject) {
       setLoadingQuestions(true);
-      fetch(`${API_BASE}/questions?subject_code=${upCode}&semester=${existingSubject.semester}`)
+      const username = auth?.user?.username || '';
+      fetch(`${API_BASE}/questions?subject_code=${upCode}&semester=${existingSubject.semester}&uploaded_by=${username}`)
         .then(res => {
           if (!res.ok) throw new Error("Failed to fetch questions");
           return res.json();
@@ -76,7 +76,7 @@ export default function UploadTab({
     } else {
       setExistingQuestions([]);
     }
-  }, [upCode, subjects, API_BASE]);
+  }, [upCode, subjects, API_BASE, auth]);
 
   // Roman numeral map helper
   const semesterRomanMap = {
@@ -204,6 +204,7 @@ export default function UploadTab({
     formData.append('semester', upSem);
     formData.append('regulation', upReg);
     formData.append('uploader_name', uploaderName || 'System');
+    formData.append('uploaded_by', auth?.user?.username || '');
 
     try {
       const res = await fetch(`${API_BASE}/upload-docx`, {
@@ -504,6 +505,7 @@ export default function UploadTab({
                   value={uploaderName} 
                   onChange={e => setUploaderName(e.target.value)} 
                   placeholder="e.g. Dr. K. Deepak" 
+                  disabled
                   required
                 />
               </div>

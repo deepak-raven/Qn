@@ -13,6 +13,29 @@ export function useAppState() {
   const [selectedSubCode, setSelectedSubCode] = useState('');
   const [questions, setQuestions] = useState([]);
 
+  // Authenticated user state
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('jec_staff_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const handleLoginSuccess = (user) => {
+    localStorage.setItem('jec_staff_user', JSON.stringify(user));
+    setCurrentUser(user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('jec_staff_user');
+    setCurrentUser(null);
+    setSubjects([]);
+    setQuestions([]);
+    setSelectedSubCode('');
+  };
+
   // Delegate sets manager state
   const setsManager = useSetsManager();
   const {
@@ -66,12 +89,17 @@ export function useAppState() {
   const [filterUnit, setFilterUnit] = useState('All');
 
   useEffect(() => {
-    fetchSubjects();
-  }, []);
+    if (currentUser) {
+      fetchSubjects();
+    } else {
+      setSubjects([]);
+    }
+  }, [currentUser]);
 
   const fetchSubjects = async () => {
+    if (!currentUser) return;
     try {
-      const res = await fetch(`${API_BASE}/subjects`);
+      const res = await fetch(`${API_BASE}/subjects?uploaded_by=${currentUser.username}`);
       if (res.ok) {
         const data = await res.json();
         setSubjects(data);
@@ -82,7 +110,7 @@ export function useAppState() {
   };
 
   const loadQuestionsForSubject = async (code, sem) => {
-    if (!code || !sem) return;
+    if (!code || !sem || !currentUser) return;
     
     const freshPartA = Array(10).fill(null);
     const freshPartB = Array(5).fill(null).map(() => ({ a: null, b: null }));
@@ -102,7 +130,7 @@ export function useAppState() {
     });
 
     try {
-      const res = await fetch(`${API_BASE}/questions?subject_code=${code}&semester=${sem}`);
+      const res = await fetch(`${API_BASE}/questions?subject_code=${code}&semester=${sem}&uploaded_by=${currentUser.username}`);
       if (res.ok) {
         const data = await res.json();
         setQuestions(data);
@@ -115,7 +143,10 @@ export function useAppState() {
             subject_code: sub.code,
             subject_name: sub.name,
             regulation: `${sub.regulation}-Regulation`,
-            semester: `ODD SEMESTER-2025-26`
+            semester: `ODD SEMESTER-2025-26`,
+            exam_name: 'MODEL EXAMINATION',
+            time: '3 Hours',
+            degree_branch_sem: `BE/BTECH/ CIVIL/AERO/MECH/EEE/TEXT/${sub.semester || 'VII'}`
           };
           setSets({
             'SET-I': {
@@ -397,6 +428,10 @@ export function useAppState() {
     grandTotalCount,
     unitTotalsMark,
     klTotalsMark,
-    grandTotalMark
+    grandTotalMark,
+    currentUser,
+    setCurrentUser,
+    handleLoginSuccess,
+    handleLogout
   };
 }

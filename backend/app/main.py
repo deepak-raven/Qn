@@ -4,14 +4,15 @@ import shutil
 import json
 import logging
 from contextlib import asynccontextmanager
-from typing import List, Dict, Any
-from datetime import datetime
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
 import anyio
+import anyio.to_thread
 
 from app.config import settings
 from app.models import Subject, Question, PaperConfig, GenerateRequest, LoginRequest, RegisterRequest, TokenResponse, AdminCreateUserRequest
@@ -47,6 +48,7 @@ from app.parser import (
     convert_doc_to_docx
 )
 from app.generator import generate_question_paper
+import hashlib
 
 # Configure Logging
 logging.basicConfig(
@@ -138,7 +140,7 @@ async def register(payload: RegisterRequest):
             "email": payload.email.strip() if payload.email else "",
             "password_hash": hash_password(payload.password),
             "role": payload.role if payload.role in ["user", "admin"] else "user",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         created_user = await create_user(user_doc)
         
@@ -201,9 +203,9 @@ async def get_curriculum():
         raise HTTPException(status_code=500, detail="Failed to load curriculum data.")
 
 @app.get("/api/subjects")
-async def list_all_subjects():
+async def list_all_subjects(uploaded_by: Optional[str] = None):
     try:
-        return await get_subjects()
+        return await get_subjects(uploaded_by)
     except Exception as e:
         logger.error(f"Error listing subjects: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve subjects from database.")
@@ -224,9 +226,11 @@ async def upload_question_bank(
     subject_name: str = Form(...),
     semester: str = Form(...),
     regulation: str = Form("2021"),
-    uploader_name: str = Form("System")
+    uploader_name: str = Form("System"),
+    uploaded_by: str = Form(...)
 ):
-    ext = os.path.splitext(file.filename)[1].lower()
+    uploaded_filename = file.filename or "unknown"
+    ext = os.path.splitext(uploaded_filename)[1].lower()
     if ext not in [".docx", ".pdf", ".doc"]:
         raise HTTPException(status_code=400, detail="Only .docx, .pdf, and .doc files are supported.")
         
@@ -256,6 +260,7 @@ async def upload_question_bank(
             "semester": semester,
             "regulation": regulation,
             "uploader_name": uploader_name,
+            "uploaded_by": uploaded_by,
             "qb_filename": filename
         }
         await add_subject(subject_data)
@@ -287,6 +292,10 @@ async def upload_question_bank(
                 detail="No questions could be parsed from the uploaded document. Please check the document table structure."
             )
             
+        # Inject uploaded_by into questions
+        for q in questions:
+            q["uploaded_by"] = uploaded_by
+
         await add_questions(questions, uploader_name)
         
         return {
@@ -302,7 +311,8 @@ async def upload_question_bank(
 
 @app.post("/api/analyze-file")
 async def analyze_file(file: UploadFile = File(...)):
-    ext = os.path.splitext(file.filename)[1].lower()
+    uploaded_filename = file.filename or "unknown"
+    ext = os.path.splitext(uploaded_filename)[1].lower()
     if ext not in [".docx", ".pdf", ".doc"]:
         raise HTTPException(status_code=400, detail="Only .docx, .pdf, and .doc files are supported.")
         
@@ -310,7 +320,7 @@ async def analyze_file(file: UploadFile = File(...)):
         file_bytes = await file.read()
         
         if ext == ".doc":
-            temp_doc_path = os.path.join(UPLOADED_QBS_DIR, f"temp_analyze_{sanitize_filename(file.filename)}.doc")
+            temp_doc_path = os.path.join(UPLOADED_QBS_DIR, f"temp_analyze_{sanitize_filename(uploaded_filename)}.doc")
             temp_docx_path = temp_doc_path + "x"
             
             def save_temp():
@@ -349,9 +359,9 @@ async def analyze_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to analyze document metadata.")
 
 @app.get("/api/questions")
-async def fetch_questions(subject_code: str, semester: str):
+async def fetch_questions(subject_code: str, semester: str, uploaded_by: str):
     try:
-        return await get_questions(subject_code, semester)
+        return await get_questions(subject_code, semester, uploaded_by)
     except Exception as e:
         logger.error(f"Error fetching questions: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch questions from database.")
@@ -460,7 +470,6 @@ async def create_user_by_admin(
         existing = await get_user_by_username(payload.username)
         if existing:
             raise HTTPException(status_code=400, detail=f"Username '{payload.username}' already exists.")
-        
         user_doc = {
             "username": payload.username.strip().lower(),
             "name": payload.name.strip(),
@@ -495,4 +504,3 @@ async def remove_user_by_admin(
     except Exception as e:
         logger.error(f"Error deleting user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
-

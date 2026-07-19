@@ -1,13 +1,23 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+import dns.resolver
+
+# Configure dns.resolver to use Google and Cloudflare public DNS nameservers
+# to bypass the failing local DNS resolver (192.168.156.48)
+try:
+    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1']
+except Exception as dns_err:
+    print("Failed to configure custom DNS resolver in database.py:", dns_err)
+
 from motor.motor_asyncio import AsyncIOMotorClient
-from app.config import settings
+from app.config import settings  # type: ignore
 
 logger = logging.getLogger("app.database")
 
-client: AsyncIOMotorClient = None
+client: Optional[AsyncIOMotorClient] = None
 db = None
 
 def format_bytes(size: int) -> str:
@@ -23,12 +33,13 @@ def format_bytes(size: int) -> str:
 async def init_db():
     global client, db
     logger.info(f"Connecting to MongoDB at {settings.MONGODB_URI} (DB: {settings.DATABASE_NAME})")
-    client = AsyncIOMotorClient(settings.MONGODB_URI)
+    # Pass tlsAllowInvalidCertificates=True to bypass Windows local SSL check issues
+    client = AsyncIOMotorClient(settings.MONGODB_URI, tlsAllowInvalidCertificates=True)
     db = client[settings.DATABASE_NAME]
 
     try:
-        await db["subjects"].create_index([("code", 1)], unique=True)
-        await db["questions"].create_index([("subject_code", 1), ("semester", 1)])
+        await db["subjects"].create_index([("code", 1), ("uploaded_by", 1)], unique=True)
+        await db["questions"].create_index([("subject_code", 1), ("semester", 1), ("uploaded_by", 1)])
         await db["questions"].create_index([("uploader_name", 1)])
         await db["users"].create_index([("username", 1)], unique=True)
         logger.info("MongoDB indexes initialized successfully.")
@@ -39,7 +50,7 @@ async def init_db():
     await seed_default_admin()
 
 async def seed_default_admin():
-    from app.auth import hash_password
+    from app.auth import hash_password  # type: ignore
     database = get_db()
     existing_admin = await database["users"].find_one({"role": "admin"})
     if not existing_admin:
@@ -50,7 +61,7 @@ async def seed_default_admin():
             "email": "admin@jaya.edu",
             "password_hash": hash_password(settings.DEFAULT_ADMIN_PASSWORD),
             "role": "admin",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         await database["users"].insert_one(admin_doc)
         logger.info("Default Admin account created successfully.")
@@ -102,15 +113,18 @@ async def delete_user(username: str) -> bool:
 
 # --- Subject & Question Operations ---
 
-async def get_subjects() -> List[Dict[str, Any]]:
+async def get_subjects(uploaded_by: Optional[str] = None) -> List[Dict[str, Any]]:
     database = get_db()
-    cursor = database["subjects"].find({}, {"_id": 0})
+    query = {}
+    if uploaded_by:
+        query["uploaded_by"] = uploaded_by
+    cursor = database["subjects"].find(query, {"_id": 0})
     return await cursor.to_list(length=1000)
 
 async def add_subject(subject_data: dict):
     database = get_db()
     await database["subjects"].update_one(
-        {"code": subject_data["code"]},
+        {"code": subject_data["code"], "uploaded_by": subject_data.get("uploaded_by")},
         {"$set": subject_data},
         upsert=True
     )
@@ -122,16 +136,26 @@ async def add_questions(questions: list, uploader_name: str = "System"):
     database = get_db()
     subject_code = questions[0]["subject_code"]
     semester = questions[0]["semester"]
+    uploaded_by = questions[0].get("uploaded_by")
 
     for q in questions:
         q["uploader_name"] = uploader_name
 
-    await database["questions"].delete_many({"subject_code": subject_code, "semester": semester})
+    # Delete existing questions for this subject/semester/user
+    await database["questions"].delete_many({
+        "subject_code": subject_code, 
+        "semester": semester,
+        "uploaded_by": uploaded_by
+    })
     await database["questions"].insert_many(questions)
 
-async def get_questions(subject_code: str, semester: str) -> List[Dict[str, Any]]:
+async def get_questions(subject_code: str, semester: str, uploaded_by: str) -> List[Dict[str, Any]]:
     database = get_db()
-    cursor = database["questions"].find({"subject_code": subject_code, "semester": semester})
+    cursor = database["questions"].find({
+        "subject_code": subject_code, 
+        "semester": semester,
+        "uploaded_by": uploaded_by
+    })
     q_list = await cursor.to_list(length=2000)
     for q in q_list:
         if "_id" in q:
@@ -206,9 +230,11 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
         
         users_map[uploader]["subjects_count"] += 1
         
+        # Count only questions uploaded by this uploader for this subject
         q_count = await database["questions"].count_documents({
             "subject_code": sub["code"],
-            "semester": sub["semester"]
+            "semester": sub["semester"],
+            "uploaded_by": sub.get("uploaded_by")
         })
         users_map[uploader]["questions_count"] += q_count
         
@@ -245,7 +271,8 @@ async def get_all_uploads_detailed(uploaded_dir: str) -> List[Dict[str, Any]]:
     for sub in subjects:
         q_count = await database["questions"].count_documents({
             "subject_code": sub["code"],
-            "semester": sub["semester"]
+            "semester": sub["semester"],
+            "uploaded_by": sub.get("uploaded_by")
         })
         
         file_size = 0
@@ -280,8 +307,9 @@ async def delete_question_bank(subject_code: str, semester: str, uploaded_dir: s
         
     qb_filename = subject.get("qb_filename")
     
-    await database["subjects"].delete_one({"code": subject["code"]})
-    await database["questions"].delete_many({"subject_code": subject["code"]})
+    # Delete subject and questions matching this uploader/code
+    await database["subjects"].delete_many({"code": subject["code"], "uploaded_by": subject.get("uploaded_by")})
+    await database["questions"].delete_many({"subject_code": subject["code"], "uploaded_by": subject.get("uploaded_by")})
     
     if qb_filename:
         fp = os.path.join(uploaded_dir, qb_filename)

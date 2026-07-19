@@ -1,5 +1,5 @@
 import React from 'react';
-import { Upload, CheckSquare, Settings, RefreshCw, Download, ShieldCheck, LogOut, User } from 'lucide-react';
+import { Upload, CheckSquare, RefreshCw, Download, ShieldCheck, LogOut, User } from 'lucide-react';
 
 export default function Header({
   config,
@@ -24,7 +24,6 @@ export default function Header({
   const partACount = selectedPartA.filter(Boolean).length;
   const partBCount = selectedPartB.filter(s => s && s.a && s.b).length;
   const partCCount = (selectedPartC.a && selectedPartC.b) ? 1 : 0;
-
 
   return (
     <header className="sidebar" style={{
@@ -69,7 +68,7 @@ export default function Header({
         </div>
       </div>
 
-      {/* 2. Middle Section: Navigation Menu */}
+      {/* 2. Middle Section: Navigation Menu (No Paper Settings tab as requested) */}
       <ul className="nav-menu" style={{ margin: 0, padding: 0 }}>
         {isAdmin ? (
           <li 
@@ -101,13 +100,6 @@ export default function Header({
             >
               <CheckSquare size={18} />
               Select Questions
-            </li>
-            <li 
-              className={`nav-item ${activeTab === 'config' ? 'active' : ''}`}
-              onClick={() => setActiveTab('config')}
-            >
-              <Settings size={18} />
-              Paper Settings
             </li>
           </>
         )}
@@ -195,6 +187,8 @@ export default function Header({
                 fontWeight: 600,
                 transition: 'all 0.15s ease'
               }}
+              onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fee2e2'; }}
+              onMouseOut={(e) => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.background = '#f1f5f9'; }}
             >
               <LogOut size={15} />
             </button>

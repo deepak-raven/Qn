@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { Shield, KeyRound, UserPlus, LogIn, AlertCircle, Sparkles } from 'lucide-react';
 
+const ALLOWED_DOMAINS = [
+  'gmail.com', 'outlook.com', 'yahoo.com', 'hotmail.com', 
+  'icloud.com', 'zoho.com', 'proton.me', 'protonmail.com'
+];
+
 export default function LoginPage({ onLogin, onRegister }) {
   const [mode, setMode] = useState('user'); // 'user' | 'admin' | 'register'
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,9 +22,25 @@ export default function LoginPage({ onLogin, onRegister }) {
     try {
       if (mode === 'register') {
         if (!name.trim()) throw new Error('Full Name is required.');
-        await onRegister(username, password, name, email);
+        const emailVal = username.trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailVal)) {
+          throw new Error('Please enter a valid email address for your username.');
+        }
+        const domain = emailVal.split('@')[1];
+        if (!ALLOWED_DOMAINS.includes(domain)) {
+          throw new Error(`Registration is restricted to conventional email providers (Gmail, Outlook, Yahoo, Hotmail, iCloud, Zoho, Proton).`);
+        }
+        await onRegister(emailVal, password, name.trim(), emailVal);
+      } else if (mode === 'user') {
+        const emailVal = username.trim().toLowerCase();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(emailVal)) {
+          throw new Error('Please enter a valid email address.');
+        }
+        await onLogin(emailVal, password);
       } else {
-        await onLogin(username, password);
+        await onLogin(username.trim(), password);
       }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please check credentials.');
@@ -90,7 +110,7 @@ export default function LoginPage({ onLogin, onRegister }) {
           <button
             type="button"
             className={`btn ${mode === 'user' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('user'); setError(''); }}
+            onClick={() => { setMode('user'); setError(''); setUsername(''); setPassword(''); }}
             style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'user' ? undefined : 'transparent', color: mode === 'user' ? undefined : '#475569' }}
           >
             <KeyRound size={14} /> Faculty
@@ -99,7 +119,7 @@ export default function LoginPage({ onLogin, onRegister }) {
           <button
             type="button"
             className={`btn ${mode === 'admin' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('admin'); setError(''); }}
+            onClick={() => { setMode('admin'); setError(''); setUsername(''); setPassword(''); }}
             style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'admin' ? undefined : 'transparent', color: mode === 'admin' ? undefined : '#475569' }}
           >
             <Shield size={14} /> Admin
@@ -108,7 +128,7 @@ export default function LoginPage({ onLogin, onRegister }) {
           <button
             type="button"
             className={`btn ${mode === 'register' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('register'); setError(''); }}
+            onClick={() => { setMode('register'); setError(''); setUsername(''); setPassword(''); }}
             style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'register' ? undefined : 'transparent', color: mode === 'register' ? undefined : '#475569' }}
           >
             <UserPlus size={14} /> Register
@@ -137,38 +157,27 @@ export default function LoginPage({ onLogin, onRegister }) {
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
           {mode === 'register' && (
-            <>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Full Name / Title</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Dr. K. Deepak"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Email Address (Optional)</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  placeholder="deepak@jaya.edu"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
-              </div>
-            </>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Full Name / Title</label>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="e.g. Dr. K. Deepak"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                required
+              />
+            </div>
           )}
 
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Username</label>
+            <label className="form-label">
+              {mode === 'register' ? 'Staff Email (Username)' : mode === 'admin' ? 'Admin Username' : 'Staff Email'}
+            </label>
             <input
-              type="text"
+              type={mode === 'admin' ? 'text' : 'email'}
               className="form-input"
-              placeholder={mode === 'admin' ? 'admin' : 'enter username'}
+              placeholder={mode === 'admin' ? 'admin' : 'name@gmail.com'}
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
@@ -200,7 +209,7 @@ export default function LoginPage({ onLogin, onRegister }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              marginTop: '0.5rem'
+              margin: '0.5rem 0'
             }}
           >
             {loading ? 'Authenticating...' : mode === 'register' ? 'Create Account' : mode === 'admin' ? 'Login as Admin' : 'Login as Faculty'}
