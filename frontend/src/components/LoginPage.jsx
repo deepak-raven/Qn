@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, KeyRound, UserPlus, LogIn, AlertCircle } from 'lucide-react';
+import logoImg from '../assets/image.png';
 
 export default function LoginPage({ onLogin, onRegister }) {
   const [mode, setMode] = useState('user'); // 'user' | 'admin' | 'register'
@@ -92,19 +93,25 @@ export default function LoginPage({ onLogin, onRegister }) {
         {/* Header Branding */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{
-            width: '56px',
-            height: '56px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, var(--primary, #6366f1), var(--secondary, #a855f7))',
+            width: '80px',
+            height: '80px',
+            margin: '0 auto 1.2rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            margin: '0 auto 1rem',
-            boxShadow: '0 8px 16px rgba(99, 102, 241, 0.3)'
+            filter: 'drop-shadow(0 6px 16px rgba(0, 0, 0, 0.12))'
           }}>
-            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '1.4rem' }}>JEC</span>
+            <img 
+              src={logoImg} 
+              alt="Jaya Educational Trust Logo" 
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain'
+              }} 
+            />
           </div>
-          <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#1e293b', fontWeight: 800 }}>
+          <h2 style={{ margin: 0, fontSize: '1.45rem', color: '#1e293b', fontWeight: 800 }}>
             Jaya Engineering College
           </h2>
           <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>

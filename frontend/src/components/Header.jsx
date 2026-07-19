@@ -1,5 +1,6 @@
 import React from 'react';
 import { Upload, CheckSquare, RefreshCw, Download, ShieldCheck, LogOut, User } from 'lucide-react';
+import logoImg from '../assets/image.png';
 
 export default function Header({
   config,
@@ -44,25 +45,22 @@ export default function Header({
       gap: '1rem'
     }}>
       {/* 1. Left Section: Logo & Branding */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <div style={{
-          width: '36px',
-          height: '36px',
-          borderRadius: '8px',
-          background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 4px 10px rgba(24, 90, 189, 0.25)',
-          flexShrink: 0
-        }}>
-          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.95rem' }}>JEC</span>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+        <img 
+          src={logoImg} 
+          alt="Jaya Engineering College Logo" 
+          style={{
+            height: '44px',
+            width: 'auto',
+            objectFit: 'contain',
+            flexShrink: 0
+          }} 
+        />
         <div>
-          <h2 style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0, lineHeight: 1.1 }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-main)', margin: 0, lineHeight: 1.1 }}>
             Jaya Engineering College
           </h2>
-          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
             Exam Cell Orchestrator
           </span>
         </div>
