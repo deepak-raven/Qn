@@ -288,27 +288,27 @@ export default function AdminTab({
                         <td style={{ padding: '0.75rem 1rem' }}>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <strong style={{ color: 'var(--text-main)', fontSize: '0.9rem' }}>{user.uploader_name}</strong>
-                            <span style={{ fontSize: '0.75rem', color: 'var(--text-dimmed)' }}>@{user.uploader_name.toLowerCase().replace(/\s+/g, '')}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-dimmed)' }}>@{user.username}</span>
                           </div>
                         </td>
                         <td style={{ padding: '0.75rem 1rem' }}>
                           <span className="tag tag-unit" style={{
-                            background: user.uploader_name.toLowerCase().includes('admin') ? '#fee2e2' : '#e0e7ff',
-                            color: user.uploader_name.toLowerCase().includes('admin') ? '#dc2626' : '#4338ca'
+                            background: user.role === 'admin' ? '#fee2e2' : '#e0e7ff',
+                            color: user.role === 'admin' ? '#dc2626' : '#4338ca'
                           }}>
-                            {user.uploader_name.toLowerCase().includes('admin') ? 'Administrator' : 'Faculty'}
+                            {user.role === 'admin' ? 'Administrator' : user.role === 'guest' ? 'Guest Uploader' : 'Faculty'}
                           </span>
                         </td>
                         <td style={{ padding: '0.75rem 1rem' }}>{user.subjects_count} QB(s)</td>
                         <td style={{ padding: '0.75rem 1rem' }}>{user.questions_count} questions</td>
                         <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{user.storage_formatted}</td>
                         <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                          {user.uploader_name.toLowerCase() !== 'admin' && user.uploader_name.toLowerCase() !== 'administrator' ? (
+                          {user.role !== 'admin' && user.username !== 'admin' ? (
                             <button
                               type="button"
                               className="btn"
                               style={{ padding: '0.35rem 0.65rem', fontSize: '0.75rem', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
-                              onClick={() => setDeleteUserConfirm(user.uploader_name)}
+                              onClick={() => setDeleteUserConfirm(user.username)}
                               title="Delete user account"
                             >
                               <Trash2 size={13} /> Remove User

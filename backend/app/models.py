@@ -66,18 +66,23 @@ class RegisterRequest(BaseModel):
     username: str
     password: str
     name: str
-    email: Optional[str] = ""
+    email: str
     role: Optional[str] = "user" # "user" or "admin"
 
     @field_validator('username')
     @classmethod
-    def validate_username_email(cls, v: str) -> str:
+    def validate_username(cls, v: str) -> str:
+        username = v.strip().lower()
+        if not re.match(r'^[a-zA-Z0-9_\-\.]{3,30}$', username):
+            raise ValueError('Username must be 3-30 characters long and contain only letters, numbers, underscores, hyphens, or dots.')
+        return username
+
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v: str) -> str:
         email = v.strip().lower()
         if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
-            raise ValueError('Username must be a valid email address.')
-        domain = email.split('@')[-1]
-        if domain not in ALLOWED_DOMAINS:
-            raise ValueError(f"Registration is restricted to conventional email providers (e.g. {', '.join(sorted(ALLOWED_DOMAINS))}).")
+            raise ValueError('Please enter a valid email address.')
         return email
 
 class TokenResponse(BaseModel):
@@ -93,11 +98,8 @@ class AdminCreateUserRequest(BaseModel):
 
     @field_validator('username')
     @classmethod
-    def validate_username_email(cls, v: str) -> str:
-        email = v.strip().lower()
-        if not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
-            raise ValueError('Username must be a valid email address.')
-        domain = email.split('@')[-1]
-        if domain not in ALLOWED_DOMAINS:
-            raise ValueError(f"Username must be a conventional email address (e.g. {', '.join(sorted(ALLOWED_DOMAINS))}).")
-        return email
+    def validate_username(cls, v: str) -> str:
+        username = v.strip().lower()
+        if not re.match(r'^[a-zA-Z0-9_\-\.]{3,30}$', username):
+            raise ValueError('Username must be 3-30 characters long and contain only letters, numbers, underscores, hyphens, or dots.')
+        return username

@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
-import { Shield, KeyRound, UserPlus, LogIn, AlertCircle, Sparkles } from 'lucide-react';
-
-const ALLOWED_DOMAINS = [
-  'gmail.com', 'outlook.com', 'yahoo.com', 'hotmail.com', 
-  'icloud.com', 'zoho.com', 'proton.me', 'protonmail.com'
-];
+import { Shield, KeyRound, UserPlus, LogIn, AlertCircle } from 'lucide-react';
 
 export default function LoginPage({ onLogin, onRegister }) {
   const [mode, setMode] = useState('user'); // 'user' | 'admin' | 'register'
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -20,27 +16,46 @@ export default function LoginPage({ onLogin, onRegister }) {
     setLoading(true);
 
     try {
-      if (mode === 'register') {
+      const identifierVal = username.trim().toLowerCase();
+      
+      // Admin username check
+      if (mode === 'admin') {
+        await onLogin(identifierVal, password);
+      } else if (mode === 'register') {
         if (!name.trim()) throw new Error('Full Name is required.');
-        const emailVal = username.trim().toLowerCase();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(emailVal)) {
-          throw new Error('Please enter a valid email address for your username.');
+        
+        const usernameVal = username.trim().toLowerCase();
+        const usernameRegex = /^[a-zA-Z0-9_\-\.]{3,30}$/;
+        if (!usernameRegex.test(usernameVal)) {
+          throw new Error('Username must be 3-30 characters long and contain only letters, numbers, underscores, hyphens, or dots.');
         }
-        const domain = emailVal.split('@')[1];
-        if (!ALLOWED_DOMAINS.includes(domain)) {
-          throw new Error(`Registration is restricted to conventional email providers (Gmail, Outlook, Yahoo, Hotmail, iCloud, Zoho, Proton).`);
-        }
-        await onRegister(emailVal, password, name.trim(), emailVal);
-      } else if (mode === 'user') {
-        const emailVal = username.trim().toLowerCase();
+
+        const emailVal = email.trim().toLowerCase();
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(emailVal)) {
           throw new Error('Please enter a valid email address.');
         }
-        await onLogin(emailVal, password);
+
+        await onRegister(usernameVal, password, name.trim(), emailVal);
       } else {
-        await onLogin(username.trim(), password);
+        // Faculty Login (Username or Email)
+        if (!identifierVal) {
+          throw new Error('Username or Email is required.');
+        }
+        
+        if (identifierVal.includes('@')) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(identifierVal)) {
+            throw new Error('Please enter a valid email address.');
+          }
+        } else {
+          const usernameRegex = /^[a-zA-Z0-9_\-\.]{3,30}$/;
+          if (!usernameRegex.test(identifierVal)) {
+            throw new Error('Username must be 3-30 characters long and contain only letters, numbers, underscores, hyphens, or dots.');
+          }
+        }
+        
+        await onLogin(identifierVal, password);
       }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please check credentials.');
@@ -110,7 +125,7 @@ export default function LoginPage({ onLogin, onRegister }) {
           <button
             type="button"
             className={`btn ${mode === 'user' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('user'); setError(''); setUsername(''); setPassword(''); }}
+            onClick={() => { setMode('user'); setError(''); setUsername(''); setPassword(''); setEmail(''); }}
             style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'user' ? undefined : 'transparent', color: mode === 'user' ? undefined : '#475569' }}
           >
             <KeyRound size={14} /> Faculty
@@ -119,7 +134,7 @@ export default function LoginPage({ onLogin, onRegister }) {
           <button
             type="button"
             className={`btn ${mode === 'admin' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('admin'); setError(''); setUsername(''); setPassword(''); }}
+            onClick={() => { setMode('admin'); setError(''); setUsername(''); setPassword(''); setEmail(''); }}
             style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'admin' ? undefined : 'transparent', color: mode === 'admin' ? undefined : '#475569' }}
           >
             <Shield size={14} /> Admin
@@ -128,7 +143,7 @@ export default function LoginPage({ onLogin, onRegister }) {
           <button
             type="button"
             className={`btn ${mode === 'register' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('register'); setError(''); setUsername(''); setPassword(''); }}
+            onClick={() => { setMode('register'); setError(''); setUsername(''); setPassword(''); setEmail(''); }}
             style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'register' ? undefined : 'transparent', color: mode === 'register' ? undefined : '#475569' }}
           >
             <UserPlus size={14} /> Register
@@ -172,17 +187,31 @@ export default function LoginPage({ onLogin, onRegister }) {
 
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">
-              {mode === 'register' ? 'Staff Email (Username)' : mode === 'admin' ? 'Admin Username' : 'Staff Email'}
+              {mode === 'register' ? 'Choose Username' : mode === 'admin' ? 'Admin Username' : 'Username or Email'}
             </label>
             <input
-              type={mode === 'admin' ? 'text' : 'email'}
+              type="text"
               className="form-input"
-              placeholder={mode === 'admin' ? 'admin' : 'name@gmail.com'}
+              placeholder={mode === 'admin' ? 'admin' : mode === 'register' ? 'choose username' : 'enter username or email'}
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
             />
           </div>
+
+          {mode === 'register' && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Email Address</label>
+              <input
+                type="email"
+                className="form-input"
+                placeholder="name@gmail.com"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Password</label>

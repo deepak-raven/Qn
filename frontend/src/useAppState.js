@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSetsManager, DEFAULT_CONFIG } from './hooks/useSetsManager';
+import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot } from './hooks/useSetsManager';
 import { useTOSCalculator } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
 
@@ -208,9 +208,19 @@ export function useAppState() {
       } else {
         if (activeTabSub === 'A') {
           const reqCount = (config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2') ? 5 : 10;
-          const emptyIdx = set.selectedPartA.findIndex(item => item === null);
-          if (emptyIdx === -1 || emptyIdx >= reqCount) {
-            alert(`All ${reqCount} Part A slots are full.`);
+          // Find first empty slot where the question's unit is allowed
+          let emptyIdx = -1;
+          for (let i = 0; i < reqCount; i++) {
+            if (set.selectedPartA[i] === null) {
+              const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, i);
+              if (expectedUnits.includes(q.unit)) {
+                emptyIdx = i;
+                break;
+              }
+            }
+          }
+          if (emptyIdx === -1) {
+            alert(`No empty slots available in Part A for ${q.unit}.`);
             return {};
           }
           const next = [...set.selectedPartA];
@@ -310,10 +320,23 @@ export function useAppState() {
       }
       
       if (part === 'A') {
+        const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, index);
+        if (!expectedUnits.includes(q.unit)) {
+          alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in Part A Question ${index + 1}.`);
+          return;
+        }
+        
         updateCurrentSet(set => {
           const next = [...set.selectedPartA];
           if (payload.type === 'preview_a' && payload.index !== undefined) {
             const temp = next[index];
+            if (temp) {
+              const sourceExpectedUnits = getExpectedUnitForPartASlot(config.exam_type, payload.index);
+              if (!sourceExpectedUnits.includes(temp.unit)) {
+                alert(`Swap failed: Question ${index + 1} (${temp.unit}) cannot be placed in Question ${payload.index + 1} (${sourceExpectedUnits.join(' or ')} expected).`);
+                return {};
+              }
+            }
             next[index] = q;
             next[payload.index] = temp;
           } else {

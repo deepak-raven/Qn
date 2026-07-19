@@ -97,6 +97,19 @@ async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
         user["_id"] = str(user["_id"])
     return user
 
+async def get_user_by_username_or_email(identifier: str) -> Optional[Dict[str, Any]]:
+    database = get_db()
+    identifier = identifier.strip().lower()
+    user = await database["users"].find_one({
+        "$or": [
+            {"username": identifier},
+            {"email": identifier}
+        ]
+    })
+    if user:
+        user["_id"] = str(user["_id"])
+    return user
+
 async def get_all_users_list() -> List[Dict[str, Any]]:
     database = get_db()
     cursor = database["users"].find({}, {"password_hash": 0})
@@ -105,8 +118,21 @@ async def get_all_users_list() -> List[Dict[str, Any]]:
         u["_id"] = str(u["_id"])
     return users
 
-async def delete_user(username: str) -> bool:
+async def delete_user(username: str, uploaded_dir: str) -> bool:
     database = get_db()
+    
+    # 1. Find all subjects uploaded by this user
+    cursor = database["subjects"].find({"uploaded_by": username})
+    subjects = await cursor.to_list(length=1000)
+    
+    # 2. Cascade delete all question banks (deletes subjects, questions, and physical files)
+    for sub in subjects:
+        try:
+            await delete_question_bank(sub["code"], sub["semester"], uploaded_dir)
+        except Exception as ex:
+            logger.error(f"Error cascade deleting subject {sub.get('code')} for user {username}: {ex}")
+            
+    # 3. Delete user account
     result = await database["users"].delete_one({"username": username})
     return result.deleted_count > 0
 
@@ -213,22 +239,49 @@ async def get_admin_stats(uploaded_dir: str) -> Dict[str, Any]:
 
 async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
     database = get_db()
-    subjects = await database["subjects"].find({}, {"_id": 0}).to_list(length=1000)
+    
+    # Fetch all registered users
+    users = await database["users"].find({}).to_list(length=1000)
     
     users_map: Dict[str, Dict[str, Any]] = {}
+    for u in users:
+        username = u["username"]
+        users_map[username] = {
+            "username": username,
+            "uploader_name": u.get("name") or username,
+            "role": u.get("role", "user"),
+            "subjects_count": 0,
+            "questions_count": 0,
+            "storage_bytes": 0,
+            "subjects": []
+        }
+        
+    # Fetch all subjects
+    subjects = await database["subjects"].find({}, {"_id": 0}).to_list(length=1000)
     
     for sub in subjects:
-        uploader = sub.get("uploader_name") or "System"
-        if uploader not in users_map:
-            users_map[uploader] = {
-                "uploader_name": uploader,
+        uploaded_by = sub.get("uploaded_by")
+        if not uploaded_by:
+            # Fallback for legacy database records: try matching uploader_name to registered usernames case-insensitively
+            uploader_name_lower = (sub.get("uploader_name") or "").lower()
+            if uploader_name_lower in users_map:
+                uploaded_by = uploader_name_lower
+            else:
+                uploaded_by = "admin"  # Default fallback for system/admin uploads
+                
+        if uploaded_by not in users_map:
+            # Create a guest/legacy entry for unregistered uploader
+            users_map[uploaded_by] = {
+                "username": uploaded_by,
+                "uploader_name": sub.get("uploader_name") or uploaded_by,
+                "role": "guest",
                 "subjects_count": 0,
                 "questions_count": 0,
                 "storage_bytes": 0,
                 "subjects": []
             }
-        
-        users_map[uploader]["subjects_count"] += 1
+            
+        users_map[uploaded_by]["subjects_count"] += 1
         
         # Count only questions uploaded by this uploader for this subject
         q_count = await database["questions"].count_documents({
@@ -236,7 +289,7 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
             "semester": sub["semester"],
             "uploaded_by": sub.get("uploaded_by")
         })
-        users_map[uploader]["questions_count"] += q_count
+        users_map[uploaded_by]["questions_count"] += q_count
         
         file_size = 0
         qb_filename = sub.get("qb_filename")
@@ -244,9 +297,9 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
             fp = os.path.join(uploaded_dir, qb_filename)
             if os.path.exists(fp):
                 file_size = os.path.getsize(fp)
-        
-        users_map[uploader]["storage_bytes"] += file_size
-        users_map[uploader]["subjects"].append({
+                
+        users_map[uploaded_by]["storage_bytes"] += file_size
+        users_map[uploaded_by]["subjects"].append({
             "code": sub["code"],
             "name": sub["name"],
             "semester": sub["semester"],
@@ -257,7 +310,7 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
             "file_size_formatted": format_bytes(file_size)
         })
 
-    user_list = list(users_map.values())
+    user_list = [u for u in users_map.values() if u.get("role") != "guest"]
     for u in user_list:
         u["storage_formatted"] = format_bytes(u["storage_bytes"])
         

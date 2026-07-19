@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Upload, AlertCircle, ChevronRight } from 'lucide-react';
+import { FileText, Upload, AlertCircle, ChevronRight, Trash2 } from 'lucide-react';
 
 export default function UploadTab({
   API_BASE,
@@ -45,12 +45,9 @@ export default function UploadTab({
     }
   }, [auth?.user]);
 
-  // Curriculum dropdown states
-  const [selReg, setSelReg] = useState('2021');
-  const [selSemNum, setSelSemNum] = useState('1');
-  const [selCurriculumSubCode, setSelCurriculumSubCode] = useState('');
   const [uploadStatus, setUploadStatus] = useState('');
   const [showManualFields, setShowManualFields] = useState(false);
+  const [mappedSubject, setMappedSubject] = useState(null);
 
   // Fetch existing questions when upCode matches an already imported subject
   useEffect(() => {
@@ -87,51 +84,22 @@ export default function UploadTab({
     '5': 'V',
     '6': 'VI',
     '7': 'VII',
-    '8': 'VIII'
-  };
-
-  useEffect(() => {
-    const regData = curriculumData.curriculum_data.find(r => r.regulation === selReg);
-    if (!regData) return;
-    
-    // Filter subjects by selected semester number
-    const filteredSubs = regData.subjects.filter(s => s.semester.toString() === selSemNum.toString());
-    
-    if (filteredSubs.length > 0) {
-      const exists = filteredSubs.some(s => s.sub_code === selCurriculumSubCode);
-      const targetSub = exists ? filteredSubs.find(s => s.sub_code === selCurriculumSubCode) : filteredSubs[0];
-      
-      setSelCurriculumSubCode(targetSub.sub_code);
-      setUpCode(targetSub.sub_code);
-      setUpName(targetSub.sub_name);
-      setUpReg(selReg);
-      setUpSem(semesterRomanMap[selSemNum.toString()] || selSemNum.toString());
-    } else {
-      setSelCurriculumSubCode('');
-      setUpCode('');
-      setUpName('');
-      setUpReg(selReg);
-      setUpSem(semesterRomanMap[selSemNum.toString()] || selSemNum.toString());
-    }
-  }, [selReg, selSemNum, curriculumData]);
-
-  const handleCurriculumSubjectChange = (code) => {
-    setSelCurriculumSubCode(code);
-    const regData = curriculumData.curriculum_data.find(r => r.regulation === selReg);
-    if (!regData) return;
-    const sub = regData.subjects.find(s => s.sub_code === code);
-    if (sub) {
-      setUpCode(sub.sub_code);
-      setUpName(sub.sub_name);
-      setUpReg(selReg);
-      setUpSem(semesterRomanMap[selSemNum.toString()] || selSemNum.toString());
-    }
+    '8': 'VIII',
+    'I': 'I',
+    'II': 'II',
+    'III': 'III',
+    'IV': 'IV',
+    'V': 'V',
+    'VI': 'VI',
+    'VII': 'VII',
+    'VIII': 'VIII'
   };
 
   const handleFileChange = async (e) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setSelectedFile(file);
+      setMappedSubject(null);
       
       const formData = new FormData();
       formData.append('file', file);
@@ -145,48 +113,64 @@ export default function UploadTab({
         
         if (res.ok) {
           const data = await res.json();
-          let detectedMsg = [];
-          if (data.subject_code) {
-            setUpCode(data.subject_code);
-            detectedMsg.push(`Code: ${data.subject_code}`);
-          }
-          if (data.subject_name) {
-            setUpName(data.subject_name);
-            detectedMsg.push(`Name: ${data.subject_name}`);
-          }
-          if (data.semester) {
-            setUpSem(data.semester);
-            detectedMsg.push(`Semester: ${data.semester}`);
-          }
-          if (data.regulation) {
-            setUpReg(data.regulation);
-            detectedMsg.push(`Regulation: ${data.regulation}`);
-          }
-          
-          if (detectedMsg.length > 0) {
-            setUploadStatus(`Auto-detected: ${detectedMsg.join(', ')}`);
-            // Attempt to update curriculum dropdown selection if there is a match in our syllabus list
-            if (curriculumData && curriculumData.curriculum_data) {
-              const regData = curriculumData.curriculum_data.find(r => r.regulation === data.regulation);
-              if (regData) {
-                const matchedSub = regData.subjects.find(s => s.sub_code === data.subject_code);
-                if (matchedSub) {
-                  setSelReg(data.regulation);
-                  setSelSemNum(matchedSub.semester.toString());
-                  setSelCurriculumSubCode(matchedSub.sub_code);
-                }
+          let detectedCode = data.subject_code || '';
+          let detectedName = data.subject_name || '';
+          let detectedSem = data.semester || '';
+          let detectedReg = data.regulation || '2021';
+
+          let matchedSub = null;
+          let matchedReg = null;
+
+          if (detectedCode && curriculumData && curriculumData.curriculum_data) {
+            for (const regGroup of curriculumData.curriculum_data) {
+              const sub = regGroup.subjects.find(
+                s => s.sub_code.toLowerCase().trim() === detectedCode.toLowerCase().trim()
+              );
+              if (sub) {
+                matchedSub = sub;
+                matchedReg = regGroup.regulation;
+                break;
               }
             }
+          }
+
+          if (matchedSub) {
+            setUpCode(matchedSub.sub_code);
+            setUpName(matchedSub.sub_name);
+            setUpSem(semesterRomanMap[matchedSub.semester.toString()] || matchedSub.semester.toString());
+            setUpReg(matchedReg);
+            setMappedSubject({ ...matchedSub, regulation: matchedReg });
+            setUploadStatus(`Auto-detected and successfully mapped to curriculum: [${matchedSub.sub_code}] ${matchedSub.sub_name}`);
+            setShowManualFields(false);
           } else {
-            setUploadStatus('No details could be auto-detected from the file. Please select in dropdown or manually enter them.');
+            setUpCode(detectedCode);
+            setUpName(detectedName);
+            setUpSem(detectedSem);
+            setUpReg(detectedReg);
+            setMappedSubject(null);
+            setShowManualFields(true); // Automatically show manual edit fields since mapping failed
+            if (detectedCode || detectedName) {
+              setUploadStatus(`Auto-detected: ${detectedCode ? `Code: ${detectedCode}` : ''} ${detectedName ? `, Name: ${detectedName}` : ''}. (Could not map to official syllabus)`);
+            } else {
+              setUploadStatus('Could not detect details from the file. Please enter details manually.');
+            }
           }
         } else {
           setUploadStatus('');
+          setShowManualFields(true);
         }
       } catch (err) {
         console.error("Error analyzing file:", err);
         setUploadStatus('');
+        setShowManualFields(true);
       }
+    } else {
+      setSelectedFile(null);
+      setMappedSubject(null);
+      setUpCode('');
+      setUpName('');
+      setUpSem('');
+      setUpReg('2021');
     }
   };
 
@@ -228,6 +212,38 @@ export default function UploadTab({
     }
   };
 
+  const handleDeleteSubject = async (e, subjectCode, semester) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to delete the question bank for [${subjectCode}] ${semester}? This will permanently remove all its questions from the database.`)) {
+      return;
+    }
+    
+    try {
+      const token = auth?.token || localStorage.getItem('jec_auth_token') || '';
+      const res = await fetch(`${API_BASE}/subjects/${subjectCode}/${semester}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (res.ok) {
+        alert('Question bank deleted successfully.');
+        fetchSubjects();
+        if (selectedSubCode === subjectCode) {
+          setSelectedSubCode('');
+        }
+      } else {
+        const data = await res.json();
+        alert(`Deletion failed: ${data.detail || 'Unknown error'}`);
+        fetchSubjects(); // Refresh in case the item was already deleted
+      }
+    } catch (err) {
+      console.error("Error deleting subject:", err);
+      alert(`Network error: ${err.message}`);
+    }
+  };
+
   const existingSubject = subjects.find(s => s.code === upCode);
   const isQBAvailable = !!existingSubject;
 
@@ -235,90 +251,93 @@ export default function UploadTab({
     <div className="dashboard-grid">
       <div className="glass-panel card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <form onSubmit={handleUploadQuestionBank} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Jaya College Curriculum Quick-Selector */}
-          <div style={{ background: '#f3f2f1', padding: '1rem', borderRadius: '4px', border: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <h4 style={{ fontSize: '0.9rem', color: 'var(--primary)', margin: 0, fontWeight: 700 }}>
-              Jaya Engineering College Curriculum Quick-Selector
-            </h4>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
-              Select a subject from the official syllabus database to auto-fill details below.
-            </p>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0.75rem' }}>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Regulation</label>
-                <select 
-                  className="form-select" 
-                  value={selReg} 
-                  onChange={e => setSelReg(e.target.value)}
-                  style={{ fontSize: '0.82rem', padding: '0.4rem 0.5rem' }}
-                >
-                  <option value="2021">2021 Regulation</option>
-                  <option value="2025">2025 Regulation</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Semester</label>
-                <select 
-                  className="form-select" 
-                  value={selSemNum} 
-                  onChange={e => setSelSemNum(e.target.value)}
-                  style={{ fontSize: '0.82rem', padding: '0.4rem 0.5rem' }}
-                >
-                  {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                    <option key={n} value={n.toString()}>Semester {n}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Subject</label>
-                <select 
-                  className="form-select" 
-                  value={selCurriculumSubCode} 
-                  onChange={e => handleCurriculumSubjectChange(e.target.value)}
-                  style={{ fontSize: '0.82rem', padding: '0.4rem 0.5rem' }}
-                >
-                  {(() => {
-                    const regData = curriculumData.curriculum_data.find(r => r.regulation === selReg);
-                    const filtered = regData ? regData.subjects.filter(s => s.semester.toString() === selSemNum.toString()) : [];
-                    if (filtered.length === 0) {
-                      return <option value="">No subjects found</option>;
-                    }
-                    return filtered.map(s => (
-                      <option key={s.sub_code} value={s.sub_code}>
-                        [{s.sub_code}] {s.sub_name}
-                      </option>
-                    ));
-                  })()}
-                </select>
-              </div>
-            </div>
-            
-            {/* Common Branches Badge List */}
-            {(() => {
-              const regData = curriculumData.curriculum_data.find(r => r.regulation === selReg);
-              const sub = regData ? regData.subjects.find(s => s.sub_code === selCurriculumSubCode) : null;
-              if (sub && sub.common_branches && sub.common_branches.length > 0) {
-                return (
-                  <div style={{ marginTop: '0.25rem' }}>
+          {/* Automated Curriculum Mapping Result Card */}
+          {selectedFile && (
+            mappedSubject ? (
+              <div style={{ 
+                background: 'var(--primary-light)', 
+                border: '1px solid var(--primary)', 
+                borderRadius: '8px', 
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                textAlign: 'left'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>
+                  <span style={{ fontSize: '1.1rem' }}>✔</span> Mapped to Official Syllabus
+                </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.25rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Subject Code</span>
+                    <strong>{mappedSubject.sub_code}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Subject Name</span>
+                    <strong>{mappedSubject.sub_name}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Regulation</span>
+                    <strong>{mappedSubject.regulation} Regulation</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Semester</span>
+                    <strong>Semester {mappedSubject.semester} ({semesterRomanMap[mappedSubject.semester.toString()] || mappedSubject.semester})</strong>
+                  </div>
+                </div>
+                {mappedSubject.common_branches && mappedSubject.common_branches.length > 0 && (
+                  <div style={{ marginTop: '0.5rem', borderTop: '1px dashed rgba(0,0,0,0.08)', paddingTop: '0.5rem' }}>
                     <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>
                       Common Branches:
                     </span>
                     <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                      {sub.common_branches.map((b, idx) => (
+                      {mappedSubject.common_branches.map((b, idx) => (
                         <span key={idx} className="tag tag-unit" style={{ fontSize: '0.65rem', background: '#edebe9', color: '#323130', borderColor: '#dad9d8' }}>
                           {b}
                         </span>
                       ))}
                     </div>
                   </div>
-                );
-              }
-              return null;
-            })()}
-          </div>
+                )}
+              </div>
+            ) : (
+              <div style={{ 
+                background: '#fff9e6', 
+                border: '1px solid #ffe0b2', 
+                borderRadius: '8px', 
+                padding: '1.25rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem',
+                textAlign: 'left'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b78103', fontWeight: 700, fontSize: '0.9rem' }}>
+                  <span style={{ fontSize: '1.1rem' }}>⚠</span> Not Found in Official Syllabus
+                </div>
+                <p style={{ fontSize: '0.75rem', color: '#666', margin: 0 }}>
+                  The uploaded question bank could not be mapped to any known syllabus entry in the database.
+                </p>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.25rem' }}>
+                  <div>
+                    <span style={{ color: '#b78103', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Detected Code</span>
+                    <strong>{upCode || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#b78103', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Detected Name</span>
+                    <strong>{upName || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#b78103', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Regulation</span>
+                    <strong>{upReg || 'N/A'}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: '#b78103', display: 'block', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Semester</span>
+                    <strong>{upSem || 'N/A'}</strong>
+                  </div>
+                </div>
+              </div>
+            )
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.25rem 0' }}>
             <input 
@@ -497,18 +516,6 @@ export default function UploadTab({
             </div>
           ) : (
             <>
-              <div className="form-group">
-                <label className="form-label">Uploader Name</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
-                  value={uploaderName} 
-                  onChange={e => setUploaderName(e.target.value)} 
-                  placeholder="e.g. Dr. K. Deepak" 
-                  disabled
-                  required
-                />
-              </div>
 
               <div className="form-group">
                 <label className="form-label">Question Bank File (.docx, .pdf, .doc)</label>
@@ -624,7 +631,32 @@ export default function UploadTab({
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{sub.code}</span>
-                  <span className="tag tag-unit" style={{ fontSize: '0.7rem' }}>Reg {sub.regulation}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="tag tag-unit" style={{ fontSize: '0.7rem' }}>Reg {sub.regulation}</span>
+                    {(sub.uploaded_by === auth?.user?.username || auth?.user?.role === 'admin') && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteSubject(e, sub.code, sub.semester)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#e05656',
+                          cursor: 'pointer',
+                          padding: '0.2rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: '4px',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#feecef'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        title="Delete Question Bank"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>{sub.name}</p>
 

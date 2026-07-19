@@ -224,22 +224,22 @@ def parse_text_metadata(text: str) -> dict:
         "regulation": None
     }
     
-    match_both = re.search(r'(?:Sub\.\s*Code/Sub\.\s*Name|Sub\s*Code\s*/\s*Sub\s*Name)\s*:\s*([A-Za-z0-9\-]+)\s*/\s*([^\n\r]+)', text, re.IGNORECASE)
+    match_both = re.search(r'(?:Sub\.[ \t]*Code/Sub\.[ \t]*Name|Sub[ \t]*Code[ \t]*/[ \t]*Sub[ \t]*Name)[ \t]*:[ \t]*([A-Za-z0-9\-]+)[ \t]*/[ \t]*([^\n\r]+)', text, re.IGNORECASE)
     if match_both:
         metadata["subject_code"] = match_both.group(1).strip()
         metadata["subject_name"] = match_both.group(2).strip()
     else:
-        match_code = re.search(r'Subject\s*Code\s*:\s*([A-Za-z0-9\-]+)', text, re.IGNORECASE)
+        match_code = re.search(r'Subject[ \t]*Code[ \t]*:[ \t]*([A-Za-z0-9\-]+)', text, re.IGNORECASE)
         if match_code:
             metadata["subject_code"] = match_code.group(1).strip()
             
-        match_name = re.search(r'Subject\s*:\s*([^:\n\r\t]+)', text, re.IGNORECASE)
+        match_name = re.search(r'Subject[ \t]*:[ \t]*([^:\n\r\t]+)', text, re.IGNORECASE)
         if match_name:
             name_val = match_name.group(1).strip()
             name_val = re.split(r'\s{2,}', name_val)[0]
             metadata["subject_name"] = name_val.strip()
 
-    match_sem_line = re.search(r'(?:Sem|Semester|Year\s*/\s*Sem)\s*:\s*([^\n\r\t]+)', text, re.IGNORECASE)
+    match_sem_line = re.search(r'(?:Sem|Semester|Year[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
     if match_sem_line:
         sem_str = match_sem_line.group(1).strip()
         sem_str = re.split(r'\s{2,}', sem_str)[0]
@@ -247,16 +247,16 @@ def parse_text_metadata(text: str) -> dict:
             sem_str = sem_str.split("/")[-1].strip()
         metadata["semester"] = sem_str
     else:
-        match_branch_sem = re.search(r'(?:Degree\s*/\s*Branch\s*/\s*Sem)\s*:\s*([^\n\r]+)', text, re.IGNORECASE)
+        match_branch_sem = re.search(r'(?:Degree[ \t]*/[ \t]*Branch[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r]+)', text, re.IGNORECASE)
         if match_branch_sem:
             sem_str = match_branch_sem.group(1).strip().split("/")[-1].strip()
             metadata["semester"] = sem_str
 
-    match_reg = re.search(r'Regulation\s*:\s*(\d{4})', text, re.IGNORECASE)
+    match_reg = re.search(r'Regulation[ \t]*:[ \t]*(\d{4})', text, re.IGNORECASE)
     if match_reg:
         metadata["regulation"] = match_reg.group(1).strip()
     else:
-        match_reg_dash = re.search(r'(\d{4})\s*-\s*Regulation', text, re.IGNORECASE)
+        match_reg_dash = re.search(r'(\d{4})[ \t]*-[ \t]*Regulation', text, re.IGNORECASE)
         if match_reg_dash:
             metadata["regulation"] = match_reg_dash.group(1).strip()
             

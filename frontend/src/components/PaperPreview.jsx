@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, GripVertical } from 'lucide-react';
+import { getExpectedUnitForPartASlot } from '../hooks/useSetsManager';
 
 export default function PaperPreview({
   config,
@@ -356,7 +357,7 @@ export default function PaperPreview({
                         setFilterUnit('All');
                       }}
                     >
-                      [Drop target for Part A question card]
+                      [Drop target for Part A: {getExpectedUnitForPartASlot(config.exam_type, idx).join('/')}]
                     </span>
                   )}
                 </td>

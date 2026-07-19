@@ -22,6 +22,22 @@ export function getSlotCounts(exam_type) {
   return { partA: 10, partB: 5, partC: 1, defaultMarks: 100, defaultTime: '3 Hours' };
 }
 
+export function getExpectedUnitForPartASlot(examType, index) {
+  if (examType === 'IAT-1') {
+    if (index === 0 || index === 1) return ['Unit I'];
+    if (index === 2 || index === 3) return ['Unit II'];
+    return ['Unit I', 'Unit II'];
+  }
+  if (examType === 'IAT-2') {
+    if (index === 0 || index === 1) return ['Unit III'];
+    if (index === 2 || index === 3) return ['Unit IV'];
+    return ['Unit III', 'Unit IV'];
+  }
+  // MODEL EXAMINATION
+  const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
+  return [units[index]];
+}
+
 export function createDefaultSetData(config) {
   const counts = getSlotCounts(config.exam_type);
   return {

@@ -28,9 +28,11 @@ from app.database import (
     get_user_storage_breakdown,
     get_all_uploads_detailed,
     delete_question_bank,
+    get_db,
     create_user,
     delete_user,
-    get_user_by_username
+    get_user_by_username,
+    get_user_by_username_or_email
 )
 from app.auth import (
     hash_password,
@@ -161,7 +163,7 @@ async def register(payload: RegisterRequest):
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(payload: LoginRequest):
     username = payload.username.strip().lower()
-    user = await get_user_by_username(username)
+    user = await get_user_by_username_or_email(username)
     if not user or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -461,6 +463,41 @@ async def delete_subject_bank(subject_code: str, semester: str, admin_user: Dict
         logger.error(f"Error deleting question bank: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete question bank.")
 
+@app.delete("/api/subjects/{subject_code}/{semester}")
+async def delete_user_subject_bank(
+    subject_code: str,
+    semester: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    try:
+        database = get_db()
+        subject = await database["subjects"].find_one({"code": subject_code, "semester": semester})
+        if not subject:
+            subject = await database["subjects"].find_one({"code": subject_code})
+            
+        if not subject:
+            raise HTTPException(status_code=404, detail="Question bank not found.")
+            
+        is_admin = current_user.get("role") == "admin"
+        is_owner = subject.get("uploaded_by") == current_user["username"]
+        
+        if not (is_admin or is_owner):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to delete this question bank. It was uploaded by another user."
+            )
+            
+        success = await delete_question_bank(subject["code"], subject["semester"], UPLOADED_QBS_DIR)
+        if not success:
+            raise HTTPException(status_code=404, detail="Question bank not found.")
+            
+        return {"status": "success", "message": f"Question bank {subject_code} deleted successfully."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting question bank: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete question bank.")
+
 @app.post("/api/admin/users")
 async def create_user_by_admin(
     payload: AdminCreateUserRequest,
@@ -495,7 +532,7 @@ async def remove_user_by_admin(
         raise HTTPException(status_code=400, detail="Cannot delete default system administrator account.")
         
     try:
-        success = await delete_user(username)
+        success = await delete_user(username, UPLOADED_QBS_DIR)
         if not success:
             raise HTTPException(status_code=404, detail=f"User '{username}' not found.")
         return {"status": "success", "message": f"User '{username}' deleted successfully."}
