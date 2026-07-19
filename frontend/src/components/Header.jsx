@@ -61,7 +61,7 @@ export default function Header({
             Jaya Engineering College
           </h2>
           <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 500 }}>
-            Exam Cell Orchestrator
+            Question Paper Generator
           </span>
         </div>
       </div>

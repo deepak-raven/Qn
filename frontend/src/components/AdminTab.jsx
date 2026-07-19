@@ -559,7 +559,7 @@ export default function AdminTab({
                 Are you sure you want to delete user account <strong>{deleteUserConfirm}</strong>?
               </p>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-                This user will no longer be able to log in to the Exam Cell system.
+                This user will no longer be able to log in to the Question Paper Generator system.
               </p>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                 <button className="btn" onClick={() => setDeleteUserConfirm(null)}>
