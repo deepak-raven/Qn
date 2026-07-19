@@ -89,13 +89,26 @@ app = FastAPI(
 )
 
 # CORS Configuration
+allowed_cors_origins = settings.CORS_ORIGINS if "*" not in settings.CORS_ORIGINS else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=allowed_cors_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app|http://localhost:\d+|http://127\.0\.0\.1:\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/")
+@app.get("/api/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "service": "Question Paper Generator API",
+        "version": "2.0.0"
+    }
+
 
 # Exception Handlers
 @app.exception_handler(HTTPException)
@@ -448,12 +461,15 @@ async def create_user_by_admin(
         if existing:
             raise HTTPException(status_code=400, detail=f"Username '{payload.username}' already exists.")
         
-        user_data = await create_user(
-            username=payload.username,
-            name=payload.name,
-            password=payload.password,
-            role=payload.role
-        )
+        user_doc = {
+            "username": payload.username.strip().lower(),
+            "name": payload.name.strip(),
+            "email": "",
+            "password_hash": hash_password(payload.password),
+            "role": payload.role if payload.role in ["user", "admin"] else "user",
+            "created_at": datetime.utcnow().isoformat()
+        }
+        user_data = await create_user(user_doc)
         return {"status": "success", "message": f"User '{payload.username}' created successfully.", "user": user_data}
     except HTTPException:
         raise

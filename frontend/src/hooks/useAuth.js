@@ -40,41 +40,55 @@ export function useAuth() {
   };
 
   const login = async (username, password) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.detail || 'Login failed');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `Login failed with status ${res.status}`);
+      }
+
+      setToken(data.access_token);
+      setUser(data.user);
+      localStorage.setItem('jec_auth_token', data.access_token);
+      localStorage.setItem('jec_auth_user', JSON.stringify(data.user));
+      return data.user;
+    } catch (err) {
+      if (err.name === 'TypeError' || err.message?.includes('fetch')) {
+        throw new Error('Unable to reach backend server. If using Render free tier, the backend may be spinning up (wait ~30 seconds and try again) or check VITE_API_BASE_URL & CORS configuration.');
+      }
+      throw err;
     }
-
-    setToken(data.access_token);
-    setUser(data.user);
-    localStorage.setItem('jec_auth_token', data.access_token);
-    localStorage.setItem('jec_auth_user', JSON.stringify(data.user));
-    return data.user;
   };
 
   const register = async (username, password, name, email) => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, name, email, role: 'user' })
-    });
+    try {
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, name, email, role: 'user' })
+      });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.detail || 'Registration failed');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `Registration failed with status ${res.status}`);
+      }
+
+      setToken(data.access_token);
+      setUser(data.user);
+      localStorage.setItem('jec_auth_token', data.access_token);
+      localStorage.setItem('jec_auth_user', JSON.stringify(data.user));
+      return data.user;
+    } catch (err) {
+      if (err.name === 'TypeError' || err.message?.includes('fetch')) {
+        throw new Error('Unable to reach backend server. Please verify backend service status on Render.');
+      }
+      throw err;
     }
-
-    setToken(data.access_token);
-    setUser(data.user);
-    localStorage.setItem('jec_auth_token', data.access_token);
-    localStorage.setItem('jec_auth_user', JSON.stringify(data.user));
-    return data.user;
   };
 
   const logout = () => {
