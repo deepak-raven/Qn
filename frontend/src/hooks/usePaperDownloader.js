@@ -5,7 +5,7 @@ export function usePaperDownloader() {
   const [downloading, setDownloading] = useState(false);
 
   const generatePaper = async (config, selectedPartA, selectedPartB, selectedPartC) => {
-    const isIAT = config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2';
+    const isIAT = config.exam_type === 'CAT-1' || config.exam_type === 'CAT-2' || config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2';
     const reqPartA = isIAT ? 5 : 10;
     const reqPartB = isIAT ? 2 : 5;
 

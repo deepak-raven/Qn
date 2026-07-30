@@ -34,6 +34,44 @@ export default function PaperPreview({
 }) {
   const handleDragOver = (e) => e.preventDefault();
 
+  const isCAT1 = config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1';
+  const isCAT2 = config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2';
+  const isCAT = isCAT1 || isCAT2;
+
+  const tosUnits = isCAT1 
+    ? ['Unit I', 'Unit II'] 
+    : isCAT2 
+    ? ['Unit III', 'Unit IV'] 
+    : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+
+  const filteredKlTotalsCount = React.useMemo(() => {
+    const totals = { K1: 0, K2: 0, K3: 0, K4: 0, K5: 0, K6: 0 };
+    tosUnits.forEach(u => {
+      ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'].forEach(k => {
+        totals[k] += (tosCounts[u]?.[k] || 0);
+      });
+    });
+    return totals;
+  }, [tosUnits, tosCounts]);
+
+  const filteredGrandTotalCount = React.useMemo(() => {
+    return tosUnits.reduce((acc, u) => acc + (unitTotalsCount[u] || 0), 0);
+  }, [tosUnits, unitTotalsCount]);
+
+  const filteredKlTotalsMark = React.useMemo(() => {
+    const totals = { K1: 0, K2: 0, K3: 0, K4: 0, K5: 0, K6: 0 };
+    tosUnits.forEach(u => {
+      ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'].forEach(k => {
+        totals[k] += (tosMarks[u]?.[k] || 0);
+      });
+    });
+    return totals;
+  }, [tosUnits, tosMarks]);
+
+  const filteredGrandTotalMark = React.useMemo(() => {
+    return tosUnits.reduce((acc, u) => acc + (unitTotalsMark[u] || 0), 0);
+  }, [tosUnits, unitTotalsMark]);
+
   return (
     <div style={{ 
       display: 'flex', 
@@ -160,142 +198,253 @@ export default function PaperPreview({
               }}
             >
               <option value="MODEL EXAMINATION">MODEL EXAM (Unit I-V | 100 Marks)</option>
-              <option value="IAT-1">IAT - I (Unit I & II | 50 Marks)</option>
-              <option value="IAT-2">IAT - II (Unit III & IV | 50 Marks)</option>
+              <option value="CAT-1">CAT - I (Unit I & II | 50 Marks)</option>
+              <option value="CAT-2">CAT - II (Unit III & IV | 50 Marks)</option>
             </select>
           </div>
         </div>
       </div>
 
       <div className="paper-preview">
-        {/* Document Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 'bold', marginBottom: '0.2rem', fontFamily: "'Times New Roman', Times, serif" }}>
-          <div 
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => handleRenameActiveSet(e.target.innerText)}
-          >
-            {config.set}
-          </div>
-          <div 
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={(e) => setConfig(prev => ({ ...prev, date: e.target.innerText.replace('Date:', '').trim() }))}
-          >
-            Date: {config.date || '__________'}
-          </div>
-        </div>
+        {/* Document Header for CAT vs Model Exam */}
+        {isCAT ? (
+          <>
+            {/* Roll No Boxes */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.4rem', fontFamily: "'Times New Roman', Times, serif" }}>
+              <table style={{ borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                <tbody>
+                  <tr>
+                    {Array(13).fill(null).map((_, i) => (
+                      <td key={i} style={{ border: '1px solid #000000', width: '22px', height: '24px', textAlign: 'center' }}></td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-        <div style={{ 
-          border: '1px solid #000000', 
-          padding: '0.5rem 1rem', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '1rem', 
-          marginBottom: '1rem', 
-          fontFamily: "'Times New Roman', Times, serif" 
-        }}>
-          <img 
-            src="/jaya_logo.png" 
-            alt="Jaya Logo" 
-            style={{ height: '64px', width: 'auto', objectFit: 'contain' }} 
-          />
-          <div style={{ flex: 1, textAlign: 'center', color: '#000000' }}>
-            <h3 
-              contentEditable 
-              suppressContentEditableWarning
-              onBlur={(e) => setConfig(prev => ({ ...prev, institution_name: e.target.innerText }))}
-              style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase', margin: 0 }}
-            >
-              {config.institution_name || 'ENTER INSTITUTION NAME'}
-            </h3>
-            <p style={{ fontSize: '0.72rem', margin: '0.2rem 0 0 0', lineHeight: 1.3, fontWeight: '500' }}>
-              (Approved by AICTE, Affiliated to Anna University Chennai & NAAC Accredited Institution)<br />
-              Thiruninravur, Chennai-602 024, Tamil Nadu.
-            </p>
-          </div>
-        </div>
+            {/* Main Header Box */}
+            <div style={{ border: '1px solid #000000', padding: '0.4rem 0.75rem', marginBottom: '0.4rem', fontFamily: "'Times New Roman', Times, serif", color: '#000000' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <img 
+                  src="/jaya_logo.png" 
+                  alt="Jaya Logo" 
+                  style={{ height: '60px', width: 'auto', objectFit: 'contain' }} 
+                />
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <h3 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setConfig(prev => ({ ...prev, institution_name: e.target.innerText }))}
+                    style={{ fontSize: '1.05rem', fontWeight: 'bold', textTransform: 'uppercase', margin: 0 }}
+                  >
+                    {config.institution_name || 'JAYA ENGINEERING COLLEGE'}
+                  </h3>
+                  <p style={{ fontSize: '0.68rem', margin: '0.15rem 0', lineHeight: 1.25, fontWeight: '500' }}>
+                    (Approved by AICTE, Affiliated to Anna University Chennai & NAAC Accredited Institution)<br />
+                    Thiruninravur, Chennai-602 024, Tamil Nadu.
+                  </p>
+                  <h4 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setConfig(prev => ({ ...prev, exam_name: e.target.innerText }))}
+                    style={{ fontSize: '0.95rem', fontWeight: 'bold', margin: '0.2rem 0 0.1rem 0' }}
+                  >
+                    {config.exam_name || (isCAT2 ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I')}
+                  </h4>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 'normal', display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+                    <span>
+                      (<span 
+                        contentEditable 
+                        suppressContentEditableWarning
+                        onBlur={(e) => setConfig(prev => ({ ...prev, regulation: e.target.innerText }))}
+                      >
+                        {config.regulation || '2021-REGULATION'}
+                      </span>)
+                    </span>
+                    <span 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}
+                    >
+                      {config.semester || 'ODD SEMESTER 2025-26'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', borderLeft: '1px solid #000000', paddingLeft: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '100px' }}>
+                  <div>
+                    SET: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleRenameActiveSet(e.target.innerText)}>{config.set}</span>
+                  </div>
+                  <div>
+                    DATE: <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, date: e.target.innerText.replace('DATE:', '').trim() }))}>{config.date || '__________'}</span>
+                  </div>
+                  <div>PAGES: _____</div>
+                  <div>COPIES: _____</div>
+                </div>
+              </div>
+            </div>
 
-        <div style={{ textAlign: 'center', marginBottom: '1rem', fontFamily: "'Times New Roman', Times, serif", color: '#000000' }}>
-          <h4 
-            contentEditable 
-            suppressContentEditableWarning
-            onBlur={(e) => setConfig(prev => ({ ...prev, exam_name: e.target.innerText }))}
-            style={{ fontSize: '1rem', fontWeight: 'bold', margin: '0 0 0.15rem 0' }}
-          >
-            {config.exam_name || 'ENTER EXAMINATION NAME'}
-          </h4>
-          <h5 style={{ fontSize: '0.9rem', fontWeight: 'normal', margin: '0 0 0.15rem 0' }}>
-            (<span 
-              contentEditable 
-              suppressContentEditableWarning
-              onBlur={(e) => setConfig(prev => ({ ...prev, regulation: e.target.innerText }))}
-            >
-              {config.regulation || 'Regulation'}
-            </span>)
-          </h5>
-          <h5 
-            contentEditable 
-            suppressContentEditableWarning
-            onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}
-            style={{ fontSize: '0.9rem', fontWeight: 'normal', margin: 0 }}
-          >
-            {config.semester || 'ENTER SEMESTER'}
-          </h5>
-        </div>
+            {/* Course Details Box */}
+            <div style={{ border: '1px solid #000000', marginBottom: '1.25rem', fontFamily: "'Times New Roman', Times, serif", fontSize: '0.88rem', color: '#000000' }}>
+              <div style={{ borderBottom: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
+                <strong>Sub. Code / Sub. Name :</strong>{' '}
+                <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_code: e.target.innerText }))}>{config.subject_code || 'OCS353'}</span>
+                {' / '}
+                <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_name: e.target.innerText }))}>{config.subject_name || 'SUBJECT NAME'}</span>
+              </div>
+              <div style={{ display: 'flex', borderBottom: '1px solid #000000' }}>
+                <div style={{ flex: 1, borderRight: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
+                  <strong>Degree / Branch:</strong>{' '}
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, degree_branch_sem: e.target.innerText }))}>{config.degree_branch_sem || 'BE/BTECH'}</span>
+                </div>
+                <div style={{ flex: 1, padding: '0.35rem 0.6rem' }}>
+                  <strong>Year / Semester :</strong>{' '}
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}>{config.semester || 'ENTER SEMESTER'}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex' }}>
+                <div style={{ flex: 1, borderRight: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
+                  <strong>Time:</strong>{' '}
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, time: e.target.innerText }))}>{config.time || '1.5 Hours'}</span>
+                </div>
+                <div style={{ flex: 1, padding: '0.35rem 0.6rem' }}>
+                  <strong>Maximum Marks:</strong>{' '}
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, max_marks: parseInt(e.target.innerText) || 50 }))}>{config.max_marks || 50}</span>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Document Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem', fontWeight: 'bold', marginBottom: '0.2rem', fontFamily: "'Times New Roman', Times, serif" }}>
+              <div 
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={(e) => handleRenameActiveSet(e.target.innerText)}
+              >
+                {config.set}
+              </div>
+              <div 
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={(e) => setConfig(prev => ({ ...prev, date: e.target.innerText.replace('Date:', '').trim() }))}
+              >
+                Date: {config.date || '__________'}
+              </div>
+            </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.95rem', borderBottom: '3px double #000000', paddingBottom: '0.5rem', marginBottom: '1.5rem', fontFamily: "'Times New Roman', Times, serif", color: '#000000' }}>
-          <div>
-            <strong>Sub. Code/Sub.Name:</strong>{' '}
-            <span 
-              contentEditable 
-              suppressContentEditableWarning
-              onBlur={(e) => setConfig(prev => ({ ...prev, subject_code: e.target.innerText }))}
-            >
-              {config.subject_code || 'SUB CODE'}
-            </span>
-            {' '}/{' '}
-            <span 
-              contentEditable 
-              suppressContentEditableWarning
-              onBlur={(e) => setConfig(prev => ({ ...prev, subject_name: e.target.innerText }))}
-            >
-              {config.subject_name || 'SUBJECT NAME'}
-            </span>
-          </div>
-          <div>
-            <strong>Degree/Branch/Sem:</strong>{' '}
-            <span 
-              contentEditable 
-              suppressContentEditableWarning
-              onBlur={(e) => setConfig(prev => ({ ...prev, degree_branch_sem: e.target.innerText }))}
-            >
-              {config.degree_branch_sem || 'DEGREE / BRANCH / SEMESTER'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div>
-              <strong>Time :</strong>{' '}
-              <span 
+            <div style={{ 
+              border: '1px solid #000000', 
+              padding: '0.5rem 1rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1rem', 
+              marginBottom: '1rem', 
+              fontFamily: "'Times New Roman', Times, serif" 
+            }}>
+              <img 
+                src="/jaya_logo.png" 
+                alt="Jaya Logo" 
+                style={{ height: '64px', width: 'auto', objectFit: 'contain' }} 
+              />
+              <div style={{ flex: 1, textAlign: 'center', color: '#000000' }}>
+                <h3 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  onBlur={(e) => setConfig(prev => ({ ...prev, institution_name: e.target.innerText }))}
+                  style={{ fontSize: '1.1rem', fontWeight: 'bold', textTransform: 'uppercase', margin: 0 }}
+                >
+                  {config.institution_name || 'ENTER INSTITUTION NAME'}
+                </h3>
+                <p style={{ fontSize: '0.72rem', margin: '0.2rem 0 0 0', lineHeight: 1.3, fontWeight: '500' }}>
+                  (Approved by AICTE, Affiliated to Anna University Chennai & NAAC Accredited Institution)<br />
+                  Thiruninravur, Chennai-602 024, Tamil Nadu.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ textAlign: 'center', marginBottom: '1rem', fontFamily: "'Times New Roman', Times, serif", color: '#000000' }}>
+              <h4 
                 contentEditable 
                 suppressContentEditableWarning
-                onBlur={(e) => setConfig(prev => ({ ...prev, time: e.target.innerText }))}
+                onBlur={(e) => setConfig(prev => ({ ...prev, exam_name: e.target.innerText }))}
+                style={{ fontSize: '1rem', fontWeight: 'bold', margin: '0 0 0.15rem 0' }}
               >
-                {config.time || '3 Hours'}
-              </span>
-            </div>
-            <div>
-              <strong>Maximum Marks:</strong>{' '}
-              <span 
+                {config.exam_name || 'ENTER EXAMINATION NAME'}
+              </h4>
+              <h5 style={{ fontSize: '0.9rem', fontWeight: 'normal', margin: '0 0 0.15rem 0' }}>
+                (<span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  onBlur={(e) => setConfig(prev => ({ ...prev, regulation: e.target.innerText }))}
+                >
+                  {config.regulation || 'Regulation'}
+                </span>)
+              </h5>
+              <h5 
                 contentEditable 
                 suppressContentEditableWarning
-                onBlur={(e) => setConfig(prev => ({ ...prev, max_marks: parseInt(e.target.innerText) || 100 }))}
+                onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}
+                style={{ fontSize: '0.9rem', fontWeight: 'normal', margin: 0 }}
               >
-                {config.max_marks}
-              </span>
+                {config.semester || 'ENTER SEMESTER'}
+              </h5>
             </div>
-          </div>
-        </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.95rem', borderBottom: '3px double #000000', paddingBottom: '0.5rem', marginBottom: '1.5rem', fontFamily: "'Times New Roman', Times, serif", color: '#000000' }}>
+              <div>
+                <strong>Sub. Code/Sub.Name:</strong>{' '}
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  onBlur={(e) => setConfig(prev => ({ ...prev, subject_code: e.target.innerText }))}
+                >
+                  {config.subject_code || 'SUB CODE'}
+                </span>
+                {' '}/{' '}
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  onBlur={(e) => setConfig(prev => ({ ...prev, subject_name: e.target.innerText }))}
+                >
+                  {config.subject_name || 'SUBJECT NAME'}
+                </span>
+              </div>
+              <div>
+                <strong>Degree/Branch/Sem:</strong>{' '}
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  onBlur={(e) => setConfig(prev => ({ ...prev, degree_branch_sem: e.target.innerText }))}
+                >
+                  {config.degree_branch_sem || 'DEGREE / BRANCH / SEMESTER'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div>
+                  <strong>Time :</strong>{' '}
+                  <span 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setConfig(prev => ({ ...prev, time: e.target.innerText }))}
+                  >
+                    {config.time || '3 Hours'}
+                  </span>
+                </div>
+                <div>
+                  <strong>Maximum Marks:</strong>{' '}
+                  <span 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setConfig(prev => ({ ...prev, max_marks: parseInt(e.target.innerText) || 100 }))}
+                  >
+                    {config.max_marks}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
 
         {/* PART A PREVIEW TABLE */}
         <div ref={partARef} className="paper-part-title">
@@ -400,10 +549,10 @@ export default function PaperPreview({
           </thead>
           <tbody>
             {selectedPartB.map((slot, idx) => {
-              const qNo = 11 + idx;
-              const unitsMap = config.exam_type === 'IAT-1' 
+              const qNo = (isCAT ? 6 : 11) + idx;
+              const unitsMap = (config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') 
                 ? ['Unit I', 'Unit II'] 
-                : config.exam_type === 'IAT-2' 
+                : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') 
                 ? ['Unit III', 'Unit IV'] 
                 : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
               const expectedUnit = unitsMap[idx] || `Unit ${idx + 1}`;
@@ -549,7 +698,7 @@ export default function PaperPreview({
 
         {/* PART C PREVIEW TABLE */}
         <div ref={partCRef} className="paper-part-title">
-          PART &ndash; C (1 x 15 = 15 Marks)<br />
+          PART &ndash; C ({isCAT ? '1 x 14 = 14' : '1 x 15 = 15'} Marks)<br />
           <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer all the questions</span>
         </div>
 
@@ -572,7 +721,7 @@ export default function PaperPreview({
               onDrop={(e) => handleDrop(e, 'C', 0, 'a')}
               style={{ background: !selectedPartC.a ? '#faf9f8' : 'transparent' }}
             >
-              <td className="center" style={{ fontWeight: 'bold' }}>16</td>
+              <td className="center" style={{ fontWeight: 'bold' }}>{isCAT ? 8 : 16}</td>
               <td className="center">(a)</td>
               <td 
                 draggable={!!selectedPartC.a}
@@ -720,7 +869,7 @@ export default function PaperPreview({
                     </tr>
                   </thead>
                   <tbody>
-                    {['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'].map((u, uIdx) => (
+                    {tosUnits.map((u, uIdx) => (
                       <tr key={uIdx}>
                         <td style={{ fontWeight: 'bold', textAlign: 'left' }}>{u}</td>
                         {['K1', 'K2', 'K3', 'K4', 'K5', 'K6'].map((k, kIdx) => {
@@ -733,9 +882,9 @@ export default function PaperPreview({
                     <tr style={{ fontWeight: 'bold' }}>
                       <td className="center">Total</td>
                       {['K1', 'K2', 'K3', 'K4', 'K5', 'K6'].map((k, kIdx) => (
-                        <td key={kIdx} className="center">{klTotalsCount[k]}</td>
+                        <td key={kIdx} className="center">{filteredKlTotalsCount[k]}</td>
                       ))}
-                      <td className="center">{grandTotalCount}</td>
+                      <td className="center">{filteredGrandTotalCount}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -765,7 +914,7 @@ export default function PaperPreview({
                     </tr>
                   </thead>
                   <tbody>
-                    {['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'].map((u, uIdx) => (
+                    {tosUnits.map((u, uIdx) => (
                       <tr key={uIdx}>
                         <td style={{ fontWeight: 'bold', textAlign: 'left' }}>{u}</td>
                         {['K1', 'K2', 'K3', 'K4', 'K5', 'K6'].map((k, kIdx) => {
@@ -778,9 +927,9 @@ export default function PaperPreview({
                     <tr style={{ fontWeight: 'bold' }}>
                       <td className="center">Total</td>
                       {['K1', 'K2', 'K3', 'K4', 'K5', 'K6'].map((k, kIdx) => (
-                        <td key={kIdx} className="center">{klTotalsMark[k]}</td>
+                        <td key={kIdx} className="center">{filteredKlTotalsMark[k]}</td>
                       ))}
-                      <td className="center">{grandTotalMark}</td>
+                      <td className="center">{filteredGrandTotalMark}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -788,6 +937,38 @@ export default function PaperPreview({
             </div>
           </div>
         </div>
+
+        {/* CAT Staff Signatures Footer */}
+        {isCAT && (
+          <div style={{ marginTop: '2rem', fontFamily: "'Times New Roman', Times, serif" }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'center', border: '1px solid #000000' }}>
+              <thead>
+                <tr style={{ background: '#faf9f8' }}>
+                  <th style={{ border: '1px solid #000000', padding: '0.4rem', width: '25%' }}></th>
+                  <th style={{ border: '1px solid #000000', padding: '0.4rem' }}>Name of the staff / Academic Institution / Department</th>
+                  <th style={{ border: '1px solid #000000', padding: '0.4rem', width: '25%' }}>Sign with date</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem', fontWeight: 'bold' }}>Prepared by</td>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem' }}></td>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem' }}></td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem', fontWeight: 'bold' }}>Verified by</td>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem' }}></td>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem' }}></td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem', fontWeight: 'bold' }}>Reviewed By</td>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem' }}></td>
+                  <td style={{ border: '1px solid #000000', padding: '0.4rem' }}></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

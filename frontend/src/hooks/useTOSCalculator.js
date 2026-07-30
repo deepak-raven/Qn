@@ -1,5 +1,33 @@
 import { useMemo } from 'react';
 
+export function normalizeUnit(unitStr) {
+  if (!unitStr) return 'Unit I';
+  const u = String(unitStr).trim().toUpperCase();
+  if (u.includes('III') || u === 'UNIT 3' || u === '3') return 'Unit III';
+  if (u.includes('II') || u === 'UNIT 2' || u === '2') return 'Unit II';
+  if (u.includes('IV') || u === 'UNIT 4' || u === '4') return 'Unit IV';
+  if (u.includes('V') || u === 'UNIT 5' || u === '5') return 'Unit V';
+  if (u.includes('I') || u === 'UNIT 1' || u === '1') return 'Unit I';
+  return 'Unit I';
+}
+
+export function normalizeKL(klStr) {
+  if (!klStr) return 'K1';
+  const k = String(klStr).trim().toUpperCase();
+  if (k.includes('K1') || k.includes('REMEMBER')) return 'K1';
+  if (k.includes('K2') || k.includes('UNDERSTAND')) return 'K2';
+  if (k.includes('K3') || k.includes('APPLY') || k.includes('APPLI')) return 'K3';
+  if (k.includes('K4') || k.includes('ANALY')) return 'K4';
+  if (k.includes('K5') || k.includes('EVALUAT')) return 'K5';
+  if (k.includes('K6') || k.includes('CREAT')) return 'K6';
+  
+  const digits = k.match(/\d/);
+  if (digits && parseInt(digits[0]) >= 1 && parseInt(digits[0]) <= 6) {
+    return `K${digits[0]}`;
+  }
+  return 'K1';
+}
+
 export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC) {
   return useMemo(() => {
     const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
@@ -19,19 +47,20 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC) {
     const allSelected = [];
     allSelected.push(...selectedPartA.filter(Boolean));
     selectedPartB.forEach(slot => {
-      if (slot.a) allSelected.push(slot.a);
-      if (slot.b) allSelected.push(slot.b);
+      if (slot && slot.a) allSelected.push(slot.a);
+      if (slot && slot.b) allSelected.push(slot.b);
     });
-    if (selectedPartC.a) allSelected.push(selectedPartC.a);
-    if (selectedPartC.b) allSelected.push(selectedPartC.b);
+    if (selectedPartC && selectedPartC.a) allSelected.push(selectedPartC.a);
+    if (selectedPartC && selectedPartC.b) allSelected.push(selectedPartC.b);
 
     allSelected.forEach(q => {
-      const unitKey = q.unit;
-      const klKey = q.kl ? q.kl.split(' ')[0].trim() : 'K1';
+      const unitKey = normalizeUnit(q.unit);
+      const klKey = normalizeKL(q.kl);
+      const marksVal = Number(q.marks) || 0;
       
       if (tosCounts[unitKey] && tosCounts[unitKey][klKey] !== undefined) {
         tosCounts[unitKey][klKey] += 1;
-        tosMarks[unitKey][klKey] += q.marks;
+        tosMarks[unitKey][klKey] += marksVal;
       }
     });
 

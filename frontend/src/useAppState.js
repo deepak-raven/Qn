@@ -207,7 +207,7 @@ export function useAppState() {
         };
       } else {
         if (activeTabSub === 'A') {
-          const reqCount = (config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2') ? 5 : 10;
+          const reqCount = (config.exam_type === 'CAT-1' || config.exam_type === 'CAT-2' || config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2') ? 5 : 10;
           // Find first empty slot where the question's unit is allowed
           let emptyIdx = -1;
           for (let i = 0; i < reqCount; i++) {
@@ -228,9 +228,9 @@ export function useAppState() {
           return { selectedPartA: next };
         } else if (activeTabSub === 'B') {
           let slotIdx = -1;
-          if (config.exam_type === 'IAT-1') {
+          if (config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') {
             slotIdx = ['Unit I', 'Unit II'].indexOf(q.unit);
-          } else if (config.exam_type === 'IAT-2') {
+          } else if (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') {
             slotIdx = ['Unit III', 'Unit IV'].indexOf(q.unit);
           } else {
             slotIdx = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'].indexOf(q.unit);

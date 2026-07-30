@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export const DEFAULT_CONFIG = {
   institution_name: 'Jaya Engineering College',
-  exam_type: 'MODEL EXAMINATION', // 'MODEL EXAMINATION' | 'IAT-1' | 'IAT-2'
+  exam_type: 'MODEL EXAMINATION', // 'MODEL EXAMINATION' | 'CAT-1' | 'CAT-2'
   exam_name: 'MODEL EXAMINATION',
   regulation: '',
   semester: '',
@@ -16,19 +16,19 @@ export const DEFAULT_CONFIG = {
 };
 
 export function getSlotCounts(exam_type) {
-  if (exam_type === 'IAT-1' || exam_type === 'IAT-2') {
+  if (exam_type === 'CAT-1' || exam_type === 'CAT-2' || exam_type === 'IAT-1' || exam_type === 'IAT-2') {
     return { partA: 5, partB: 2, partC: 1, defaultMarks: 50, defaultTime: '1.5 Hours' };
   }
   return { partA: 10, partB: 5, partC: 1, defaultMarks: 100, defaultTime: '3 Hours' };
 }
 
 export function getExpectedUnitForPartASlot(examType, index) {
-  if (examType === 'IAT-1') {
+  if (examType === 'CAT-1' || examType === 'IAT-1') {
     if (index === 0 || index === 1) return ['Unit I'];
     if (index === 2 || index === 3) return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
-  if (examType === 'IAT-2') {
+  if (examType === 'CAT-2' || examType === 'IAT-2') {
     if (index === 0 || index === 1) return ['Unit III'];
     if (index === 2 || index === 3) return ['Unit IV'];
     return ['Unit III', 'Unit IV'];
@@ -93,9 +93,9 @@ export function useSetsManager() {
         nextConfig.time = counts.defaultTime;
         nextConfig.exam_name = nextConfig.exam_type === 'MODEL EXAMINATION' 
           ? 'MODEL EXAMINATION' 
-          : nextConfig.exam_type === 'IAT-1' 
-          ? 'INTERNAL ASSESSMENT TEST - I' 
-          : 'INTERNAL ASSESSMENT TEST - II';
+          : (nextConfig.exam_type === 'CAT-1' || nextConfig.exam_type === 'IAT-1')
+          ? 'CONTINUOUS ASSESSMENT TEST - I' 
+          : 'CONTINUOUS ASSESSMENT TEST - II';
 
         return {
           config: nextConfig,

@@ -70,9 +70,17 @@ TEMPLATE_NAME = "MODEL QUESTION.docx"
 TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, TEMPLATE_NAME)
 PARENT_TEMPLATE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "MODEL  QUESTION.docx"))
 
+CAT_TEMPLATE_NAME = "cat.docx"
+CAT_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, CAT_TEMPLATE_NAME)
+PARENT_CAT_TEMPLATE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "cat.docx"))
+
 if not os.path.exists(TEMPLATE_PATH) and os.path.exists(PARENT_TEMPLATE_PATH):
     shutil.copy(PARENT_TEMPLATE_PATH, TEMPLATE_PATH)
     logger.info(f"Copied template file from parent directory to: {TEMPLATE_PATH}")
+
+if not os.path.exists(CAT_TEMPLATE_PATH) and os.path.exists(PARENT_CAT_TEMPLATE_PATH):
+    shutil.copy(PARENT_CAT_TEMPLATE_PATH, CAT_TEMPLATE_PATH)
+    logger.info(f"Copied CAT template file from parent directory to: {CAT_TEMPLATE_PATH}")
 
 def sanitize_filename(name: str) -> str:
     return re.sub(r'[^\w\s-]', '', name).strip()
@@ -389,10 +397,15 @@ async def fetch_common_questions(
 
 @app.post("/api/generate-docx")
 async def generate_docx(payload: GenerateRequest):
-    if not os.path.exists(TEMPLATE_PATH):
+    exam_type = (payload.config.exam_type or "").upper()
+    is_cat = exam_type in ["CAT-1", "CAT-2", "IAT-1", "IAT-2"]
+    
+    template_to_use = CAT_TEMPLATE_PATH if (is_cat and os.path.exists(CAT_TEMPLATE_PATH)) else TEMPLATE_PATH
+    
+    if not os.path.exists(template_to_use):
         raise HTTPException(
             status_code=500, 
-            detail=f"Template file '{TEMPLATE_NAME}' not found in backend templates folder."
+            detail=f"Template file '{os.path.basename(template_to_use)}' not found in backend templates folder."
         )
         
     try:
@@ -401,7 +414,7 @@ async def generate_docx(payload: GenerateRequest):
         
         await anyio.to_thread.run_sync(
             generate_question_paper,
-            TEMPLATE_PATH,
+            template_to_use,
             output_path,
             payload.config,
             payload.part_a,
