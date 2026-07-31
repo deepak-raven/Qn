@@ -188,30 +188,7 @@ async def get_questions(subject_code: str, semester: str, uploaded_by: str) -> L
             q["_id"] = str(q["_id"])
     return q_list
 
-async def get_common_questions_pool(
-    part: str,
-    unit: Optional[str] = None,
-    search: Optional[str] = None,
-    exclude_subject_code: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    database = get_db()
-    query: Dict[str, Any] = {"part": part}
-    
-    if unit and unit != "All":
-        query["unit"] = unit
-        
-    if search and search.strip():
-        query["text"] = {"$regex": search.strip(), "$options": "i"}
-        
-    if exclude_subject_code:
-        query["subject_code"] = {"$ne": exclude_subject_code}
-        
-    cursor = database["questions"].find(query)
-    q_list = await cursor.to_list(length=200)
-    for q in q_list:
-        if "_id" in q:
-            q["_id"] = str(q["_id"])
-    return q_list
+
 
 
 # --- Admin Analytics & Storage Management ---

@@ -36,7 +36,6 @@ export default function UploadTab({
   const [forceReupload, setForceReupload] = useState(false);
   const [existingQuestions, setExistingQuestions] = useState([]);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
-  const [sidebarTab, setSidebarTab] = useState('my'); // 'my' | 'common'
 
 
   useEffect(() => {
@@ -564,56 +563,19 @@ export default function UploadTab({
 
       {/* Sidebar list of existing Subjects */}
       <div className="glass-panel">
-        <div className="card-title-bar" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'stretch' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ margin: 0 }}>Parsed Databases</h3>
-            <span className="tag tag-unit" style={{ fontSize: '0.7rem' }}>{subjects.length} Available</span>
-          </div>
-
-          {/* Tab Filter: My QB Used vs Common Questions / All QBs */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', background: '#e0e0e0', padding: '2px', borderRadius: '4px' }}>
-            <button
-              type="button"
-              className={`btn ${sidebarTab === 'my' ? 'btn-primary' : ''}`}
-              onClick={() => setSidebarTab('my')}
-              style={{ fontSize: '0.75rem', padding: '0.3rem', background: sidebarTab === 'my' ? undefined : 'transparent', color: sidebarTab === 'my' ? undefined : '#444' }}
-            >
-              👤 My QB Used
-            </button>
-            <button
-              type="button"
-              className={`btn ${sidebarTab === 'common' ? 'btn-primary' : ''}`}
-              onClick={() => setSidebarTab('common')}
-              style={{ fontSize: '0.75rem', padding: '0.3rem', background: sidebarTab === 'common' ? undefined : 'transparent', color: sidebarTab === 'common' ? undefined : '#444' }}
-            >
-              🌐 Common QBs
-            </button>
-          </div>
+        <div className="card-title-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h3 style={{ margin: 0 }}>Parsed Databases</h3>
+          <span className="tag tag-unit" style={{ fontSize: '0.7rem' }}>{subjects.length} Available</span>
         </div>
 
         <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {(() => {
-            const currentUserName = auth?.user?.name || auth?.user?.username || '';
-            const displaySubjects = sidebarTab === 'my'
-              ? subjects.filter(s => s.uploader_name && (s.uploader_name.toLowerCase() === currentUserName.toLowerCase() || currentUserName === ''))
-              : subjects;
-
-            if (displaySubjects.length === 0) {
-              return (
-                <div style={{ textAlign: 'center', padding: '1.5rem 0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {sidebarTab === 'my' ? (
-                    <>
-                      <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>No Question Banks uploaded by you yet.</p>
-                      <p style={{ margin: 0, fontSize: '0.75rem' }}>Upload a docx/pdf above, or switch to 'Common QBs' tab to view shared databases.</p>
-                    </>
-                  ) : (
-                    <p style={{ margin: 0 }}>No shared question banks in database.</p>
-                  )}
-                </div>
-              );
-            }
-
-            return displaySubjects.map((sub, idx) => (
+          {subjects.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '1.5rem 0.5rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>No Question Banks uploaded yet.</p>
+              <p style={{ margin: 0, fontSize: '0.75rem' }}>Upload a docx or pdf file above to populate databases.</p>
+            </div>
+          ) : (
+            subjects.map((sub, idx) => (
               <div 
                 key={idx}
                 className="glass-panel" 
@@ -667,8 +629,8 @@ export default function UploadTab({
                   </span>
                 </div>
               </div>
-            ));
-          })()}
+            ))
+          )}
         </div>
       </div>
 

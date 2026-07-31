@@ -176,11 +176,8 @@ export default function PaperPreview({
           </button>
         </div>
         
-        {/* Tip & Exam Type Selector */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem', paddingBottom: '0.2rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.72rem', color: 'var(--text-dimmed)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            💡 <strong>Tip:</strong> Click on any text in the header below to edit it directly!
-          </span>
+        {/* Exam Type Selector */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '0.25rem', whiteSpace: 'nowrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
             <select
@@ -287,7 +284,7 @@ export default function PaperPreview({
             <div style={{ border: '1px solid #000000', marginBottom: '1.25rem', fontFamily: "'Times New Roman', Times, serif", fontSize: '0.88rem', color: '#000000' }}>
               <div style={{ borderBottom: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
                 <strong>Sub. Code / Sub. Name :</strong>{' '}
-                <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_code: e.target.innerText }))}>{config.subject_code || 'OCS353'}</span>
+                <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_code: e.target.innerText }))}>{config.subject_code || 'SUB CODE'}</span>
                 {' / '}
                 <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_name: e.target.innerText }))}>{config.subject_name || 'SUBJECT NAME'}</span>
               </div>

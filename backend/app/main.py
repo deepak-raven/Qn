@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, status, Depends
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, status, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -23,7 +23,6 @@ from app.database import (
     add_subject,
     add_questions,
     get_questions,
-    get_common_questions_pool,
     get_admin_stats,
     get_user_storage_breakdown,
     get_all_uploads_detailed,
@@ -61,10 +60,12 @@ logger = logging.getLogger("app.main")
 
 UPLOADED_QBS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploaded_qbs"))
 TEMPLATES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates"))
+GENERATED_PAPERS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "generated_papers"))
 CURRICULUM_PATH = os.path.join(os.path.dirname(__file__), "curriculum.json")
 
 os.makedirs(UPLOADED_QBS_DIR, exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
+os.makedirs(GENERATED_PAPERS_DIR, exist_ok=True)
 
 TEMPLATE_NAME = "MODEL QUESTION.docx"
 TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, TEMPLATE_NAME)
@@ -376,27 +377,19 @@ async def fetch_questions(subject_code: str, semester: str, uploaded_by: str):
         logger.error(f"Error fetching questions: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch questions from database.")
 
-@app.get("/api/questions/common")
-async def fetch_common_questions(
-    part: str,
-    unit: str = "All",
-    search: str = "",
-    exclude_subject_code: str = ""
-):
-    try:
-        return await get_common_questions_pool(
-            part=part,
-            unit=unit,
-            search=search,
-            exclude_subject_code=exclude_subject_code
-        )
-    except Exception as e:
-        logger.error(f"Error fetching common questions: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch common questions pool.")
+
 
 
 @app.post("/api/generate-docx")
-async def generate_docx(payload: GenerateRequest):
+async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTasks):
+    sub_code = (payload.config.subject_code or "").strip()
+    sub_name = (payload.config.subject_name or "").strip()
+    
+    if not sub_code or sub_code in ["SUB CODE", "ENTER SUBJECT CODE"]:
+        raise HTTPException(status_code=400, detail="Subject code is required before generating the question paper.")
+    if not sub_name or sub_name in ["SUBJECT NAME", "ENTER SUBJECT NAME"]:
+        raise HTTPException(status_code=400, detail="Subject name is required before generating the question paper.")
+
     exam_type = (payload.config.exam_type or "").upper()
     is_cat = exam_type in ["CAT-1", "CAT-2", "IAT-1", "IAT-2"]
     
@@ -410,7 +403,7 @@ async def generate_docx(payload: GenerateRequest):
         
     try:
         output_filename = f"Generated_Paper_{payload.config.subject_code}_{sanitize_filename(payload.config.set)}.docx"
-        output_path = os.path.join(TEMPLATES_DIR, output_filename)
+        output_path = os.path.join(GENERATED_PAPERS_DIR, output_filename)
         
         await anyio.to_thread.run_sync(
             generate_question_paper,
@@ -425,10 +418,13 @@ async def generate_docx(payload: GenerateRequest):
         if not os.path.exists(output_path):
             raise HTTPException(status_code=500, detail="Document generation failed to produce output file.")
             
+        background_tasks.add_task(os.remove, output_path)
+        
         return FileResponse(
             path=output_path,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=output_filename
+            filename=output_filename,
+            background=background_tasks
         )
     except HTTPException:
         raise

@@ -160,19 +160,37 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     # Table 2: Course & Exam Info
     if len(doc.tables) > 2:
         t2 = doc.tables[2]
+        sub_code = (config.subject_code or "").strip()
+        sub_name = (config.subject_name or "").strip()
+        if sub_code and sub_name:
+            sub_info = f"Sub. Code / Sub. Name  : {sub_code} / {sub_name}"
+        elif sub_code:
+            sub_info = f"Sub. Code / Sub. Name  : {sub_code}"
+        elif sub_name:
+            sub_info = f"Sub. Code / Sub. Name  : {sub_name}"
+        else:
+            sub_info = "Sub. Code / Sub. Name  :"
+
         if len(t2.rows) > 0 and len(t2.rows[0].cells) > 0:
-            sub_info = f"Sub. Code / Sub. Name  : {config.subject_code} / {config.subject_name}" if (config.subject_code or config.subject_name) else "Sub. Code / Sub. Name  :"
             set_cell_text_preserve_style(t2.rows[0].cells[0], sub_info)
-        if len(t2.rows) > 1:
-            if len(t2.rows[1].cells) > 0 and config.degree_branch_sem:
-                set_cell_text_preserve_style(t2.rows[1].cells[0], f"Degree / Branch: {config.degree_branch_sem}")
-            if len(t2.rows[1].cells) > 1 and config.semester:
-                set_cell_text_preserve_style(t2.rows[1].cells[1], f"Year / Semester : {config.semester}")
-        if len(t2.rows) > 2:
-            if len(t2.rows[2].cells) > 0 and config.time:
-                set_cell_text_preserve_style(t2.rows[2].cells[0], f"Time: {config.time}")
-            if len(t2.rows[2].cells) > 1 and config.max_marks:
-                set_cell_text_preserve_style(t2.rows[2].cells[1], f"Maximum Marks: {config.max_marks}")
+            
+        deg_branch = (config.degree_branch_sem or "").strip()
+        if len(t2.rows) > 1 and len(t2.rows[1].cells) > 0:
+            deg_str = f"Degree / Branch: {deg_branch}" if deg_branch else "Degree / Branch:"
+            set_cell_text_preserve_style(t2.rows[1].cells[0], deg_str)
+            
+        sem_val = (config.semester or "").strip()
+        if len(t2.rows) > 1 and len(t2.rows[1].cells) > 1:
+            sem_str = f"Year / Semester : {sem_val}" if sem_val else "Year / Semester :"
+            set_cell_text_preserve_style(t2.rows[1].cells[1], sem_str)
+            
+        time_val = (config.time or "").strip() or "1.5 Hours"
+        if len(t2.rows) > 2 and len(t2.rows[2].cells) > 0:
+            set_cell_text_preserve_style(t2.rows[2].cells[0], f"Time: {time_val}")
+            
+        marks_val = str(config.max_marks) if config.max_marks else "50"
+        if len(t2.rows) > 2 and len(t2.rows[2].cells) > 1:
+            set_cell_text_preserve_style(t2.rows[2].cells[1], f"Maximum Marks: {marks_val}")
 
     # 2. Part A (Table 3)
     if len(doc.tables) > 3:
@@ -315,17 +333,45 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
     # 1. Replace metadata placeholders
-    replace_text_runs(doc, "OCS353", config.subject_code)
-    replace_text_runs(doc, "Data Science fundamentals", config.subject_name)
-    replace_text_runs(doc, "2021-Regulation", config.regulation)
-    replace_text_runs(doc, "ODD SEMESTER-2025-26", config.semester)
-    replace_text_runs(doc, "BE/BTECH/ CIVIL/AERO/MECH/EEE/TEXT/VII", config.degree_branch_sem)
-    replace_text_runs(doc, "3 Hours", config.time)
-    replace_text_runs(doc, "Maximum Marks: 100", f"Maximum Marks: {config.max_marks}")
-    replace_text_runs(doc, "10 X 2 = 20 MARKS", f"{len(part_a)} X 2 = {len(part_a)*2} MARKS")
-    replace_text_runs(doc, "5 X 13 = 65 MARKS", f"{len(part_b)} X 13 = {len(part_b)*13} MARKS")
-    replace_text_runs(doc, "SET-III", config.set)
-    replace_text_runs(doc, "MODEL EXAMINATION", config.exam_name)
+    sub_code = (config.subject_code or "").strip()
+    sub_name = (config.subject_name or "").strip()
+    deg_branch = (config.degree_branch_sem or "").strip()
+    sem_val = (config.semester or "").strip()
+
+    for p in doc.paragraphs:
+        p_text = p.text
+        if "Sub. Code" in p_text or "Sub.Code" in p_text or "Sub.Name" in p_text:
+            if sub_code and sub_name:
+                p.text = f"Sub. Code/Sub.Name: {sub_code}/ {sub_name}"
+            elif sub_code:
+                p.text = f"Sub. Code/Sub.Name: {sub_code}"
+            elif sub_name:
+                p.text = f"Sub. Code/Sub.Name: {sub_name}"
+        elif "Degree/Branch/Sem" in p_text or ("Degree" in p_text and "Branch" in p_text):
+            parts = []
+            if deg_branch:
+                parts.append(deg_branch)
+            if sem_val and sem_val not in deg_branch:
+                parts.append(sem_val)
+            full_deg = " / ".join(parts) if parts else "BE/BTECH"
+            p.text = f"Degree/Branch/Sem: {full_deg}"
+
+    if config.subject_code:
+        replace_text_runs(doc, "OCS353", config.subject_code)
+    if config.subject_name:
+        replace_text_runs(doc, "Data Science fundamentals", config.subject_name)
+    if config.regulation:
+        replace_text_runs(doc, "2021-Regulation", config.regulation)
+    if config.semester:
+        replace_text_runs(doc, "ODD SEMESTER-2025-26", config.semester)
+    if config.time:
+        replace_text_runs(doc, "3 Hours", config.time)
+    if config.max_marks:
+        replace_text_runs(doc, "Maximum Marks: 100", f"Maximum Marks: {config.max_marks}")
+    if config.set:
+        replace_text_runs(doc, "SET-III", config.set)
+    if config.exam_name:
+        replace_text_runs(doc, "MODEL EXAMINATION", config.exam_name)
     if config.date:
         replace_text_runs(doc, "Date:", f"Date: {config.date}")
         
