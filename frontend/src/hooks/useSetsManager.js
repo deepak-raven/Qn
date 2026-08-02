@@ -15,7 +15,7 @@ export const DEFAULT_CONFIG = {
   date: ''
 };
 
-export function getSlotCounts(exam_type) {
+function getSlotCounts(exam_type) {
   if (exam_type === 'CAT-1' || exam_type === 'CAT-2' || exam_type === 'IAT-1' || exam_type === 'IAT-2') {
     return { partA: 5, partB: 2, partC: 1, defaultMarks: 50, defaultTime: '1.5 Hours' };
   }
@@ -64,7 +64,7 @@ export function getPartCQuestionNo(examType) {
   return isCATExam(examType) ? 8 : 16;
 }
 
-export function createDefaultSetData(config) {
+function createDefaultSetData(config) {
   const counts = getSlotCounts(config.exam_type);
   return {
     config: {
@@ -164,13 +164,22 @@ export function useSetsManager() {
 
   const handleCreateNewSet = () => {
     const existingSetIds = Object.keys(sets);
-    const romanNumerals = ['SET-I', 'SET-II', 'SET-III', 'SET-IV', 'SET-V', 'SET-VI', 'SET-VII'];
-    let nextSetId = `SET-${existingSetIds.length + 1}`;
+    if (existingSetIds.length >= 3) {
+      alert("Maximum of 3 sets (SET-I, SET-II, SET-III) allowed.");
+      return;
+    }
+
+    const romanNumerals = ['SET-I', 'SET-II', 'SET-III'];
+    let nextSetId = null;
     for (const num of romanNumerals) {
       if (!existingSetIds.includes(num)) {
         nextSetId = num;
         break;
       }
+    }
+    if (!nextSetId) {
+      alert("Maximum of 3 sets allowed.");
+      return;
     }
 
     const newSetData = createDefaultSetData({ ...config, set: nextSetId });
@@ -192,6 +201,22 @@ export function useSetsManager() {
     setCurrentSetId(newName);
   };
 
+  const handleDeleteSet = (setIdToDelete) => {
+    const setKeys = Object.keys(sets);
+    if (setKeys.length <= 1) return;
+
+    if (currentSetId === setIdToDelete) {
+      const remainingKeys = setKeys.filter(id => id !== setIdToDelete);
+      setCurrentSetId(remainingKeys[0]);
+    }
+
+    setSets(prev => {
+      const next = { ...prev };
+      delete next[setIdToDelete];
+      return next;
+    });
+  };
+
   return {
     sets,
     setSets,
@@ -208,6 +233,7 @@ export function useSetsManager() {
     updateCurrentSet,
     handleSwitchSet,
     handleCreateNewSet,
-    handleRenameActiveSet
+    handleRenameActiveSet,
+    handleDeleteSet
   };
 }

@@ -15,6 +15,7 @@ export default function PaperPreview({
   handleSwitchSet,
   handleCreateNewSet,
   handleRenameActiveSet,
+  handleDeleteSet,
   handleDrop,
   handleClearSlot,
   updateQuestionText,
@@ -114,17 +115,7 @@ export default function PaperPreview({
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      const nextSets = { ...sets };
-                      delete nextSets[setId];
-                      setSets(nextSets);
-                      if (currentSetId === setId) {
-                        const firstRemaining = Object.keys(nextSets)[0];
-                        setCurrentSetId(firstRemaining);
-                        setConfig(nextSets[firstRemaining].config);
-                        setSelectedPartA(nextSets[firstRemaining].selectedPartA);
-                        setSelectedPartB(nextSets[firstRemaining].selectedPartB);
-                        setSelectedPartC(nextSets[firstRemaining].selectedPartC);
-                      }
+                      handleDeleteSet(setId);
                     }}
                     style={{ 
                       border: 'none', 
@@ -148,32 +139,34 @@ export default function PaperPreview({
             );
           })}
           
-          {/* Plus button next to last tab */}
-          <button 
-            onClick={handleCreateNewSet}
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              width: '20px', 
-              height: '20px', 
-              borderRadius: '4px', 
-              border: 'none', 
-              background: 'transparent', 
-              color: 'var(--text-dimmed)', 
-              fontSize: '1rem', 
-              fontWeight: 'bold', 
-              cursor: 'pointer',
-              marginBottom: '0.2rem',
-              marginLeft: '0.2rem',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.background = '#e5e7eb'; e.currentTarget.style.color = 'var(--text-main)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dimmed)'; }}
-            title="Create new paper set"
-          >
-            +
-          </button>
+          {/* Plus button next to last tab (Max 3 sets: SET-I, SET-II, SET-III) */}
+          {Object.keys(sets).length < 3 && (
+            <button 
+              onClick={handleCreateNewSet}
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                width: '20px', 
+                height: '20px', 
+                borderRadius: '4px', 
+                border: 'none', 
+                background: 'transparent', 
+                color: 'var(--text-dimmed)', 
+                fontSize: '1rem', 
+                fontWeight: 'bold', 
+                cursor: 'pointer',
+                marginBottom: '0.2rem',
+                marginLeft: '0.2rem',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#e5e7eb'; e.currentTarget.style.color = 'var(--text-main)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dimmed)'; }}
+              title="Create new paper set (Max 3: SET-I, SET-II, SET-III)"
+            >
+              +
+            </button>
+          )}
         </div>
         
         {/* Exam Type Selector */}
@@ -613,8 +606,12 @@ export default function PaperPreview({
                   {/* Either Or Divider */}
                   <tr>
                     <td></td>
-                    <td className="center" style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '0.82rem', padding: '0.1rem 0' }}>OR</td>
-                    <td colSpan={5} style={{ background: '#f5f5f5', height: '8px', padding: 0 }}></td>
+                    <td></td>
+                    <td style={{ textAlign: 'center', fontWeight: 'bold', fontStyle: 'italic', fontSize: '0.88rem', padding: '0.25rem 0' }}>OR</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                   </tr>
 
                   {/* Option B Row */}
@@ -769,8 +766,12 @@ export default function PaperPreview({
             {/* Either Or Divider */}
             <tr>
               <td></td>
-              <td className="center" style={{ fontWeight: 'bold', fontStyle: 'italic', fontSize: '0.82rem', padding: '0.1rem 0' }}>OR</td>
-              <td colSpan={5} style={{ background: '#f5f5f5', height: '8px', padding: 0 }}></td>
+              <td></td>
+              <td style={{ textAlign: 'center', fontWeight: 'bold', fontStyle: 'italic', fontSize: '0.88rem', padding: '0.25rem 0' }}>OR</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
             </tr>
 
             {/* Part C Option B */}

@@ -2,6 +2,8 @@ import os
 import re
 import shutil
 import json
+import io
+import tempfile
 import logging
 from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
@@ -9,7 +11,8 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, status, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.exceptions import RequestValidationError
 import anyio
 import anyio.to_thread
@@ -60,12 +63,10 @@ logger = logging.getLogger("app.main")
 
 UPLOADED_QBS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploaded_qbs"))
 TEMPLATES_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "templates"))
-GENERATED_PAPERS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "generated_papers"))
 CURRICULUM_PATH = os.path.join(os.path.dirname(__file__), "curriculum.json")
 
 os.makedirs(UPLOADED_QBS_DIR, exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
-os.makedirs(GENERATED_PAPERS_DIR, exist_ok=True)
 
 TEMPLATE_NAME = "MODEL QUESTION.docx"
 TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, TEMPLATE_NAME)
@@ -112,6 +113,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 @app.get("/")
 @app.get("/api/health")
@@ -258,13 +269,7 @@ async def upload_question_bank(
         safe_subject_name = sanitize_filename(subject_name)
         safe_uploader = sanitize_filename(uploader_name)
         filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}{ext}"
-        file_path = os.path.join(UPLOADED_QBS_DIR, filename)
         
-        def save_file():
-            with open(file_path, "wb") as f:
-                f.write(file_bytes)
-        await anyio.to_thread.run_sync(save_file)
-            
         subject_data = {
             "code": subject_code,
             "name": subject_name,
@@ -279,21 +284,29 @@ async def upload_question_bank(
         if ext == ".pdf":
             questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
         elif ext == ".doc":
-            docx_filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}.docx"
-            docx_file_path = os.path.join(UPLOADED_QBS_DIR, docx_filename)
-            try:
-                await anyio.to_thread.run_sync(convert_doc_to_docx, file_path, docx_file_path)
-            except Exception as conv_err:
-                raise HTTPException(status_code=500, detail=f"Failed to convert .doc file: {str(conv_err)}")
-            
-            def read_converted():
-                with open(docx_file_path, "rb") as f:
-                    return f.read()
-            docx_bytes = await anyio.to_thread.run_sync(read_converted)
-            questions = await anyio.to_thread.run_sync(parse_question_bank_docx, docx_bytes, subject_code, semester)
-            
-            subject_data["qb_filename"] = docx_filename
-            await add_subject(subject_data)
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_doc_path = os.path.join(temp_dir, filename)
+                docx_filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}.docx"
+                temp_docx_path = os.path.join(temp_dir, docx_filename)
+                
+                def save_temp():
+                    with open(temp_doc_path, "wb") as f:
+                        f.write(file_bytes)
+                await anyio.to_thread.run_sync(save_temp)
+                
+                try:
+                    await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
+                except Exception as conv_err:
+                    raise HTTPException(status_code=500, detail=f"Failed to convert .doc file: {str(conv_err)}")
+                
+                def read_converted():
+                    with open(temp_docx_path, "rb") as f:
+                        return f.read()
+                docx_bytes = await anyio.to_thread.run_sync(read_converted)
+                questions = await anyio.to_thread.run_sync(parse_question_bank_docx, docx_bytes, subject_code, semester)
+                
+                subject_data["qb_filename"] = docx_filename
+                await add_subject(subject_data)
         else:
             questions = await anyio.to_thread.run_sync(parse_question_bank_docx, file_bytes, subject_code, semester)
         
@@ -331,30 +344,24 @@ async def analyze_file(file: UploadFile = File(...)):
         file_bytes = await file.read()
         
         if ext == ".doc":
-            temp_doc_path = os.path.join(UPLOADED_QBS_DIR, f"temp_analyze_{sanitize_filename(uploaded_filename)}.doc")
-            temp_docx_path = temp_doc_path + "x"
-            
-            def save_temp():
-                with open(temp_doc_path, "wb") as f:
-                    f.write(file_bytes)
-            await anyio.to_thread.run_sync(save_temp)
-            
-            try:
-                await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
-                def read_temp_docx():
-                    with open(temp_docx_path, "rb") as f:
-                        return f.read()
-                file_bytes = await anyio.to_thread.run_sync(read_temp_docx)
-                ext = ".docx"
-            except Exception as conv_err:
-                raise HTTPException(status_code=500, detail=f"Failed to convert .doc for analysis: {str(conv_err)}")
-            finally:
-                if os.path.exists(temp_doc_path):
-                    try: os.remove(temp_doc_path)
-                    except: pass
-                if os.path.exists(temp_docx_path):
-                    try: os.remove(temp_docx_path)
-                    except: pass
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_doc_path = os.path.join(temp_dir, f"temp_analyze_{sanitize_filename(uploaded_filename)}.doc")
+                temp_docx_path = temp_doc_path + "x"
+                
+                def save_temp():
+                    with open(temp_doc_path, "wb") as f:
+                        f.write(file_bytes)
+                await anyio.to_thread.run_sync(save_temp)
+                
+                try:
+                    await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
+                    def read_temp_docx():
+                        with open(temp_docx_path, "rb") as f:
+                            return f.read()
+                    file_bytes = await anyio.to_thread.run_sync(read_temp_docx)
+                    ext = ".docx"
+                except Exception as conv_err:
+                    raise HTTPException(status_code=500, detail=f"Failed to convert .doc for analysis: {str(conv_err)}")
                     
         if ext == ".pdf":
             text = await anyio.to_thread.run_sync(extract_text_from_pdf, file_bytes)
@@ -403,28 +410,27 @@ async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTa
         
     try:
         output_filename = f"Generated_Paper_{payload.config.subject_code}_{sanitize_filename(payload.config.set)}.docx"
-        output_path = os.path.join(GENERATED_PAPERS_DIR, output_filename)
         
-        await anyio.to_thread.run_sync(
-            generate_question_paper,
-            template_to_use,
-            output_path,
-            payload.config,
-            payload.part_a,
-            payload.part_b,
-            payload.part_c
-        )
+        buffer = io.BytesIO()
+        def _build_paper():
+            generate_question_paper(
+                template_to_use,
+                buffer,
+                payload.config,
+                payload.part_a,
+                payload.part_b,
+                payload.part_c
+            )
+        await anyio.to_thread.run_sync(_build_paper)
+        buffer.seek(0)
         
-        if not os.path.exists(output_path):
-            raise HTTPException(status_code=500, detail="Document generation failed to produce output file.")
-            
-        background_tasks.add_task(os.remove, output_path)
-        
-        return FileResponse(
-            path=output_path,
+        headers = {
+            "Content-Disposition": f'attachment; filename="{output_filename}"'
+        }
+        return Response(
+            content=buffer.getvalue(),
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename=output_filename,
-            background=background_tasks
+            headers=headers
         )
     except HTTPException:
         raise
@@ -522,7 +528,7 @@ async def create_user_by_admin(
             "email": "",
             "password_hash": hash_password(payload.password),
             "role": payload.role if payload.role in ["user", "admin"] else "user",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
         user_data = await create_user(user_doc)
         return {"status": "success", "message": f"User '{payload.username}' created successfully.", "user": user_data}

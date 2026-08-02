@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo } from './hooks/useSetsManager';
 import { useTOSCalculator } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
@@ -51,7 +51,8 @@ export function useAppState() {
     updateCurrentSet,
     handleSwitchSet,
     handleCreateNewSet,
-    handleRenameActiveSet
+    handleRenameActiveSet,
+    handleDeleteSet
   } = setsManager;
 
   // Delegate TOS calculator math
@@ -408,12 +409,15 @@ export function useAppState() {
 
 
 
-  const filteredPool = questions.filter(q => {
-    if (q.part !== activeTabSub) return false;
-    if (filterUnit !== 'All' && q.unit !== filterUnit) return false;
-    if (searchQuery.trim() !== '' && !q.text.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+  const filteredPool = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return questions.filter(q => {
+      if (q.part !== activeTabSub) return false;
+      if (filterUnit !== 'All' && q.unit !== filterUnit) return false;
+      if (query !== '' && !q.text.toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [questions, activeTabSub, filterUnit, searchQuery]);
 
   return {
     API_BASE,
@@ -444,6 +448,7 @@ export function useAppState() {
     handleSwitchSet,
     handleCreateNewSet,
     handleRenameActiveSet,
+    handleDeleteSet,
     fetchSubjects,
     loadQuestionsForSubject,
     handleGeneratePaper,

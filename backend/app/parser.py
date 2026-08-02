@@ -6,6 +6,8 @@ import logging
 import platform
 import subprocess
 import docx
+from docx.text.paragraph import Paragraph
+from docx.table import Table
 import pdfplumber
 from typing import List, Dict, Any
 
@@ -67,6 +69,40 @@ def convert_doc_to_docx(doc_path: str, docx_path: str):
     raise RuntimeError("No conversion tool available: Please install Microsoft Word or LibreOffice on the server to process legacy .doc files.")
 
 
+def parse_unit_from_text(text: str):
+    if not text:
+        return None
+    for line in text.split('\n'):
+        line_clean = re.sub(r'\s+', ' ', line.upper()).strip()
+        if len(line_clean) <= 120:
+            m = re.search(r'\bUNIT\s*[-–:]?\s*([IVX\d]+)\b', line_clean)
+            if m:
+                u = m.group(1)
+                mapping = {
+                    'I': 'Unit I', '1': 'Unit I',
+                    'II': 'Unit II', '2': 'Unit II',
+                    'III': 'Unit III', '3': 'Unit III',
+                    'IV': 'Unit IV', '4': 'Unit IV',
+                    'V': 'Unit V', '5': 'Unit V'
+                }
+                if u in mapping:
+                    return mapping[u]
+    return None
+
+def parse_part_marks_from_text(text: str):
+    if not text:
+        return None, None
+    for line in text.split('\n'):
+        line_clean = re.sub(r'\s+', ' ', line.lower()).strip()
+        if len(line_clean) <= 120:
+            if 'two mark' in line_clean or '2 mark' in line_clean or re.search(r'\bpart\s*[-–:]?\s*a\b', line_clean):
+                return 'A', 2
+            if 'thirteen mark' in line_clean or '13 mark' in line_clean or re.search(r'\bpart\s*[-–:]?\s*b\b', line_clean):
+                return 'B', 13
+            if 'fifteen mark' in line_clean or '15 mark' in line_clean or 'fourteen mark' in line_clean or '14 mark' in line_clean or re.search(r'\bpart\s*[-–:]?\s*c\b', line_clean):
+                return 'C', 15
+    return None, None
+
 def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str) -> List[Dict[str, Any]]:
     doc = docx.Document(io.BytesIO(file_bytes))
     questions = []
@@ -75,40 +111,123 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
     parts = ["A", "B", "C"]
     marks_list = [2, 13, 15]
 
-    for table_idx, table in enumerate(doc.tables):
-        if table_idx >= 15:
-            break  # Expect up to 15 standard unit tables
-            
-        unit_name = units[table_idx // 3]
-        part_name = parts[table_idx % 3]
-        marks = marks_list[table_idx % 3]
+    current_unit = "Unit I"
+    current_part = "A"
+    current_marks = 2
+    found_any_heading = False
+    table_counter = 0
+
+    for element in doc.element.body:
+        tag = element.tag.split('}')[-1]
         
-        for row_idx, row in enumerate(table.rows):
-            if row_idx == 0:
-                continue  # Skip header row
-                
-            cells = row.cells
-            if len(cells) < 4:
+        if tag == 'p':
+            p = Paragraph(element, doc)
+            text = p.text.strip()
+            if not text:
                 continue
                 
-            question_text = cells[1].text.strip()
-            kl = cells[2].text.strip()
-            co = cells[3].text.strip()
-            
-            if not question_text or question_text.lower().startswith("question"):
+            u = parse_unit_from_text(text)
+            if u:
+                current_unit = u
+                found_any_heading = True
+                
+            p_part, p_marks = parse_part_marks_from_text(text)
+            if p_part:
+                current_part = p_part
+                current_marks = p_marks
+                found_any_heading = True
+
+        elif tag == 'tbl':
+            table = Table(element, doc)
+            if not table.rows:
                 continue
                 
-            questions.append({
-                "subject_code": subject_code,
-                "semester": semester,
-                "text": question_text,
-                "unit": unit_name,
-                "part": part_name,
-                "marks": marks,
-                "kl": kl,
-                "co": co
-            })
+            header_cells = [c.text.strip().lower() for c in table.rows[0].cells]
             
+            # Check if Row 0 itself is an in-cell header
+            row0_text = " ".join([c.text.strip() for c in table.rows[0].cells if c.text.strip()])
+            u_r0 = parse_unit_from_text(row0_text)
+            if u_r0:
+                current_unit = u_r0
+                found_any_heading = True
+            p_part_r0, p_marks_r0 = parse_part_marks_from_text(row0_text)
+            if p_part_r0:
+                current_part = p_part_r0
+                current_marks = p_marks_r0
+                found_any_heading = True
+
+            if len(header_cells) < 3 and not (u_r0 or p_part_r0):
+                continue  # Skip cover/metadata tables with fewer than 3 columns unless it's an in-cell section header
+                
+            if not found_any_heading:
+                unit_name = units[min(table_counter // 3, 4)]
+                part_name = parts[table_counter % 3]
+                marks = marks_list[table_counter % 3]
+            else:
+                unit_name = current_unit
+                part_name = current_part
+                marks = current_marks
+
+            table_counter += 1
+
+            # Determine column positions dynamically
+            q_idx = 1
+            kl_idx = 2
+            co_idx = 3
+            
+            for idx, c_text in enumerate(header_cells):
+                if 'question' in c_text or 'q.no' in c_text or 'description' in c_text:
+                    q_idx = idx
+                elif 'kl' in c_text or 'knowledge' in c_text or 'bloom' in c_text:
+                    kl_idx = idx
+                elif 'co' in c_text or 'outcome' in c_text:
+                    co_idx = idx
+
+            for row_idx, row in enumerate(table.rows):
+                cells = [c.text.strip() for c in row.cells]
+                row_text = " ".join([c for c in cells if c])
+                
+                # Check for in-cell heading rows
+                u_row = parse_unit_from_text(row_text)
+                if u_row:
+                    current_unit = u_row
+                    unit_name = current_unit
+                    found_any_heading = True
+                p_part_row, p_marks_row = parse_part_marks_from_text(row_text)
+                if p_part_row:
+                    current_part = p_part_row
+                    current_marks = p_marks_row
+                    part_name = current_part
+                    marks = current_marks
+                    found_any_heading = True
+                    
+                if row_idx == 0:
+                    continue  # Skip header row
+                    
+                if (u_row or p_part_row) and (len(cells) <= q_idx or len(cells[q_idx]) < 20):
+                    continue  # Skip divider heading rows inside table
+
+                if len(cells) <= q_idx:
+                    continue
+                    
+                question_text = cells[q_idx]
+                kl = cells[kl_idx] if len(cells) > kl_idx else ""
+                co = cells[co_idx] if len(cells) > co_idx else ""
+                
+                if not question_text or question_text.lower().startswith("question") or question_text.lower() == "s. no":
+                    continue
+                    
+                questions.append({
+                    "subject_code": subject_code,
+                    "semester": semester,
+                    "text": question_text,
+                    "unit": unit_name,
+                    "part": part_name,
+                    "marks": marks,
+                    "kl": kl,
+                    "co": co
+                })
+
     logger.info(f"Parsed {len(questions)} questions from DOCX file.")
     return questions
 
@@ -120,74 +239,115 @@ def parse_question_bank_pdf(file_bytes: bytes, subject_code: str, semester: str)
     parts = ["A", "B", "C"]
     marks_list = [2, 13, 15]
 
-    all_tables = []
+    current_unit = "Unit I"
+    current_part = "A"
+    current_marks = 2
+    found_any_heading = False
+    table_counter = 0
+
     with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
         for page in pdf.pages:
+            page_text = page.extract_text() or ""
+            lines = page_text.split('\n')
+            for line in lines:
+                u = parse_unit_from_text(line)
+                if u:
+                    current_unit = u
+                    found_any_heading = True
+                p_part, p_marks = parse_part_marks_from_text(line)
+                if p_part:
+                    current_part = p_part
+                    current_marks = p_marks
+                    found_any_heading = True
+
             tables = page.extract_tables()
-            if tables:
-                all_tables.extend(tables)
+            for table in (tables or []):
+                if not table or not table[0]:
+                    continue
+                    
+                header_row = [(c or "").strip().lower() for c in table[0]]
+                row0_text = " ".join(header_row)
+                u_r0 = parse_unit_from_text(row0_text)
+                if u_r0:
+                    current_unit = u_r0
+                    found_any_heading = True
+                p_part_r0, p_marks_r0 = parse_part_marks_from_text(row0_text)
+                if p_part_r0:
+                    current_part = p_part_r0
+                    current_marks = p_marks_r0
+                    found_any_heading = True
 
-    stitched_tables = []
-    for table in all_tables:
-        if not table:
-            continue
-            
-        has_header = False
-        first_row = table[0]
-        if len(first_row) >= 2:
-            val = (first_row[1] or "").lower()
-            if "question" in val or "questions" in val or "q.no" in val:
-                has_header = True
-                
-        data_rows = table[1:] if has_header else table
-        if not data_rows:
-            continue
-            
-        first_sno = None
-        try:
-            sno_str = str(data_rows[0][0] or "").strip().rstrip(".")
-            first_sno = int(sno_str)
-        except ValueError:
-            pass
-            
-        if (first_sno is None or first_sno > 1) and stitched_tables:
-            stitched_tables[-1].extend(data_rows)
-        else:
-            new_table = [["S.No", "Question", "KL", "CO"]] + data_rows
-            stitched_tables.append(new_table)
+                if len(header_row) < 3 and not (u_r0 or p_part_r0):
+                    continue
 
-    for table_idx, table in enumerate(stitched_tables):
-        if table_idx >= 15:
-            break
-            
-        unit_name = units[table_idx // 3]
-        part_name = parts[table_idx % 3]
-        marks = marks_list[table_idx % 3]
-        
-        for row_idx, row in enumerate(table):
-            if row_idx == 0:
-                continue
+                if not found_any_heading:
+                    unit_name = units[min(table_counter // 3, 4)]
+                    part_name = parts[table_counter % 3]
+                    marks = marks_list[table_counter % 3]
+                else:
+                    unit_name = current_unit
+                    part_name = current_part
+                    marks = current_marks
+
+                table_counter += 1
+
+                q_idx = 1
+                kl_idx = 2
+                co_idx = 3
+                has_header = False
                 
-            if len(row) < 4:
-                continue
-                
-            question_text = (row[1] or "").strip()
-            kl = (row[2] or "").strip()
-            co = (row[3] or "").strip()
-            
-            if not question_text or question_text.lower().startswith("question"):
-                continue
-                
-            questions.append({
-                "subject_code": subject_code,
-                "semester": semester,
-                "text": question_text,
-                "unit": unit_name,
-                "part": part_name,
-                "marks": marks,
-                "kl": kl,
-                "co": co
-            })
+                for idx, c_text in enumerate(header_row):
+                    if 'question' in c_text or 'q.no' in c_text or 'description' in c_text or 's.no' in c_text:
+                        has_header = True
+                    if 'question' in c_text or 'q.no' in c_text or 'description' in c_text:
+                        q_idx = idx
+                    elif 'kl' in c_text or 'knowledge' in c_text or 'bloom' in c_text:
+                        kl_idx = idx
+                    elif 'co' in c_text or 'outcome' in c_text:
+                        co_idx = idx
+
+                data_rows = table[1:] if has_header else table
+
+                for row in data_rows:
+                    cells = [(c or "").strip() for c in row]
+                    row_text = " ".join([c for c in cells if c])
+                    
+                    u_row = parse_unit_from_text(row_text)
+                    if u_row:
+                        current_unit = u_row
+                        unit_name = current_unit
+                        found_any_heading = True
+                    p_part_row, p_marks_row = parse_part_marks_from_text(row_text)
+                    if p_part_row:
+                        current_part = p_part_row
+                        current_marks = p_marks_row
+                        part_name = current_part
+                        marks = current_marks
+                        found_any_heading = True
+
+                    if (u_row or p_part_row) and (len(cells) <= q_idx or len(cells[q_idx]) < 20):
+                        continue
+
+                    if len(cells) <= q_idx:
+                        continue
+                        
+                    question_text = cells[q_idx]
+                    kl = cells[kl_idx] if len(cells) > kl_idx else ""
+                    co = cells[co_idx] if len(cells) > co_idx else ""
+                    
+                    if not question_text or question_text.lower().startswith("question") or question_text.lower() == "s. no":
+                        continue
+                        
+                    questions.append({
+                        "subject_code": subject_code,
+                        "semester": semester,
+                        "text": question_text,
+                        "unit": unit_name,
+                        "part": part_name,
+                        "marks": marks,
+                        "kl": kl,
+                        "co": co
+                    })
             
     logger.info(f"Parsed {len(questions)} questions from PDF file.")
     return questions

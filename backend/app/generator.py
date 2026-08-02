@@ -11,7 +11,7 @@ logger = logging.getLogger("app.generator")
 def normalize_unit(unit_str: str) -> str:
     if not unit_str:
         return "Unit I"
-    u = str(unit_str).strip().upper()
+    u = unit_str.strip().upper()
     if "III" in u or u == "UNIT 3" or u == "3":
         return "Unit III"
     if "II" in u or u == "UNIT 2" or u == "2":
@@ -27,7 +27,7 @@ def normalize_unit(unit_str: str) -> str:
 def normalize_kl(kl_str: str) -> str:
     if not kl_str:
         return "K1"
-    k = str(kl_str).strip().upper()
+    k = kl_str.strip().upper()
     if "K1" in k or "REMEMBER" in k: return "K1"
     if "K2" in k or "UNDERSTAND" in k: return "K2"
     if "K3" in k or "APPLY" in k or "APPLI" in k: return "K3"
@@ -122,6 +122,22 @@ def replace_text_runs(doc, old_text: str, new_text: str):
                 for p in cell.paragraphs:
                     replace_in_paragraph(p, old_text, new_text)
 
+def replace_set_placeholder(doc, target_set: str):
+    if not target_set:
+        return
+    pattern = re.compile(r'\bSET\s*[\u2013\u2014\-–]?\s*(?:I{1,3}|IV|V|VI|VII|\d+)\b', re.IGNORECASE)
+    for p in doc.paragraphs:
+        matches = pattern.findall(p.text)
+        for match_str in set(matches):
+            replace_text_runs(doc, match_str, target_set)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    matches = pattern.findall(p.text)
+                    for match_str in set(matches):
+                        replace_text_runs(doc, match_str, target_set)
+
 def remove_table_rows(table, start_row_idx: int):
     """
     Safely removes rows from start_row_idx to the end of the table.
@@ -136,15 +152,11 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         replace_text_runs(doc, "NAME OF THE INSTITUTION:", config.institution_name.upper())
 
     exam_title = config.exam_name or ("CONTINUOUS ASSESSMENT TEST - II" if config.exam_type in ["CAT-2", "IAT-2"] else "CONTINUOUS ASSESSMENT TEST - I")
-    replace_text_runs(doc, "CONTINUOUS ASSESSMENT TEST- II", exam_title)
-    replace_text_runs(doc, "CONTINUOUS ASSESSMENT TEST - II", exam_title)
-    replace_text_runs(doc, "CONTINUOUS ASSESSMENT TEST- I", exam_title)
-    replace_text_runs(doc, "CONTINUOUS ASSESSMENT TEST - I", exam_title)
+    for title_variant in ["CONTINUOUS ASSESSMENT TEST - II", "CONTINUOUS ASSESSMENT TEST- II", "CONTINUOUS ASSESSMENT TEST - I", "CONTINUOUS ASSESSMENT TEST- I"]:
+        replace_text_runs(doc, title_variant, exam_title)
     
     if config.set:
-        replace_text_runs(doc, "SET  I", config.set)
-        replace_text_runs(doc, "SET - I", config.set)
-        replace_text_runs(doc, "SET-I", config.set)
+        replace_set_placeholder(doc, config.set)
         
     if config.regulation:
         replace_text_runs(doc, "2021-REGULATION", f"{config.regulation}-REGULATION" if "REGULATION" not in config.regulation.upper() else config.regulation)
@@ -373,7 +385,7 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     if config.max_marks:
         replace_text_runs(doc, "Maximum Marks: 100", f"Maximum Marks: {config.max_marks}")
     if config.set:
-        replace_text_runs(doc, "SET-III", config.set)
+        replace_set_placeholder(doc, config.set)
     if config.exam_name:
         replace_text_runs(doc, "MODEL EXAMINATION", config.exam_name)
     if config.date:
@@ -493,7 +505,7 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
 
 def generate_question_paper(
     template_path: str,
-    output_path: str,
+    output_path: Any,
     config: PaperConfig,
     part_a: List[Question],
     part_b: List[List[Question]],

@@ -39,7 +39,7 @@ async def init_db():
 
     try:
         await db["subjects"].create_index([("code", 1), ("uploaded_by", 1)], unique=True)
-        await db["questions"].create_index([("subject_code", 1), ("semester", 1), ("uploaded_by", 1)])
+        await db["questions"].create_index([("subject_code", 1), ("semester", 1), ("uploaded_by", 1), ("part", 1), ("unit", 1)])
         await db["questions"].create_index([("uploader_name", 1)])
         await db["users"].create_index([("username", 1)], unique=True)
         logger.info("MongoDB indexes initialized successfully.")
