@@ -266,19 +266,23 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
     for q in all_questions:
         u_norm = normalize_unit(q.unit)
-        u_idx = None
         if u_norm == target_units[0]:
             u_idx = 0
         elif u_norm == target_units[1]:
             u_idx = 1
+        else:
+            u_idx = 0
         
         kl_key = normalize_kl(q.kl)
-        kl_idx = kls_map.get(kl_key)
+        kl_idx = kls_map.get(kl_key, 0)
 
-        try:
-            m_val = int(q.marks)
-        except (ValueError, TypeError):
-            m_val = 0
+        if q in part_c:
+            m_val = 14
+        else:
+            try:
+                m_val = int(q.marks)
+            except (ValueError, TypeError):
+                m_val = 0
 
         if u_idx is not None and kl_idx is not None:
             tos_counts[u_idx][kl_idx] += 1

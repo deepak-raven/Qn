@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { API_BASE } from '../config';
+import { getPartBQuestionNo, getPartCQuestionNo } from './useSetsManager';
 
 export function usePaperDownloader() {
   const [downloading, setDownloading] = useState(false);
@@ -36,13 +37,13 @@ export function usePaperDownloader() {
     
     for (let i = 0; i < reqPartB; i++) {
       if (!selectedPartB[i] || !selectedPartB[i].a || !selectedPartB[i].b) {
-        alert(`Please complete both choices (a and b) for Question ${11 + i} in Part B.`);
+        alert(`Please complete both choices (a and b) for Question ${getPartBQuestionNo(config.exam_type, i)} in Part B.`);
         return;
       }
     }
 
     if (!selectedPartC.a || !selectedPartC.b) {
-      alert('Please complete both choices (a and b) for Question 16 in Part C.');
+      alert(`Please complete both choices (a and b) for Question ${getPartCQuestionNo(config.exam_type)} in Part C.`);
       return;
     }
 

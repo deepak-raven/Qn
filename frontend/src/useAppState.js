@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot } from './hooks/useSetsManager';
+import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo } from './hooks/useSetsManager';
 import { useTOSCalculator } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
 
@@ -55,7 +55,7 @@ export function useAppState() {
   } = setsManager;
 
   // Delegate TOS calculator math
-  const tosCalculator = useTOSCalculator(selectedPartA, selectedPartB, selectedPartC);
+  const tosCalculator = useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, config);
   const {
     tosCounts,
     tosMarks,
@@ -247,7 +247,7 @@ export function useAppState() {
           } else if (!slot.b) {
             next[slotIdx] = { ...slot, b: q };
           } else {
-            alert(`Question ${11 + slotIdx} already has both choices selected.`);
+            alert(`Question ${getPartBQuestionNo(config.exam_type, slotIdx)} already has both choices selected.`);
           }
           return { selectedPartB: next };
         } else if (activeTabSub === 'C') {
@@ -257,7 +257,7 @@ export function useAppState() {
           } else if (!next.b) {
             next.b = q;
           } else {
-            alert('Question 16 already has both choices selected.');
+            alert(`Question ${getPartCQuestionNo(config.exam_type)} already has both choices selected.`);
           }
           return { selectedPartC: next };
         }
@@ -347,9 +347,10 @@ export function useAppState() {
           return { selectedPartA: next };
         });
       } else if (part === 'B') {
-        const expectedUnit = `Unit ${['I', 'II', 'III', 'IV', 'V'][index]}`;
+        const expectedUnit = getExpectedUnitForPartBSlot(config.exam_type, index);
         if (q.unit !== expectedUnit) {
-          alert(`Only questions from ${expectedUnit} can be placed in Question ${11 + index}.`);
+          const qNo = getPartBQuestionNo(config.exam_type, index);
+          alert(`Only questions from ${expectedUnit} can be placed in Question ${qNo}.`);
           return;
         }
         updateCurrentSet(set => {
@@ -358,6 +359,15 @@ export function useAppState() {
             const sourceSlotIdx = payload.slotIdx;
             const sourceSubKey = payload.subKey;
             const temp = next[index][subKey];
+            if (temp) {
+              const sourceExpectedUnit = getExpectedUnitForPartBSlot(config.exam_type, sourceSlotIdx);
+              if (temp.unit !== sourceExpectedUnit) {
+                const sourceQNo = getPartBQuestionNo(config.exam_type, sourceSlotIdx);
+                const targetQNo = getPartBQuestionNo(config.exam_type, index);
+                alert(`Swap failed: Question ${targetQNo} (${temp.unit}) cannot be placed in Question ${sourceQNo} (${sourceExpectedUnit} expected).`);
+                return {};
+              }
+            }
             next[index] = { ...next[index], [subKey]: q };
             next[sourceSlotIdx] = { ...next[sourceSlotIdx], [sourceSubKey]: temp };
           } else {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2, GripVertical } from 'lucide-react';
-import { getExpectedUnitForPartASlot } from '../hooks/useSetsManager';
+import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo } from '../hooks/useSetsManager';
 
 export default function PaperPreview({
   config,
@@ -546,13 +546,8 @@ export default function PaperPreview({
           </thead>
           <tbody>
             {selectedPartB.map((slot, idx) => {
-              const qNo = (isCAT ? 6 : 11) + idx;
-              const unitsMap = (config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') 
-                ? ['Unit I', 'Unit II'] 
-                : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') 
-                ? ['Unit III', 'Unit IV'] 
-                : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
-              const expectedUnit = unitsMap[idx] || `Unit ${idx + 1}`;
+              const qNo = getPartBQuestionNo(config.exam_type, idx);
+              const expectedUnit = getExpectedUnitForPartBSlot(config.exam_type, idx);
 
               return (
                 <React.Fragment key={idx}>
@@ -718,7 +713,7 @@ export default function PaperPreview({
               onDrop={(e) => handleDrop(e, 'C', 0, 'a')}
               style={{ background: !selectedPartC.a ? '#faf9f8' : 'transparent' }}
             >
-              <td className="center" style={{ fontWeight: 'bold' }}>{isCAT ? 8 : 16}</td>
+              <td className="center" style={{ fontWeight: 'bold' }}>{getPartCQuestionNo(config.exam_type)}</td>
               <td className="center">(a)</td>
               <td 
                 draggable={!!selectedPartC.a}
@@ -755,7 +750,7 @@ export default function PaperPreview({
                   </span>
                 )}
               </td>
-              <td className="center">{selectedPartC.a ? selectedPartC.a.marks : ''}</td>
+              <td className="center">{selectedPartC.a ? (isCAT ? 14 : (selectedPartC.a.marks || 15)) : ''}</td>
               <td className="center">{selectedPartC.a ? selectedPartC.a.co : ''}</td>
               <td className="center">{selectedPartC.a ? selectedPartC.a.kl : ''}</td>
               <td className="center">
@@ -821,7 +816,7 @@ export default function PaperPreview({
                   </span>
                 )}
               </td>
-              <td className="center">{selectedPartC.b ? selectedPartC.b.marks : ''}</td>
+              <td className="center">{selectedPartC.b ? (isCAT ? 14 : (selectedPartC.b.marks || 15)) : ''}</td>
               <td className="center">{selectedPartC.b ? selectedPartC.b.co : ''}</td>
               <td className="center">{selectedPartC.b ? selectedPartC.b.kl : ''}</td>
               <td className="center">

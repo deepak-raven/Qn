@@ -22,6 +22,10 @@ export function getSlotCounts(exam_type) {
   return { partA: 10, partB: 5, partC: 1, defaultMarks: 100, defaultTime: '3 Hours' };
 }
 
+export function isCATExam(examType) {
+  return examType === 'CAT-1' || examType === 'CAT-2' || examType === 'IAT-1' || examType === 'IAT-2';
+}
+
 export function getExpectedUnitForPartASlot(examType, index) {
   if (examType === 'CAT-1' || examType === 'IAT-1') {
     if (index === 0 || index === 1) return ['Unit I'];
@@ -36,6 +40,28 @@ export function getExpectedUnitForPartASlot(examType, index) {
   // MODEL EXAMINATION
   const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
   return [units[index]];
+}
+
+export function getExpectedUnitForPartBSlot(examType, index) {
+  if (examType === 'CAT-1' || examType === 'IAT-1') {
+    const units = ['Unit I', 'Unit II'];
+    return units[index] || `Unit ${index + 1}`;
+  }
+  if (examType === 'CAT-2' || examType === 'IAT-2') {
+    const units = ['Unit III', 'Unit IV'];
+    return units[index] || `Unit ${index + 3}`;
+  }
+  // MODEL EXAMINATION
+  const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+  return units[index] || `Unit ${index + 1}`;
+}
+
+export function getPartBQuestionNo(examType, index) {
+  return (isCATExam(examType) ? 6 : 11) + index;
+}
+
+export function getPartCQuestionNo(examType) {
+  return isCATExam(examType) ? 8 : 16;
 }
 
 export function createDefaultSetData(config) {

@@ -28,8 +28,13 @@ export function normalizeKL(klStr) {
   return 'K1';
 }
 
-export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC) {
+export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, config) {
   return useMemo(() => {
+    const isCAT1 = config?.exam_type === 'CAT-1' || config?.exam_type === 'IAT-1';
+    const isCAT2 = config?.exam_type === 'CAT-2' || config?.exam_type === 'IAT-2';
+    const isCAT = isCAT1 || isCAT2;
+    const catTargetUnits = isCAT1 ? ['Unit I', 'Unit II'] : (isCAT2 ? ['Unit III', 'Unit IV'] : null);
+
     const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
     const kls = ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'];
 
@@ -44,25 +49,31 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC) {
       });
     });
 
-    const allSelected = [];
-    allSelected.push(...selectedPartA.filter(Boolean));
-    selectedPartB.forEach(slot => {
-      if (slot && slot.a) allSelected.push(slot.a);
-      if (slot && slot.b) allSelected.push(slot.b);
-    });
-    if (selectedPartC && selectedPartC.a) allSelected.push(selectedPartC.a);
-    if (selectedPartC && selectedPartC.b) allSelected.push(selectedPartC.b);
-
-    allSelected.forEach(q => {
-      const unitKey = normalizeUnit(q.unit);
+    const addQuestion = (q, defaultMarks) => {
+      if (!q) return;
+      let unitKey = normalizeUnit(q.unit);
+      if (catTargetUnits && !catTargetUnits.includes(unitKey)) {
+        unitKey = catTargetUnits[0];
+      }
       const klKey = normalizeKL(q.kl);
-      const marksVal = Number(q.marks) || 0;
+      const parsed = parseInt(String(q.marks).replace(/[^\d.]/g, ''), 10);
+      const marksVal = defaultMarks !== undefined ? defaultMarks : (!isNaN(parsed) && parsed > 0 ? parsed : 0);
       
       if (tosCounts[unitKey] && tosCounts[unitKey][klKey] !== undefined) {
         tosCounts[unitKey][klKey] += 1;
         tosMarks[unitKey][klKey] += marksVal;
       }
+    };
+
+    selectedPartA.filter(Boolean).forEach(q => addQuestion(q, parseInt(String(q.marks).replace(/[^\d.]/g, ''), 10) || 2));
+    selectedPartB.forEach(slot => {
+      if (slot && slot.a) addQuestion(slot.a, parseInt(String(slot.a.marks).replace(/[^\d.]/g, ''), 10) || 13);
+      if (slot && slot.b) addQuestion(slot.b, parseInt(String(slot.b.marks).replace(/[^\d.]/g, ''), 10) || 13);
     });
+
+    const partCMarks = isCAT ? 14 : 15;
+    if (selectedPartC && selectedPartC.a) addQuestion(selectedPartC.a, partCMarks);
+    if (selectedPartC && selectedPartC.b) addQuestion(selectedPartC.b, partCMarks);
 
     const unitTotalsCount = {};
     const klTotalsCount = { K1: 0, K2: 0, K3: 0, K4: 0, K5: 0, K6: 0 };
@@ -99,5 +110,5 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC) {
       klTotalsMark,
       grandTotalMark
     };
-  }, [selectedPartA, selectedPartB, selectedPartC]);
+  }, [selectedPartA, selectedPartB, selectedPartC, config]);
 }

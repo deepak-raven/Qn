@@ -72,7 +72,7 @@ export default function QuestionPool({
 
       {/* POOL TAB SUB-SELECTOR */}
       <div className="part-tabs" style={{ marginTop: '0.25rem' }}>
-        {['Part A (2m)', 'Part B (13m)', 'Part C (15m)'].map((label, idx) => {
+        {['Part A (2m)', 'Part B (13m)', 'Part C (14m/15m)'].map((label, idx) => {
           const keys = ['A', 'B', 'C'];
           const active = activeTabSub === keys[idx];
           return (

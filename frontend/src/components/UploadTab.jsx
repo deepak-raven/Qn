@@ -459,7 +459,7 @@ export default function UploadTab({
                       {existingQuestions.filter(q => q.part === 'B').length} Part B (13M)
                     </span>
                     <span className="tag tag-unit">
-                      {existingQuestions.filter(q => q.part === 'C').length} Part C (15M)
+                      {existingQuestions.filter(q => q.part === 'C').length} Part C (14M/15M)
                     </span>
                   </div>
                 </div>
