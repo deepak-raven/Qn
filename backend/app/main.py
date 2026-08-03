@@ -1,4 +1,5 @@
 import os
+import asyncio
 import re
 import shutil
 import json
@@ -12,7 +13,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, status, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.exceptions import RequestValidationError
 import anyio
 import anyio.to_thread
@@ -68,21 +69,24 @@ CURRICULUM_PATH = os.path.join(os.path.dirname(__file__), "curriculum.json")
 os.makedirs(UPLOADED_QBS_DIR, exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 
-TEMPLATE_NAME = "MODEL QUESTION.docx"
-TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, TEMPLATE_NAME)
-PARENT_TEMPLATE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "MODEL  QUESTION.docx"))
+CAT_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2025.docx")
+if not os.path.exists(CAT_2025_TEMPLATE_PATH):
+    CAT_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat 2025.docx")
 
-CAT_TEMPLATE_NAME = "cat.docx"
-CAT_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, CAT_TEMPLATE_NAME)
-PARENT_CAT_TEMPLATE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "cat.docx"))
+CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat.docx")
+if not os.path.exists(CAT_2021_TEMPLATE_PATH):
+    CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2021.docx")
 
-if not os.path.exists(TEMPLATE_PATH) and os.path.exists(PARENT_TEMPLATE_PATH):
-    shutil.copy(PARENT_TEMPLATE_PATH, TEMPLATE_PATH)
-    logger.info(f"Copied template file from parent directory to: {TEMPLATE_PATH}")
+MODEL_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "MODEL QUESTION.docx")
+PARENT_MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "MODEL  QUESTION.docx"))
 
-if not os.path.exists(CAT_TEMPLATE_PATH) and os.path.exists(PARENT_CAT_TEMPLATE_PATH):
-    shutil.copy(PARENT_CAT_TEMPLATE_PATH, CAT_TEMPLATE_PATH)
-    logger.info(f"Copied CAT template file from parent directory to: {CAT_TEMPLATE_PATH}")
+if not os.path.exists(MODEL_TEMPLATE_PATH) and os.path.exists(PARENT_MODEL_PATH):
+    shutil.copy(PARENT_MODEL_PATH, MODEL_TEMPLATE_PATH)
+    logger.info(f"Copied template file from parent directory to: {MODEL_TEMPLATE_PATH}")
+
+TEMPLATE_PATH = MODEL_TEMPLATE_PATH
+CAT_TEMPLATE_PATH = CAT_2021_TEMPLATE_PATH
+
 
 def sanitize_filename(name: str) -> str:
     return re.sub(r'[^\w\s-]', '', name).strip()
@@ -333,6 +337,103 @@ async def upload_question_bank(
         logger.error(f"Error during question bank upload: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Upload processing failed: {str(e)}")
 
+@app.post("/api/upload-docx-stream")
+async def upload_question_bank_stream(
+    file: UploadFile = File(...),
+    subject_code: str = Form(...),
+    subject_name: str = Form(...),
+    semester: str = Form(...),
+    regulation: str = Form("2021"),
+    uploader_name: str = Form("System"),
+    uploaded_by: str = Form(...)
+):
+    async def generate_events():
+        try:
+            yield f"data: {json.dumps({'progress': 10, 'step': 'Uploading question bank...'})}\n\n"
+            await asyncio.sleep(0.15)
+            
+            uploaded_filename = file.filename or "unknown"
+            ext = os.path.splitext(uploaded_filename)[1].lower()
+            if ext not in [".docx", ".pdf", ".doc"]:
+                yield f"data: {json.dumps({'error': 'Only .docx, .pdf, and .doc files are supported.'})}\n\n"
+                return
+                
+            file_bytes = await file.read()
+            max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+            if len(file_bytes) > max_bytes:
+                yield f"data: {json.dumps({'error': f'File exceeds maximum size of {settings.MAX_UPLOAD_SIZE_MB}MB.'})}\n\n"
+                return
+
+            yield f"data: {json.dumps({'progress': 30, 'step': 'File received. Registering subject metadata...'})}\n\n"
+            await asyncio.sleep(0.15)
+
+            safe_subject_name = sanitize_filename(subject_name)
+            safe_uploader = sanitize_filename(uploader_name)
+            filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}{ext}"
+            
+            subject_data = {
+                "code": subject_code,
+                "name": subject_name,
+                "semester": semester,
+                "regulation": regulation,
+                "uploader_name": uploader_name,
+                "uploaded_by": uploaded_by,
+                "qb_filename": filename
+            }
+            await add_subject(subject_data)
+
+            yield f"data: {json.dumps({'progress': 50, 'step': 'Extracting tables & DOCX structure...'})}\n\n"
+            await asyncio.sleep(0.15)
+
+            if ext == ".pdf":
+                questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
+            elif ext == ".doc":
+                yield f"data: {json.dumps({'progress': 65, 'step': 'Converting .doc to .docx format...'})}\n\n"
+                await asyncio.sleep(0.15)
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_doc_path = os.path.join(temp_dir, filename)
+                    docx_filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}.docx"
+                    temp_docx_path = os.path.join(temp_dir, docx_filename)
+                    
+                    def save_temp():
+                        with open(temp_doc_path, "wb") as f:
+                            f.write(file_bytes)
+                    await anyio.to_thread.run_sync(save_temp)
+                    await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
+                    
+                    def read_converted():
+                        with open(temp_docx_path, "rb") as f:
+                            return f.read()
+                    docx_bytes = await anyio.to_thread.run_sync(read_converted)
+                    questions = await anyio.to_thread.run_sync(parse_question_bank_docx, docx_bytes, subject_code, semester)
+                    subject_data["qb_filename"] = docx_filename
+                    await add_subject(subject_data)
+            else:
+                questions = await anyio.to_thread.run_sync(parse_question_bank_docx, file_bytes, subject_code, semester)
+
+            yield f"data: {json.dumps({'progress': 85, 'step': f'Parsed {len(questions) if questions else 0} questions from tables.'})}\n\n"
+            await asyncio.sleep(0.15)
+
+            if not questions:
+                yield f"data: {json.dumps({'error': 'No questions could be parsed from the uploaded document.'})}\n\n"
+                return
+
+            for q in questions:
+                q["uploaded_by"] = uploaded_by
+
+            yield f"data: {json.dumps({'progress': 95, 'step': 'Indexing questions & BLOOM levels into database...'})}\n\n"
+            await asyncio.sleep(0.15)
+            await add_questions(questions, uploader_name)
+
+            yield f"data: {json.dumps({'progress': 100, 'step': f'Done! Parsed {len(questions)} questions.'})}\n\n"
+            await asyncio.sleep(0.2)
+
+        except Exception as exc:
+            logger.error(f"Error in upload stream: {exc}", exc_info=True)
+            yield f"data: {json.dumps({'error': f'Upload processing failed: {str(exc)}'})}\n\n"
+
+    return StreamingResponse(generate_events(), media_type="text/event-stream")
+
 @app.post("/api/analyze-file")
 async def analyze_file(file: UploadFile = File(...)):
     uploaded_filename = file.filename or "unknown"
@@ -398,9 +499,18 @@ async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTa
         raise HTTPException(status_code=400, detail="Subject name is required before generating the question paper.")
 
     exam_type = (payload.config.exam_type or "").upper()
-    is_cat = exam_type in ["CAT-1", "CAT-2", "IAT-1", "IAT-2"]
+    reg_val = (payload.config.regulation or "").upper()
     
-    template_to_use = CAT_TEMPLATE_PATH if (is_cat and os.path.exists(CAT_TEMPLATE_PATH)) else TEMPLATE_PATH
+    is_2025 = "2025" in reg_val
+    is_cat = exam_type in ["CAT-1", "CAT-2", "IAT-1", "IAT-2"] or is_2025
+
+    if is_2025:
+        template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+    elif is_cat:
+        template_to_use = CAT_2021_TEMPLATE_PATH if os.path.exists(CAT_2021_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH
+    else:
+        template_to_use = MODEL_TEMPLATE_PATH if os.path.exists(MODEL_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+
     
     if not os.path.exists(template_to_use):
         raise HTTPException(

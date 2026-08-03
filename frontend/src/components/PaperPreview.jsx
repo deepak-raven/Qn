@@ -1,6 +1,6 @@
 import React from 'react';
-import { Trash2, GripVertical } from 'lucide-react';
-import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo } from '../hooks/useSetsManager';
+import { Trash2, GripVertical, RotateCcw } from 'lucide-react';
+import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getSuggestedUnitForPartASlot, getSuggestedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from '../hooks/useSetsManager';
 
 export default function PaperPreview({
   config,
@@ -18,6 +18,7 @@ export default function PaperPreview({
   handleDeleteSet,
   handleDrop,
   handleClearSlot,
+  handleClearAllQuestions,
   updateQuestionText,
   setActiveTabSub,
   setFilterUnit,
@@ -37,7 +38,8 @@ export default function PaperPreview({
 
   const isCAT1 = config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1';
   const isCAT2 = config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2';
-  const isCAT = isCAT1 || isCAT2;
+  const isCAT = isCATExam(config.exam_type, config.regulation);
+  const is2025 = is2025Regulation(config.regulation);
 
   const tosUnits = isCAT1 
     ? ['Unit I', 'Unit II'] 
@@ -169,13 +171,23 @@ export default function PaperPreview({
           )}
         </div>
         
-        {/* Exam Type Selector */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '0.25rem', whiteSpace: 'nowrap' }}>
+        {/* Exam Type Selector & Clear Questions Button */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.85rem', paddingBottom: '0.25rem', whiteSpace: 'nowrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
             <select
               value={config.exam_type || 'MODEL EXAMINATION'}
-              onChange={(e) => setConfig({ ...config, exam_type: e.target.value })}
+              onChange={(e) => {
+                const newType = e.target.value;
+                const isCatType = newType === 'CAT-1' || newType === 'CAT-2';
+                setConfig(prev => ({
+                  ...prev,
+                  exam_type: newType,
+                  exam_name: isCatType ? (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : 'MODEL EXAMINATION',
+                  time: isCatType ? '90 Minutes' : '3 Hours',
+                  max_marks: isCatType ? 50 : 100
+                }));
+              }}
               style={{
                 fontSize: '0.78rem',
                 fontWeight: 700,
@@ -192,6 +204,27 @@ export default function PaperPreview({
               <option value="CAT-2">CAT - II (Unit III & IV | 50 Marks)</option>
             </select>
           </div>
+
+          <button
+            onClick={handleClearAllQuestions}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0.35rem',
+              borderRadius: '4px',
+              border: '1px solid #fca5a5',
+              background: '#fef2f2',
+              color: '#dc2626',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#fee2e2'; e.currentTarget.style.borderColor = '#f87171'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+            title={`Clear all selected questions from ${currentSetId}`}
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
       </div>
 
@@ -438,8 +471,8 @@ export default function PaperPreview({
 
         {/* PART A PREVIEW TABLE */}
         <div ref={partARef} className="paper-part-title">
-          PART &ndash; A ({selectedPartA.length} x 2 = {selectedPartA.length * 2} Marks)<br />
-          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer all the questions</span>
+          PART &ndash; A ({is2025 ? '5 x 1 = 5' : `${selectedPartA.slice(0, isCAT ? 5 : 10).length} x 2 = ${selectedPartA.slice(0, isCAT ? 5 : 10).length * 2}`} Marks)<br />
+          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer ALL the questions</span>
         </div>
 
         <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
@@ -454,7 +487,7 @@ export default function PaperPreview({
             </tr>
           </thead>
           <tbody>
-            {selectedPartA.map((item, idx) => (
+            {selectedPartA.slice(0, (is2025 || isCAT) ? 5 : 10).map((item, idx) => (
               <tr 
                 key={idx}
                 onDragOver={handleDragOver}
@@ -496,11 +529,11 @@ export default function PaperPreview({
                         setFilterUnit('All');
                       }}
                     >
-                      [Drop target for Part A: {getExpectedUnitForPartASlot(config.exam_type, idx).join('/')}]
+                      [Drop target for Part A: {getSuggestedUnitForPartASlot(config.exam_type, idx, config.regulation).join('/')}]
                     </span>
                   )}
                 </td>
-                <td className="center">{item ? item.marks : ''}</td>
+                <td className="center">{item ? (is2025 ? 1 : 2) : ''}</td>
                 <td className="center">{item ? item.co : ''}</td>
                 <td className="center">{item ? item.kl : ''}</td>
                 <td className="center">
@@ -521,8 +554,259 @@ export default function PaperPreview({
 
         {/* PART B PREVIEW TABLE */}
         <div ref={partBRef} className="paper-part-title">
-          PART &ndash; B ({selectedPartB.length} x 13 = {selectedPartB.length * 13} Marks)<br />
-          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer all the questions</span>
+          PART &ndash; B ({is2025 ? '5 x 3 = 15' : `${selectedPartB.length} x 13 = ${selectedPartB.length * 13}`} Marks)<br />
+          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer ALL the questions</span>
+        </div>
+
+        {is2025 ? (
+          /* CAT 2025 PART B: 5 Single Questions (Q6 to Q10, 3 Marks each) */
+          <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '8%', textAlign: 'center' }}>Q.No</th>
+                <th style={{ width: '64%' }}>Question Description</th>
+                <th style={{ width: '8%', textAlign: 'center' }}>Marks</th>
+                <th style={{ width: '10%', textAlign: 'center' }}>CO</th>
+                <th style={{ width: '10%', textAlign: 'center' }}>KL</th>
+                <th style={{ width: '6%', textAlign: 'center' }}>Act</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array(5).fill(null).map((_, idx) => {
+                const slotRaw = selectedPartB[idx];
+                const item = slotRaw ? (slotRaw.a || slotRaw.b || (slotRaw.text ? slotRaw : null)) : null;
+                const qNo = 6 + idx;
+                const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation);
+
+                return (
+                  <tr 
+                    key={idx}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, 'B', idx, 'a')}
+                    style={{ background: !item ? '#faf9f8' : 'transparent' }}
+                  >
+                    <td className="center" style={{ fontWeight: 'bold' }}>{qNo}</td>
+                    <td 
+                      draggable={!!item}
+                      onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_b', slotIdx: idx, subKey: 'a', question: item }))}
+                      style={{ cursor: item ? 'grab' : 'default' }}
+                    >
+                      {item ? (
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
+                          <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
+                            <GripVertical size={13} />
+                          </span>
+                          <span 
+                            contentEditable 
+                            suppressContentEditableWarning
+                            onBlur={(e) => {
+                              const val = e.target.innerText.trim();
+                              if (val !== '') {
+                                updateQuestionText('B', idx, 'a', val);
+                              }
+                            }}
+                          >
+                            {item.text}
+                          </span>
+                        </div>
+                      ) : (
+                        <span 
+                          style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
+                          onClick={() => {
+                            setActiveTabSub('B');
+                            setFilterUnit(Array.isArray(expectedUnit) ? (expectedUnit.length === 1 ? expectedUnit[0] : 'All') : expectedUnit);
+                          }}
+                        >
+                          [Drop target for Part B Question {qNo} ({Array.isArray(expectedUnit) ? expectedUnit.join(' / ') : expectedUnit})]
+                        </span>
+                      )}
+                    </td>
+                    <td className="center">{item ? 3 : ''}</td>
+                    <td className="center">{item ? item.co : ''}</td>
+                    <td className="center">{item ? item.kl : ''}</td>
+                    <td className="center">
+                      {item && (
+                        <button 
+                          onClick={() => handleClearSlot('B', idx, 'a')}
+                          className="btn-trash"
+                          title="Clear slot"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          /* MODEL EXAM PART B: 5 Either-OR Pairs (13 Marks each) */
+          <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '8%', textAlign: 'center' }}>Q.No</th>
+                <th style={{ width: '4%' }}>Opt</th>
+                <th style={{ width: '60%' }}>Question Description</th>
+                <th style={{ width: '8%', textAlign: 'center' }}>Marks</th>
+                <th style={{ width: '10%', textAlign: 'center' }}>CO</th>
+                <th style={{ width: '10%', textAlign: 'center' }}>KL</th>
+                <th style={{ width: '6%', textAlign: 'center' }}>Act</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedPartB.map((slot, idx) => {
+                const qNo = getPartBQuestionNo(config.exam_type, idx, config.regulation);
+                const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation);
+
+                return (
+                  <React.Fragment key={idx}>
+                    {/* Option A Row */}
+                    <tr 
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, 'B', idx, 'a')}
+                      style={{ background: !slot?.a ? '#faf9f8' : 'transparent' }}
+                    >
+                      <td className="center" style={{ fontWeight: 'bold' }}>{qNo}</td>
+                      <td className="center">(a)</td>
+                      <td 
+                        draggable={!!slot?.a}
+                        onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_b', slotIdx: idx, subKey: 'a', question: slot?.a }))}
+                        style={{ cursor: slot?.a ? 'grab' : 'default' }}
+                      >
+                        {slot?.a ? (
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
+                            <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
+                              <GripVertical size={13} />
+                            </span>
+                            <span 
+                              contentEditable 
+                              suppressContentEditableWarning
+                              onBlur={(e) => {
+                                const val = e.target.innerText.trim();
+                                if (val !== '') {
+                                  updateQuestionText('B', idx, 'a', val);
+                                }
+                              }}
+                            >
+                              {slot.a.text}
+                            </span>
+                          </div>
+                        ) : (
+                          <span 
+                            style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
+                            onClick={() => {
+                              setActiveTabSub('B');
+                              setFilterUnit(Array.isArray(expectedUnit) ? (expectedUnit.length === 1 ? expectedUnit[0] : 'All') : expectedUnit);
+                            }}
+                          >
+                            [Drop target for Part B &ndash; {Array.isArray(expectedUnit) ? expectedUnit.join(' / ') : expectedUnit} question card]
+                          </span>
+                        )}
+                      </td>
+                      <td className="center">{slot?.a ? slot.a.marks : ''}</td>
+                      <td className="center">{slot?.a ? slot.a.co : ''}</td>
+                      <td className="center">{slot?.a ? slot.a.kl : ''}</td>
+                      <td className="center">
+                        {slot?.a && (
+                          <button 
+                            onClick={() => handleClearSlot('B', idx, 'a')}
+                            className="btn-trash"
+                            title="Clear slot"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* Either Or Divider */}
+                    <tr>
+                      <td></td>
+                      <td></td>
+                      <td style={{ textAlign: 'center', fontWeight: 'bold', fontStyle: 'italic', fontSize: '0.88rem', padding: '0.25rem 0' }}>OR</td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                    </tr>
+
+                    {/* Option B Row */}
+                    <tr 
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, 'B', idx, 'b')}
+                      style={{ background: !slot?.b ? '#faf9f8' : 'transparent' }}
+                    >
+                      <td></td>
+                      <td className="center">(b)</td>
+                      <td 
+                        draggable={!!slot?.b}
+                        onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_b', slotIdx: idx, subKey: 'b', question: slot?.b }))}
+                        style={{ cursor: slot?.b ? 'grab' : 'default' }}
+                      >
+                        {slot?.b ? (
+                          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
+                            <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
+                              <GripVertical size={13} />
+                            </span>
+                            <span 
+                              contentEditable 
+                              suppressContentEditableWarning
+                              onBlur={(e) => {
+                                const val = e.target.innerText.trim();
+                                if (val !== '') {
+                                  updateQuestionText('B', idx, 'b', val);
+                                }
+                              }}
+                            >
+                              {slot.b.text}
+                            </span>
+                          </div>
+                        ) : (
+                          <span 
+                            style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
+                            onClick={() => {
+                              setActiveTabSub('B');
+                              setFilterUnit(Array.isArray(expectedUnit) ? (expectedUnit.length === 1 ? expectedUnit[0] : 'All') : expectedUnit);
+                            }}
+                          >
+                            [Drop target for Part B &ndash; {Array.isArray(expectedUnit) ? expectedUnit.join(' / ') : expectedUnit} question card]
+                          </span>
+                        )}
+                      </td>
+                      <td className="center">{slot?.b ? slot.b.marks : ''}</td>
+                      <td className="center">{slot?.b ? slot.b.co : ''}</td>
+                      <td className="center">{slot?.b ? slot.b.kl : ''}</td>
+                      <td className="center">
+                        {slot?.b && (
+                          <button 
+                            onClick={() => handleClearSlot('B', idx, 'b')}
+                            className="btn-trash"
+                            title="Clear slot"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+
+                    {/* Blank space separating questions */}
+                    {idx < 4 && (
+                      <tr style={{ height: '1.25rem' }}>
+                        <td colSpan={7} style={{ border: 'none', background: 'transparent' }}></td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* PART C PREVIEW TABLE */}
+        <div ref={partCRef} className="paper-part-title">
+          PART &ndash; C ({is2025 ? '3 x 10 = 30' : '1 x 15 = 15'} Marks)<br />
+          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer ALL the questions</span>
         </div>
 
         <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
@@ -538,26 +822,29 @@ export default function PaperPreview({
             </tr>
           </thead>
           <tbody>
-            {selectedPartB.map((slot, idx) => {
-              const qNo = getPartBQuestionNo(config.exam_type, idx);
-              const expectedUnit = getExpectedUnitForPartBSlot(config.exam_type, idx);
+            {(is2025 ? (
+              Array.isArray(selectedPartC) ? selectedPartC : [selectedPartC, { a: null, b: null }, { a: null, b: null }]
+            ).slice(0, is2025 ? 3 : 1) : (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])).map((pairSlot, pairIdx) => {
+              const qNo = is2025 ? (11 + pairIdx) : getPartCQuestionNo(config.exam_type);
+              const slotA = pairSlot?.a;
+              const slotB = pairSlot?.b;
 
               return (
-                <React.Fragment key={idx}>
-                  {/* Option A Row */}
+                <React.Fragment key={pairIdx}>
+                  {/* Option A */}
                   <tr 
                     onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, 'B', idx, 'a')}
-                    style={{ background: !slot.a ? '#faf9f8' : 'transparent' }}
+                    onDrop={(e) => handleDrop(e, 'C', pairIdx, 'a')}
+                    style={{ background: !slotA ? '#faf9f8' : 'transparent' }}
                   >
                     <td className="center" style={{ fontWeight: 'bold' }}>{qNo}</td>
                     <td className="center">(a)</td>
                     <td 
-                      draggable={!!slot.a}
-                      onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_b', slotIdx: idx, subKey: 'a', question: slot.a }))}
-                      style={{ cursor: slot.a ? 'grab' : 'default' }}
+                      draggable={!!slotA}
+                      onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_c', pairIdx, subKey: 'a', question: slotA }))}
+                      style={{ cursor: slotA ? 'grab' : 'default' }}
                     >
-                      {slot.a ? (
+                      {slotA ? (
                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
                           <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                             <GripVertical size={13} />
@@ -568,32 +855,32 @@ export default function PaperPreview({
                             onBlur={(e) => {
                               const val = e.target.innerText.trim();
                               if (val !== '') {
-                                updateQuestionText('B', idx, 'a', val);
+                                updateQuestionText('C', pairIdx, 'a', val);
                               }
                             }}
                           >
-                            {slot.a.text}
+                            {slotA.text}
                           </span>
                         </div>
                       ) : (
                         <span 
                           style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
                           onClick={() => {
-                            setActiveTabSub('B');
-                            setFilterUnit(expectedUnit);
+                            setActiveTabSub('C');
+                            setFilterUnit('All');
                           }}
                         >
-                          [Drop target for Part B &ndash; {expectedUnit} question card]
+                          [Drop target for Part C Question {qNo}(a)]
                         </span>
                       )}
                     </td>
-                    <td className="center">{slot.a ? slot.a.marks : ''}</td>
-                    <td className="center">{slot.a ? slot.a.co : ''}</td>
-                    <td className="center">{slot.a ? slot.a.kl : ''}</td>
+                    <td className="center">{slotA ? (isCAT ? 10 : (slotA.marks || 15)) : ''}</td>
+                    <td className="center">{slotA ? slotA.co : ''}</td>
+                    <td className="center">{slotA ? slotA.kl : ''}</td>
                     <td className="center">
-                      {slot.a && (
+                      {slotA && (
                         <button 
-                          onClick={() => handleClearSlot('B', idx, 'a')}
+                          onClick={() => handleClearSlot('C', pairIdx, 'a')}
                           className="btn-trash"
                           title="Clear slot"
                         >
@@ -614,20 +901,20 @@ export default function PaperPreview({
                     <td></td>
                   </tr>
 
-                  {/* Option B Row */}
+                  {/* Option B */}
                   <tr 
                     onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, 'B', idx, 'b')}
-                    style={{ background: !slot.b ? '#faf9f8' : 'transparent' }}
+                    onDrop={(e) => handleDrop(e, 'C', pairIdx, 'b')}
+                    style={{ background: !slotB ? '#faf9f8' : 'transparent' }}
                   >
                     <td></td>
                     <td className="center">(b)</td>
                     <td 
-                      draggable={!!slot.b}
-                      onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_b', slotIdx: idx, subKey: 'b', question: slot.b }))}
-                      style={{ cursor: slot.b ? 'grab' : 'default' }}
+                      draggable={!!slotB}
+                      onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_c', pairIdx, subKey: 'b', question: slotB }))}
+                      style={{ cursor: slotB ? 'grab' : 'default' }}
                     >
-                      {slot.b ? (
+                      {slotB ? (
                         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
                           <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                             <GripVertical size={13} />
@@ -638,32 +925,32 @@ export default function PaperPreview({
                             onBlur={(e) => {
                               const val = e.target.innerText.trim();
                               if (val !== '') {
-                                updateQuestionText('B', idx, 'b', val);
+                                updateQuestionText('C', pairIdx, 'b', val);
                               }
                             }}
                           >
-                            {slot.b.text}
+                            {slotB.text}
                           </span>
                         </div>
                       ) : (
                         <span 
                           style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
                           onClick={() => {
-                            setActiveTabSub('B');
-                            setFilterUnit(expectedUnit);
+                            setActiveTabSub('C');
+                            setFilterUnit('All');
                           }}
                         >
-                          [Drop target for Part B &ndash; {expectedUnit} question card]
+                          [Drop target for Part C Question {qNo}(b)]
                         </span>
                       )}
                     </td>
-                    <td className="center">{slot.b ? slot.b.marks : ''}</td>
-                    <td className="center">{slot.b ? slot.b.co : ''}</td>
-                    <td className="center">{slot.b ? slot.b.kl : ''}</td>
+                    <td className="center">{slotB ? (isCAT ? 10 : (slotB.marks || 15)) : ''}</td>
+                    <td className="center">{slotB ? slotB.co : ''}</td>
+                    <td className="center">{slotB ? slotB.kl : ''}</td>
                     <td className="center">
-                      {slot.b && (
+                      {slotB && (
                         <button 
-                          onClick={() => handleClearSlot('B', idx, 'b')}
+                          onClick={() => handleClearSlot('C', pairIdx, 'b')}
                           className="btn-trash"
                           title="Clear slot"
                         >
@@ -673,8 +960,7 @@ export default function PaperPreview({
                     </td>
                   </tr>
 
-                  {/* Blank space separating questions */}
-                  {idx < 4 && (
+                  {pairIdx < (isCAT ? 2 : 0) && (
                     <tr style={{ height: '1.25rem' }}>
                       <td colSpan={7} style={{ border: 'none', background: 'transparent' }}></td>
                     </tr>
@@ -682,156 +968,6 @@ export default function PaperPreview({
                 </React.Fragment>
               );
             })}
-          </tbody>
-        </table>
-
-        {/* PART C PREVIEW TABLE */}
-        <div ref={partCRef} className="paper-part-title">
-          PART &ndash; C ({isCAT ? '1 x 14 = 14' : '1 x 15 = 15'} Marks)<br />
-          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer all the questions</span>
-        </div>
-
-        <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
-          <thead>
-            <tr>
-              <th style={{ width: '8%', textAlign: 'center' }}>Q.No</th>
-              <th style={{ width: '4%' }}>Opt</th>
-              <th style={{ width: '60%' }}>Question Description</th>
-              <th style={{ width: '8%', textAlign: 'center' }}>Marks</th>
-              <th style={{ width: '10%', textAlign: 'center' }}>CO</th>
-              <th style={{ width: '10%', textAlign: 'center' }}>KL</th>
-              <th style={{ width: '6%', textAlign: 'center' }}>Act</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Part C Option A */}
-            <tr 
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, 'C', 0, 'a')}
-              style={{ background: !selectedPartC.a ? '#faf9f8' : 'transparent' }}
-            >
-              <td className="center" style={{ fontWeight: 'bold' }}>{getPartCQuestionNo(config.exam_type)}</td>
-              <td className="center">(a)</td>
-              <td 
-                draggable={!!selectedPartC.a}
-                onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_c', subKey: 'a', question: selectedPartC.a }))}
-                style={{ cursor: selectedPartC.a ? 'grab' : 'default' }}
-              >
-                {selectedPartC.a ? (
-                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
-                    <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
-                      <GripVertical size={13} />
-                    </span>
-                    <span 
-                      contentEditable 
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const val = e.target.innerText.trim();
-                        if (val !== '') {
-                          updateQuestionText('C', 0, 'a', val);
-                        }
-                      }}
-                    >
-                      {selectedPartC.a.text}
-                    </span>
-                  </div>
-                ) : (
-                  <span 
-                    style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
-                    onClick={() => {
-                      setActiveTabSub('C');
-                      setFilterUnit('All');
-                    }}
-                  >
-                    [Drop target for Part C question card]
-                  </span>
-                )}
-              </td>
-              <td className="center">{selectedPartC.a ? (isCAT ? 14 : (selectedPartC.a.marks || 15)) : ''}</td>
-              <td className="center">{selectedPartC.a ? selectedPartC.a.co : ''}</td>
-              <td className="center">{selectedPartC.a ? selectedPartC.a.kl : ''}</td>
-              <td className="center">
-                {selectedPartC.a && (
-                  <button 
-                    onClick={() => handleClearSlot('C', 0, 'a')}
-                    className="btn-trash"
-                    title="Clear slot"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </td>
-            </tr>
-
-            {/* Either Or Divider */}
-            <tr>
-              <td></td>
-              <td></td>
-              <td style={{ textAlign: 'center', fontWeight: 'bold', fontStyle: 'italic', fontSize: '0.88rem', padding: '0.25rem 0' }}>OR</td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-
-            {/* Part C Option B */}
-            <tr 
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, 'C', 0, 'b')}
-              style={{ background: !selectedPartC.b ? '#faf9f8' : 'transparent' }}
-            >
-              <td></td>
-              <td className="center">(b)</td>
-              <td 
-                draggable={!!selectedPartC.b}
-                onDragStart={(e) => e.dataTransfer.setData('application/json', JSON.stringify({ type: 'preview_c', subKey: 'b', question: selectedPartC.b }))}
-                style={{ cursor: selectedPartC.b ? 'grab' : 'default' }}
-              >
-                {selectedPartC.b ? (
-                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'flex-start' }}>
-                    <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
-                      <GripVertical size={13} />
-                    </span>
-                    <span 
-                      contentEditable 
-                      suppressContentEditableWarning
-                      onBlur={(e) => {
-                        const val = e.target.innerText.trim();
-                        if (val !== '') {
-                          updateQuestionText('C', 0, 'b', val);
-                        }
-                      }}
-                    >
-                      {selectedPartC.b.text}
-                    </span>
-                  </div>
-                ) : (
-                  <span 
-                    style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
-                    onClick={() => {
-                      setActiveTabSub('C');
-                      setFilterUnit('All');
-                    }}
-                  >
-                    [Drop target for Part C question card]
-                  </span>
-                )}
-              </td>
-              <td className="center">{selectedPartC.b ? (isCAT ? 14 : (selectedPartC.b.marks || 15)) : ''}</td>
-              <td className="center">{selectedPartC.b ? selectedPartC.b.co : ''}</td>
-              <td className="center">{selectedPartC.b ? selectedPartC.b.kl : ''}</td>
-              <td className="center">
-                {selectedPartC.b && (
-                  <button 
-                    onClick={() => handleClearSlot('C', 0, 'b')}
-                    className="btn-trash"
-                    title="Clear slot"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                )}
-              </td>
-            </tr>
           </tbody>
         </table>
 

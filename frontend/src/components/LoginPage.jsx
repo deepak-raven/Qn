@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Shield, KeyRound, UserPlus, LogIn, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, AlertCircle } from 'lucide-react';
 import logoImg from '../assets/image.png';
 
 export default function LoginPage({ onLogin, onRegister }) {
-  const [mode, setMode] = useState('user'); // 'user' | 'admin' | 'register'
+  const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -17,12 +17,7 @@ export default function LoginPage({ onLogin, onRegister }) {
     setLoading(true);
 
     try {
-      const identifierVal = username.trim().toLowerCase();
-      
-      // Admin username check
-      if (mode === 'admin') {
-        await onLogin(identifierVal, password);
-      } else if (mode === 'register') {
+      if (isRegister) {
         if (!name.trim()) throw new Error('Full Name is required.');
         
         const usernameVal = username.trim().toLowerCase();
@@ -39,7 +34,7 @@ export default function LoginPage({ onLogin, onRegister }) {
 
         await onRegister(usernameVal, password, name.trim(), emailVal);
       } else {
-        // Faculty Login (Username or Email)
+        const identifierVal = username.trim().toLowerCase();
         if (!identifierVal) {
           throw new Error('Username or Email is required.');
         }
@@ -49,27 +44,15 @@ export default function LoginPage({ onLogin, onRegister }) {
           if (!emailRegex.test(identifierVal)) {
             throw new Error('Please enter a valid email address.');
           }
-        } else {
-          const usernameRegex = /^[a-zA-Z0-9_\-\.]{3,30}$/;
-          if (!usernameRegex.test(identifierVal)) {
-            throw new Error('Username must be 3-30 characters long and contain only letters, numbers, underscores, hyphens, or dots.');
-          }
         }
-        
+
         await onLogin(identifierVal, password);
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please check credentials.');
+      setError(err.message || 'Authentication failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAdminQuickFill = () => {
-    setMode('admin');
-    setUsername('admin');
-    setPassword('admin123');
-    setError('');
   };
 
   return (
@@ -83,11 +66,11 @@ export default function LoginPage({ onLogin, onRegister }) {
     }}>
       <div className="glass-panel" style={{
         width: '100%',
-        maxWidth: '460px',
+        maxWidth: '440px',
         padding: '2.5rem',
         borderRadius: '16px',
         boxShadow: '0 20px 40px rgba(0, 0, 0, 0.3)',
-        background: 'rgba(255, 255, 255, 0.95)',
+        background: 'rgba(255, 255, 255, 0.96)',
         backdropFilter: 'blur(20px)'
       }}>
         {/* Header Branding */}
@@ -114,47 +97,16 @@ export default function LoginPage({ onLogin, onRegister }) {
           <h2 style={{ margin: 0, fontSize: '1.45rem', color: '#1e293b', fontWeight: 800 }}>
             Jaya Engineering College
           </h2>
-          <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+          <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
             Question Bank & Exam Orchestration System
           </p>
         </div>
 
-        {/* Mode Switcher Tabs */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: '0.4rem',
-          background: '#f1f5f9',
-          padding: '0.3rem',
-          borderRadius: '10px',
-          marginBottom: '1.75rem'
-        }}>
-          <button
-            type="button"
-            className={`btn ${mode === 'user' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('user'); setError(''); setUsername(''); setPassword(''); setEmail(''); }}
-            style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'user' ? undefined : 'transparent', color: mode === 'user' ? undefined : '#475569' }}
-          >
-            <KeyRound size={14} /> Faculty
-          </button>
-
-          <button
-            type="button"
-            className={`btn ${mode === 'admin' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('admin'); setError(''); setUsername(''); setPassword(''); setEmail(''); }}
-            style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'admin' ? undefined : 'transparent', color: mode === 'admin' ? undefined : '#475569' }}
-          >
-            <Shield size={14} /> Admin
-          </button>
-
-          <button
-            type="button"
-            className={`btn ${mode === 'register' ? 'btn-primary' : ''}`}
-            onClick={() => { setMode('register'); setError(''); setUsername(''); setPassword(''); setEmail(''); }}
-            style={{ fontSize: '0.78rem', padding: '0.45rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', background: mode === 'register' ? undefined : 'transparent', color: mode === 'register' ? undefined : '#475569' }}
-          >
-            <UserPlus size={14} /> Register
-          </button>
+        {/* Title */}
+        <div style={{ marginBottom: '1.25rem', textAlign: 'left' }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 700 }}>
+            {isRegister ? 'Create Account' : 'Sign In'}
+          </h3>
         </div>
 
         {/* Error Alert */}
@@ -178,7 +130,7 @@ export default function LoginPage({ onLogin, onRegister }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-          {mode === 'register' && (
+          {isRegister && (
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Full Name / Title</label>
               <input
@@ -194,19 +146,19 @@ export default function LoginPage({ onLogin, onRegister }) {
 
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">
-              {mode === 'register' ? 'Choose Username' : mode === 'admin' ? 'Admin Username' : 'Username or Email'}
+              {isRegister ? 'Choose Username' : 'Username or Email'}
             </label>
             <input
               type="text"
               className="form-input"
-              placeholder={mode === 'admin' ? 'admin' : mode === 'register' ? 'choose username' : 'enter username or email'}
+              placeholder={isRegister ? 'e.g. deepak' : 'enter username or email'}
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
             />
           </div>
 
-          {mode === 'register' && (
+          {isRegister && (
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Email Address</label>
               <input
@@ -245,45 +197,65 @@ export default function LoginPage({ onLogin, onRegister }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              margin: '0.5rem 0'
+              marginTop: '0.4rem'
             }}
           >
-            {loading ? 'Authenticating...' : mode === 'register' ? 'Create Account' : mode === 'admin' ? 'Login as Admin' : 'Login as Faculty'}
-            <LogIn size={18} />
+            {loading ? 'Authenticating...' : isRegister ? 'Create Account' : 'Sign In'}
+            {isRegister ? <UserPlus size={18} /> : <LogIn size={18} />}
           </button>
         </form>
 
-        {/* Quick Admin Helper Badge */}
-        {mode === 'admin' && (
-          <div style={{
-            marginTop: '1.5rem',
-            padding: '0.75rem',
-            background: '#f8fafc',
-            border: '1px border #e2e8f0',
-            borderRadius: '8px',
-            textAlign: 'center',
-            fontSize: '0.78rem',
-            color: '#64748b'
-          }}>
-            Default Admin Credentials: <strong>admin</strong> / <strong>admin123</strong>
-            <button
-              type="button"
-              onClick={handleAdminQuickFill}
-              style={{
-                display: 'block',
-                margin: '0.4rem auto 0',
-                background: 'none',
-                border: 'none',
-                color: 'var(--primary, #6366f1)',
-                fontWeight: 700,
-                cursor: 'pointer',
-                fontSize: '0.75rem'
-              }}
-            >
-              Click here to Auto-Fill Admin Credentials
-            </button>
-          </div>
-        )}
+        {/* Bottom Toggle Link */}
+        <div style={{
+          marginTop: '1.75rem',
+          textAlign: 'center',
+          fontSize: '0.85rem',
+          color: '#64748b',
+          borderTop: '1px solid #f1f5f9',
+          paddingTop: '1.25rem'
+        }}>
+          {isRegister ? (
+            <span>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setIsRegister(false); setError(''); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary, #2563eb)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  padding: 0,
+                  textDecoration: 'underline'
+                }}
+              >
+                Sign In
+              </button>
+            </span>
+          ) : (
+            <span>
+              Don't have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setIsRegister(true); setError(''); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--primary, #2563eb)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  padding: 0,
+                  textDecoration: 'underline'
+                }}
+              >
+                Sign Up
+              </button>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

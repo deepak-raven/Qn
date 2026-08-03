@@ -67,7 +67,12 @@ export default function App() {
 
             {state.activeTab === 'questions' && (
               <div>
-                {state.questions.length === 0 ? (
+                {state.loadingWorkspace && state.questions.length === 0 ? (
+                  <div className="glass-panel card-body" style={{ textAlign: 'center', padding: '4rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                    <RefreshCw size={36} className="animate-spin" style={{ color: 'var(--primary)' }} />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontWeight: 500 }}>Restoring workspace database...</span>
+                  </div>
+                ) : state.questions.length === 0 ? (
                   <div className="glass-panel card-body" style={{ textAlign: 'center', padding: '3rem 0' }}>
                     <AlertCircle size={48} style={{ color: 'var(--text-dimmed)', margin: '0 auto 1rem' }} />
                     <h3>No Database Selected</h3>

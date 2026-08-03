@@ -18,7 +18,17 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
             <select
               className="form-select"
               value={config.exam_type || 'MODEL EXAMINATION'}
-              onChange={e => setConfig({ ...config, exam_type: e.target.value })}
+              onChange={e => {
+                const newType = e.target.value;
+                const isCatType = newType === 'CAT-1' || newType === 'CAT-2';
+                setConfig({
+                  ...config,
+                  exam_type: newType,
+                  exam_name: isCatType ? (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : 'MODEL EXAMINATION',
+                  time: isCatType ? '90 Minutes' : '3 Hours',
+                  max_marks: isCatType ? 50 : 100
+                });
+              }}
               style={{ fontSize: '0.95rem', fontWeight: 600, padding: '0.6rem' }}
             >
               <option value="MODEL EXAMINATION">

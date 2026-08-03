@@ -15,74 +15,187 @@ export const DEFAULT_CONFIG = {
   date: ''
 };
 
-function getSlotCounts(exam_type) {
-  if (exam_type === 'CAT-1' || exam_type === 'CAT-2' || exam_type === 'IAT-1' || exam_type === 'IAT-2') {
-    return { partA: 5, partB: 2, partC: 1, defaultMarks: 50, defaultTime: '1.5 Hours' };
+// --- SEPARATE REGULATION RULES (2021 REGULATION vs 2025 REGULATION) ---
+
+export const REGULATION_2021_RULES = {
+  regulation: '2021-REGULATION',
+  code: '2021',
+  name: 'Regulation 2021',
+  defaultExamType: 'MODEL EXAMINATION',
+  defaultExamName: 'MODEL EXAMINATION',
+  defaultTime: '3 Hours',
+  defaultMaxMarks: 100,
+  partA: {
+    count: 10,
+    marksPerQuestion: 2,
+    totalMarks: 20
+  },
+  partB: {
+    count: 5,
+    isEitherOr: true,
+    marksPerQuestion: 13,
+    totalMarks: 65
+  },
+  partC: {
+    count: 1,
+    isEitherOr: true,
+    marksPerQuestion: 15,
+    totalMarks: 15
+  }
+};
+
+export const REGULATION_2025_RULES = {
+  regulation: '2025-REGULATION',
+  code: '2025',
+  name: 'Regulation 2025',
+  defaultExamType: 'CAT-1',
+  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - I',
+  defaultTime: '90 Minutes',
+  defaultMaxMarks: 50,
+  partA: {
+    count: 5,
+    marksPerQuestion: 1,
+    totalMarks: 5
+  },
+  partB: {
+    count: 5,
+    isEitherOr: false, // Single short questions Q6 to Q10
+    marksPerQuestion: 3,
+    totalMarks: 15
+  },
+  partC: {
+    count: 3,
+    isEitherOr: true, // 3 Either-Or pairs Q11a/b, Q12a/b, Q13a/b
+    marksPerQuestion: 10,
+    totalMarks: 30
+  }
+};
+
+export function is2025Regulation(regulation) {
+  return Boolean(regulation && String(regulation).includes('2025'));
+}
+
+export function is2021Regulation(regulation) {
+  return !is2025Regulation(regulation);
+}
+
+export function getRegulationRules(regulation) {
+  return is2025Regulation(regulation) ? REGULATION_2025_RULES : REGULATION_2021_RULES;
+}
+
+export function isCATExam(examType, regulation) {
+  if (is2025Regulation(regulation)) return true;
+  return examType === 'CAT-1' || examType === 'CAT-2' || examType === 'IAT-1' || examType === 'IAT-2';
+}
+
+function getSlotCounts(examType, regulation) {
+  if (isCATExam(examType, regulation)) {
+    return { partA: 5, partB: 5, partC: 3, defaultMarks: 50, defaultTime: '90 Minutes' };
   }
   return { partA: 10, partB: 5, partC: 1, defaultMarks: 100, defaultTime: '3 Hours' };
 }
 
-export function isCATExam(examType) {
-  return examType === 'CAT-1' || examType === 'CAT-2' || examType === 'IAT-1' || examType === 'IAT-2';
-}
-
-export function getExpectedUnitForPartASlot(examType, index) {
-  if (examType === 'CAT-1' || examType === 'IAT-1') {
-    if (index === 0 || index === 1) return ['Unit I'];
-    if (index === 2 || index === 3) return ['Unit II'];
-    return ['Unit I', 'Unit II'];
-  }
+export function getSuggestedUnitForPartASlot(examType, index, regulation) {
   if (examType === 'CAT-2' || examType === 'IAT-2') {
     if (index === 0 || index === 1) return ['Unit III'];
     if (index === 2 || index === 3) return ['Unit IV'];
     return ['Unit III', 'Unit IV'];
   }
-  // MODEL EXAMINATION
+  if (isCATExam(examType, regulation)) {
+    if (index === 0 || index === 1) return ['Unit I'];
+    if (index === 2 || index === 3) return ['Unit II'];
+    return ['Unit I', 'Unit II'];
+  }
   const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
-  return [units[index]];
+  return [units[index] || `Unit ${Math.floor(index / 2) + 1}`];
 }
 
-export function getExpectedUnitForPartBSlot(examType, index) {
-  if (examType === 'CAT-1' || examType === 'IAT-1') {
-    const units = ['Unit I', 'Unit II'];
-    return units[index] || `Unit ${index + 1}`;
-  }
+export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
   if (examType === 'CAT-2' || examType === 'IAT-2') {
-    const units = ['Unit III', 'Unit IV'];
-    return units[index] || `Unit ${index + 3}`;
+    if (index === 0 || index === 1) return ['Unit III'];
+    if (index === 2 || index === 3) return ['Unit IV'];
+    return ['Unit III', 'Unit IV'];
   }
-  // MODEL EXAMINATION
+  if (isCATExam(examType, regulation)) {
+    if (index === 0 || index === 1) return ['Unit I'];
+    if (index === 2 || index === 3) return ['Unit II'];
+    return ['Unit I', 'Unit II'];
+  }
   const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
-  return units[index] || `Unit ${index + 1}`;
+  return [units[index] || `Unit ${index + 1}`];
 }
 
-export function getPartBQuestionNo(examType, index) {
-  return (isCATExam(examType) ? 6 : 11) + index;
+export function getExpectedUnitForPartASlot(examType, index, regulation) {
+  if (examType === 'CAT-2' || examType === 'IAT-2') {
+    if (index === 0 || index === 1) return ['Unit III'];
+    if (index === 2 || index === 3) return ['Unit IV'];
+    return ['Unit III', 'Unit IV'];
+  }
+  if (isCATExam(examType, regulation)) {
+    if (index === 0 || index === 1) return ['Unit I'];
+    if (index === 2 || index === 3) return ['Unit II'];
+    return ['Unit I', 'Unit II'];
+  }
+  const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
+  return [units[index] || `Unit ${Math.floor(index / 2) + 1}`];
 }
 
-export function getPartCQuestionNo(examType) {
-  return isCATExam(examType) ? 8 : 16;
+export function getExpectedUnitForPartBSlot(examType, index, regulation) {
+  if (examType === 'CAT-2' || examType === 'IAT-2') {
+    if (index === 0 || index === 1) return ['Unit III'];
+    if (index === 2 || index === 3) return ['Unit IV'];
+    return ['Unit III', 'Unit IV'];
+  }
+  if (isCATExam(examType, regulation)) {
+    if (index === 0 || index === 1) return ['Unit I'];
+    if (index === 2 || index === 3) return ['Unit II'];
+    return ['Unit I', 'Unit II'];
+  }
+  const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+  return [units[index] || `Unit ${index + 1}`];
+}
+
+export function getPartBQuestionNo(examType, index, regulation) {
+  return (isCATExam(examType, regulation) ? 6 : 11) + index;
+}
+
+export function getPartCQuestionNo(examType, index = 0, regulation) {
+  return (isCATExam(examType, regulation) ? 11 : 16) + index;
 }
 
 function createDefaultSetData(config) {
-  const counts = getSlotCounts(config.exam_type);
+  const rules = getRegulationRules(config.regulation);
+  const isCAT = isCATExam(config.exam_type, config.regulation);
   return {
     config: {
       ...config,
-      max_marks: config.max_marks || counts.defaultMarks,
-      time: config.time || counts.defaultTime
+      regulation: config.regulation || rules.regulation,
+      exam_type: config.exam_type || rules.defaultExamType,
+      exam_name: config.exam_name || (isCAT ? (config.exam_type === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : rules.defaultExamName),
+      max_marks: config.max_marks || (isCAT ? 50 : rules.defaultMaxMarks),
+      time: config.time || (isCAT ? '90 Minutes' : rules.defaultTime)
     },
-    selectedPartA: Array(counts.partA).fill(null),
-    selectedPartB: Array(counts.partB).fill(null).map(() => ({ a: null, b: null })),
-    selectedPartC: { a: null, b: null }
+    selectedPartA: Array(isCAT ? 5 : 10).fill(null),
+    selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
+    selectedPartC: isCAT ? Array(3).fill(null).map(() => ({ a: null, b: null })) : { a: null, b: null }
   };
 }
 
-export function useSetsManager() {
-  const [sets, setSets] = useState({
-    'SET-I': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-I' })
+export function useSetsManager(initialSets = null, initialSetId = 'SET-I') {
+  const [sets, setSets] = useState(() => {
+    if (initialSets && typeof initialSets === 'object' && Object.keys(initialSets).length > 0) {
+      return initialSets;
+    }
+    return {
+      'SET-I': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-I' })
+    };
   });
-  const [currentSetId, setCurrentSetId] = useState('SET-I');
+  const [currentSetId, setCurrentSetId] = useState(() => {
+    if (initialSetId && sets && sets[initialSetId]) {
+      return initialSetId;
+    }
+    return Object.keys(sets)[0] || 'SET-I';
+  });
 
   const currentSet = sets[currentSetId] || createDefaultSetData(DEFAULT_CONFIG);
   const { config, selectedPartA, selectedPartB, selectedPartC } = currentSet;
@@ -108,7 +221,7 @@ export function useSetsManager() {
       
       // If exam_type changed, resize slots appropriately if needed
       if (nextConfig.exam_type && nextConfig.exam_type !== set.config.exam_type) {
-        const counts = getSlotCounts(nextConfig.exam_type);
+        const counts = getSlotCounts(nextConfig.exam_type, nextConfig.regulation);
         const newPartA = [...set.selectedPartA].slice(0, counts.partA);
         while (newPartA.length < counts.partA) newPartA.push(null);
         

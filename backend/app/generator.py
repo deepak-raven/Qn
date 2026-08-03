@@ -39,6 +39,15 @@ def normalize_kl(kl_str: str) -> str:
         return f"K{digits[0]}"
     return "K1"
 
+def get_q_field(q, field: str, default: str = "") -> str:
+    if not q:
+        return default
+    if isinstance(q, dict):
+        val = q.get(field)
+    else:
+        val = getattr(q, field, None)
+    return str(val) if val is not None else default
+
 def set_cell_text_preserve_style(cell, text: str):
     """
     Clears the text in a cell while preserving its original cell borders and styles.
@@ -151,18 +160,25 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if config.institution_name:
         replace_text_runs(doc, "NAME OF THE INSTITUTION:", config.institution_name.upper())
 
-    exam_title = config.exam_name or ("CONTINUOUS ASSESSMENT TEST - II" if config.exam_type in ["CAT-2", "IAT-2"] else "CONTINUOUS ASSESSMENT TEST - I")
-    for title_variant in ["CONTINUOUS ASSESSMENT TEST - II", "CONTINUOUS ASSESSMENT TEST- II", "CONTINUOUS ASSESSMENT TEST - I", "CONTINUOUS ASSESSMENT TEST- I"]:
+    exam_title = config.exam_name or ("CONTINUOUS ASSESSMENT TEST – II" if config.exam_type in ["CAT-2", "IAT-2"] else "CONTINUOUS ASSESSMENT TEST – I")
+    for title_variant in [
+        "CONTINUOUS ASSESSMENT TEST - II", "CONTINUOUS ASSESSMENT TEST- II", 
+        "CONTINUOUS ASSESSMENT TEST - I", "CONTINUOUS ASSESSMENT TEST- I",
+        "CONTINUOUS ASSESSMENT TEST – I", "CONTINUOUS ASSESSMENT TEST – II"
+    ]:
         replace_text_runs(doc, title_variant, exam_title)
     
     if config.set:
         replace_set_placeholder(doc, config.set)
         
     if config.regulation:
-        replace_text_runs(doc, "2021-REGULATION", f"{config.regulation}-REGULATION" if "REGULATION" not in config.regulation.upper() else config.regulation)
+        reg_str = f"({config.regulation}-REGULATION)" if "REGULATION" not in config.regulation.upper() else config.regulation
+        replace_text_runs(doc, "2021-REGULATION", reg_str)
+        replace_text_runs(doc, "(2025-REGULATION)", reg_str)
         
     if config.semester:
         replace_text_runs(doc, "ODD SEMESTER 2026-27", config.semester)
+        replace_text_runs(doc, "EVEN SEMESTER 2026-27", config.semester)
         
     # Table 1: Date
     if len(doc.tables) > 1 and len(doc.tables[1].rows) > 1 and len(doc.tables[1].rows[1].cells) > 3:
@@ -175,7 +191,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         sub_code = (config.subject_code or "").strip()
         sub_name = (config.subject_name or "").strip()
         if sub_code and sub_name:
-            sub_info = f"Sub. Code / Sub. Name  : {sub_code} / {sub_name}"
+            sub_info = f"Sub. Code / Sub. Name  : {sub_code} – {sub_name}"
         elif sub_code:
             sub_info = f"Sub. Code / Sub. Name  : {sub_code}"
         elif sub_name:
@@ -185,6 +201,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
         if len(t2.rows) > 0 and len(t2.rows[0].cells) > 0:
             set_cell_text_preserve_style(t2.rows[0].cells[0], sub_info)
+            if len(t2.rows[0].cells) > 1:
+                set_cell_text_preserve_style(t2.rows[0].cells[1], sub_info)
             
         deg_branch = (config.degree_branch_sem or "").strip()
         if len(t2.rows) > 1 and len(t2.rows[1].cells) > 0:
@@ -193,10 +211,10 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             
         sem_val = (config.semester or "").strip()
         if len(t2.rows) > 1 and len(t2.rows[1].cells) > 1:
-            sem_str = f"Year / Semester : {sem_val}" if sem_val else "Year / Semester :"
+            sem_str = f"Year / Sem : {sem_val}" if sem_val else "Year / Sem :"
             set_cell_text_preserve_style(t2.rows[1].cells[1], sem_str)
             
-        time_val = (config.time or "").strip() or "1.5 Hours"
+        time_val = (config.time or "").strip() or "90 Minutes"
         if len(t2.rows) > 2 and len(t2.rows[2].cells) > 0:
             set_cell_text_preserve_style(t2.rows[2].cells[0], f"Time: {time_val}")
             
@@ -211,56 +229,118 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             row_idx = 1 + idx
             if row_idx < len(t3.rows):
                 if len(t3.rows[row_idx].cells) > 1:
-                    set_cell_text_preserve_style(t3.rows[row_idx].cells[1], q.text)
+                    set_cell_text_preserve_style(t3.rows[row_idx].cells[1], get_q_field(q, "text"))
                 if len(t3.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t3.rows[row_idx].cells[2], q.kl)
+                    set_cell_text_preserve_style(t3.rows[row_idx].cells[2], get_q_field(q, "kl"))
                 if len(t3.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t3.rows[row_idx].cells[3], q.co)
+                    set_cell_text_preserve_style(t3.rows[row_idx].cells[3], get_q_field(q, "co"))
 
-    # 3. Part B (Table 4)
-    if len(doc.tables) > 4:
-        t4 = doc.tables[4]
-        for idx, pair in enumerate(part_b[:2]):
-            row_a_idx = 1 + idx * 3
-            row_b_idx = 3 + idx * 3
-            if row_a_idx < len(t4.rows) and len(pair) > 0:
-                q_a = pair[0]
-                if len(t4.rows[row_a_idx].cells) > 2:
-                    set_cell_text_preserve_style(t4.rows[row_a_idx].cells[2], q_a.text)
-                if len(t4.rows[row_a_idx].cells) > 3:
-                    set_cell_text_preserve_style(t4.rows[row_a_idx].cells[3], q_a.kl)
-                if len(t4.rows[row_a_idx].cells) > 4:
-                    set_cell_text_preserve_style(t4.rows[row_a_idx].cells[4], q_a.co)
-            if row_b_idx < len(t4.rows) and len(pair) > 1:
-                q_b = pair[1]
-                if len(t4.rows[row_b_idx].cells) > 2:
-                    set_cell_text_preserve_style(t4.rows[row_b_idx].cells[2], q_b.text)
-                if len(t4.rows[row_b_idx].cells) > 3:
-                    set_cell_text_preserve_style(t4.rows[row_b_idx].cells[3], q_b.kl)
-                if len(t4.rows[row_b_idx].cells) > 4:
-                    set_cell_text_preserve_style(t4.rows[row_b_idx].cells[4], q_b.co)
+    # 3. Part B & Part C based on template table structure
+    # Check Table 4 column count: 4 columns = 2025 short questions layout, 5 columns = 2021 Either-Or layout
+    t4 = doc.tables[4] if len(doc.tables) > 4 else None
+    is_2025_cat_layout = False
+    if t4 and len(t4.rows) > 0 and len(t4.rows[0].cells) == 4:
+        is_2025_cat_layout = True
 
-    # 4. Part C (Table 5)
-    if len(doc.tables) > 5:
-        t5 = doc.tables[5]
-        if len(part_c) >= 1 and len(t5.rows) > 1:
-            q_a = part_c[0]
-            if len(t5.rows[1].cells) > 2:
-                set_cell_text_preserve_style(t5.rows[1].cells[2], q_a.text)
-            if len(t5.rows[1].cells) > 3:
-                set_cell_text_preserve_style(t5.rows[1].cells[3], q_a.kl)
-            if len(t5.rows[1].cells) > 4:
-                set_cell_text_preserve_style(t5.rows[1].cells[4], q_a.co)
-        if len(part_c) >= 2 and len(t5.rows) > 3:
-            q_b = part_c[1]
-            if len(t5.rows[3].cells) > 2:
-                set_cell_text_preserve_style(t5.rows[3].cells[2], q_b.text)
-            if len(t5.rows[3].cells) > 3:
-                set_cell_text_preserve_style(t5.rows[3].cells[3], q_b.kl)
-            if len(t5.rows[3].cells) > 4:
-                set_cell_text_preserve_style(t5.rows[3].cells[4], q_b.co)
+    if is_2025_cat_layout and t4:
+        # Table 4: Part B (Q6..Q10 short questions)
+        flat_b = []
+        for item in part_b:
+            if isinstance(item, list):
+                flat_b.extend([q for q in item if q])
+            elif item:
+                flat_b.append(item)
 
-    # 5. Table of Specifications (TOS) for CAT
+        for idx, q in enumerate(flat_b[:5]):
+            row_idx = 1 + idx
+            if row_idx < len(t4.rows):
+                if len(t4.rows[row_idx].cells) > 1:
+                    set_cell_text_preserve_style(t4.rows[row_idx].cells[1], get_q_field(q, "text"))
+                if len(t4.rows[row_idx].cells) > 2:
+                    set_cell_text_preserve_style(t4.rows[row_idx].cells[2], get_q_field(q, "kl"))
+                if len(t4.rows[row_idx].cells) > 3:
+                    set_cell_text_preserve_style(t4.rows[row_idx].cells[3], get_q_field(q, "co"))
+
+        # Table 5: Part C (Q11a/11b, Q12a/12b, Q13a/13b)
+        if len(doc.tables) > 5:
+            t5 = doc.tables[5]
+            flat_c = []
+            for item in part_c:
+                if isinstance(item, list):
+                    flat_c.extend([q for q in item if q])
+                elif item:
+                    flat_c.append(item)
+
+            row_indices = [1, 3, 4, 6, 7, 9] # Q11a, Q11b, Q12a, Q12b, Q13a, Q13b
+            for idx, q in enumerate(flat_c[:6]):
+                if idx < len(row_indices):
+                    r_idx = row_indices[idx]
+                    if r_idx < len(t5.rows):
+                        r = t5.rows[r_idx]
+                        n_cells = len(r.cells)
+                        if n_cells >= 4:
+                            set_cell_text_preserve_style(r.cells[3], get_q_field(q, "text"))
+                            if n_cells >= 5 and n_cells > 5:
+                                set_cell_text_preserve_style(r.cells[4], get_q_field(q, "text"))
+                        col_kl = n_cells - 2 if n_cells >= 6 else 2
+                        col_co = n_cells - 1 if n_cells >= 6 else 3
+                        if col_kl < n_cells:
+                            set_cell_text_preserve_style(r.cells[col_kl], get_q_field(q, "kl"))
+                        if col_co < n_cells:
+                            set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"))
+
+    else:
+        # 2021 CAT layout (Either-Or pairs in Table 4 and Table 5)
+        if t4:
+            for idx, pair in enumerate(part_b[:2]):
+                row_a_idx = 1 + idx * 3
+                row_b_idx = 3 + idx * 3
+                if isinstance(pair, (list, tuple)):
+                    if row_a_idx < len(t4.rows) and len(pair) > 0 and pair[0]:
+                        q_a = pair[0]
+                        if len(t4.rows[row_a_idx].cells) > 2:
+                            set_cell_text_preserve_style(t4.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
+                        if len(t4.rows[row_a_idx].cells) > 3:
+                            set_cell_text_preserve_style(t4.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"))
+                        if len(t4.rows[row_a_idx].cells) > 4:
+                            set_cell_text_preserve_style(t4.rows[row_a_idx].cells[4], get_q_field(q_a, "co"))
+                    if row_b_idx < len(t4.rows) and len(pair) > 1 and pair[1]:
+                        q_b = pair[1]
+                        if len(t4.rows[row_b_idx].cells) > 2:
+                            set_cell_text_preserve_style(t4.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
+                        if len(t4.rows[row_b_idx].cells) > 3:
+                            set_cell_text_preserve_style(t4.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"))
+                        if len(t4.rows[row_b_idx].cells) > 4:
+                            set_cell_text_preserve_style(t4.rows[row_b_idx].cells[4], get_q_field(q_b, "co"))
+
+        if len(doc.tables) > 5:
+            t5 = doc.tables[5]
+            flat_c = []
+            for item in part_c:
+                if isinstance(item, (list, tuple)):
+                    flat_c.extend([q for q in item if q])
+                elif item:
+                    flat_c.append(item)
+
+            if len(flat_c) >= 1 and len(t5.rows) > 1:
+                q_a = flat_c[0]
+                if len(t5.rows[1].cells) > 2:
+                    set_cell_text_preserve_style(t5.rows[1].cells[2], get_q_field(q_a, "text"))
+                if len(t5.rows[1].cells) > 3:
+                    set_cell_text_preserve_style(t5.rows[1].cells[3], get_q_field(q_a, "kl"))
+                if len(t5.rows[1].cells) > 4:
+                    set_cell_text_preserve_style(t5.rows[1].cells[4], get_q_field(q_a, "co"))
+            if len(flat_c) >= 2 and len(t5.rows) > 3:
+                q_b = flat_c[1]
+                if len(t5.rows[3].cells) > 2:
+                    set_cell_text_preserve_style(t5.rows[3].cells[2], get_q_field(q_b, "text"))
+                if len(t5.rows[3].cells) > 3:
+                    set_cell_text_preserve_style(t5.rows[3].cells[3], get_q_field(q_b, "kl"))
+                if len(t5.rows[3].cells) > 4:
+                    set_cell_text_preserve_style(t5.rows[3].cells[4], get_q_field(q_b, "co"))
+
+
+    # 4. Table of Specifications (TOS) for CAT
     is_cat2 = config.exam_type in ["CAT-2", "IAT-2"]
     target_units = ["Unit III", "Unit IV"] if is_cat2 else ["Unit I", "Unit II"]
     unit_labels = ["III", "IV"] if is_cat2 else ["I", "II"]
@@ -271,13 +351,19 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
     all_questions = []
     all_questions.extend([q for q in part_a if q])
-    for pair in part_b:
-        if pair:
-            all_questions.extend([q for q in pair if q])
-    all_questions.extend([q for q in part_c if q])
+    for item in part_b:
+        if isinstance(item, list):
+            all_questions.extend([q for q in item if q])
+        elif item:
+            all_questions.append(item)
+    for item in part_c:
+        if isinstance(item, list):
+            all_questions.extend([q for q in item if q])
+        elif item:
+            all_questions.append(item)
 
     for q in all_questions:
-        u_norm = normalize_unit(q.unit)
+        u_norm = normalize_unit(get_q_field(q, "unit", "Unit I"))
         if u_norm == target_units[0]:
             u_idx = 0
         elif u_norm == target_units[1]:
@@ -285,27 +371,27 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         else:
             u_idx = 0
         
-        kl_key = normalize_kl(q.kl)
+        kl_key = normalize_kl(get_q_field(q, "kl", "K1"))
         kl_idx = kls_map.get(kl_key, 0)
 
-        if q in part_c:
-            m_val = 14
-        else:
-            try:
-                m_val = int(q.marks)
-            except (ValueError, TypeError):
-                m_val = 0
+        try:
+            m_val = int(get_q_field(q, "marks", "0"))
+        except (ValueError, TypeError):
+            m_val = 0
 
-        if u_idx is not None and kl_idx is not None:
-            tos_counts[u_idx][kl_idx] += 1
-            tos_marks[u_idx][kl_idx] += m_val
+        tos_counts[u_idx][kl_idx] += 1
+        tos_marks[u_idx][kl_idx] += m_val
 
-    # Table 6 (Question-wise TOS)
-    if len(doc.tables) > 6:
-        t6 = doc.tables[6]
+    # Table 6 (Question-wise TOS) - Index 6 for 9-table, Index 5 or 6 depending on total
+    t6_idx = 6 if len(doc.tables) >= 9 else (6 if len(doc.tables) > 6 else -1)
+    if t6_idx >= 0 and t6_idx < len(doc.tables):
+        t6 = doc.tables[t6_idx]
+        unit_row_start = 2 if len(t6.rows) == 5 else (3 if len(t6.rows) > 5 else 2)
+        total_row_idx = len(t6.rows) - 1
+
         for u_idx in range(2):
-            row_idx = 3 + u_idx
-            if row_idx < len(t6.rows):
+            row_idx = unit_row_start + u_idx
+            if row_idx < total_row_idx:
                 set_cell_text_preserve_style(t6.rows[row_idx].cells[0], unit_labels[u_idx])
                 row_sum = 0
                 for k_idx in range(6):
@@ -314,21 +400,25 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                     row_sum += val
                 set_cell_text_preserve_style(t6.rows[row_idx].cells[7], str(row_sum))
 
-        # Total row in Table 6 (row 5)
-        if len(t6.rows) > 5:
-            set_cell_text_preserve_style(t6.rows[5].cells[0], "Total")
+        # Total row in Table 6
+        if total_row_idx < len(t6.rows):
+            set_cell_text_preserve_style(t6.rows[total_row_idx].cells[0], "Total")
             for k_idx in range(6):
                 col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(2))
-                set_cell_text_preserve_style(t6.rows[5].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
+                set_cell_text_preserve_style(t6.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
             grand_total = sum(sum(r) for r in tos_counts)
-            set_cell_text_preserve_style(t6.rows[5].cells[7], str(grand_total))
+            set_cell_text_preserve_style(t6.rows[total_row_idx].cells[7], str(grand_total))
 
-    # Table 7 (Marks-wise TOS)
-    if len(doc.tables) > 7:
-        t7 = doc.tables[7]
+    # Table 7 (Marks-wise TOS) - Index 7 for 9-table, Index 7 or 6
+    t7_idx = 7 if len(doc.tables) >= 9 else (7 if len(doc.tables) > 7 else -1)
+    if t7_idx >= 0 and t7_idx < len(doc.tables):
+        t7 = doc.tables[t7_idx]
+        unit_row_start = 2 if len(t7.rows) == 5 else (3 if len(t7.rows) > 5 else 2)
+        total_row_idx = len(t7.rows) - 1
+
         for u_idx in range(2):
-            row_idx = 3 + u_idx
-            if row_idx < len(t7.rows):
+            row_idx = unit_row_start + u_idx
+            if row_idx < total_row_idx:
                 set_cell_text_preserve_style(t7.rows[row_idx].cells[0], unit_labels[u_idx])
                 row_sum = 0
                 for k_idx in range(6):
@@ -337,14 +427,14 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                     row_sum += val
                 set_cell_text_preserve_style(t7.rows[row_idx].cells[7], str(row_sum))
 
-        # Total row in Table 7 (row 5)
-        if len(t7.rows) > 5:
-            set_cell_text_preserve_style(t7.rows[5].cells[0], "Total")
+        # Total row in Table 7
+        if total_row_idx < len(t7.rows):
+            set_cell_text_preserve_style(t7.rows[total_row_idx].cells[0], "Total")
             for k_idx in range(6):
                 col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(2))
-                set_cell_text_preserve_style(t7.rows[5].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
+                set_cell_text_preserve_style(t7.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
             grand_total = sum(sum(r) for r in tos_marks)
-            set_cell_text_preserve_style(t7.rows[5].cells[7], str(grand_total))
+            set_cell_text_preserve_style(t7.rows[total_row_idx].cells[7], str(grand_total))
 
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
@@ -396,9 +486,9 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     for idx, q in enumerate(part_a):
         row_idx = 1 + idx
         if row_idx < len(t1.rows):
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[1], q.text)
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], q.kl)
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], q.co)
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[1], get_q_field(q, "text"))
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_field(q, "kl"))
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_field(q, "co"))
 
     # If Part A has fewer questions (e.g. 5 for CAT-1/CAT-2), trim extra rows
     if len(part_a) < 10 and len(t1.rows) > (1 + len(part_a)):
@@ -412,15 +502,15 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         
         if row_a_idx < len(t2.rows) and len(pair) > 0:
             q_a = pair[0]
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], q_a.text)
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], q_a.kl)
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], q_a.co)
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"))
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_field(q_a, "co"))
             
         if row_b_idx < len(t2.rows) and len(pair) > 1:
             q_b = pair[1]
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], q_b.text)
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], q_b.kl)
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], q_b.co)
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"))
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_field(q_b, "co"))
 
     # If Part B has fewer pairs (e.g. 2 for CAT-1/CAT-2), trim extra rows
     if len(part_b) < 5 and len(t2.rows) > (1 + len(part_b) * 3):
@@ -429,13 +519,13 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     # 4. Populate Part C (Table 3)
     t3 = doc.tables[3]
     if len(part_c) >= 2:
-        set_cell_text_preserve_style(t3.rows[1].cells[2], part_c[0].text)
-        set_cell_text_preserve_style(t3.rows[1].cells[3], part_c[0].kl)
-        set_cell_text_preserve_style(t3.rows[1].cells[4], part_c[0].co)
+        set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(part_c[0], "text"))
+        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_field(part_c[0], "kl"))
+        set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_field(part_c[0], "co"))
         
-        set_cell_text_preserve_style(t3.rows[3].cells[2], part_c[1].text)
-        set_cell_text_preserve_style(t3.rows[3].cells[3], part_c[1].kl)
-        set_cell_text_preserve_style(t3.rows[3].cells[4], part_c[1].co)
+        set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(part_c[1], "text"))
+        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_field(part_c[1], "kl"))
+        set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_field(part_c[1], "co"))
 
     # 5. Compute Table of Specifications (TOS)
     units_map = {"Unit I": 0, "Unit II": 1, "Unit III": 2, "Unit IV": 3, "Unit V": 4}
@@ -452,13 +542,13 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     all_selected_questions.extend([q for q in part_c if q])
     
     for q in all_selected_questions:
-        u_norm = normalize_unit(q.unit)
+        u_norm = normalize_unit(get_q_field(q, "unit", "Unit I"))
         unit_idx = units_map.get(u_norm)
-        kl_key = normalize_kl(q.kl)
+        kl_key = normalize_kl(get_q_field(q, "kl", "K1"))
         kl_idx = kls_map.get(kl_key)
 
         try:
-            m_val = int(q.marks)
+            m_val = int(get_q_field(q, "marks", "0"))
         except (ValueError, TypeError):
             m_val = 0
         

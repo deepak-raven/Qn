@@ -1,6 +1,7 @@
 import React from 'react';
 import { Upload, CheckSquare, RefreshCw, Download, ShieldCheck, LogOut, User } from 'lucide-react';
 import logoImg from '../assets/image.png';
+import { isCATExam, is2025Regulation } from '../hooks/useSetsManager';
 
 export default function Header({
   config,
@@ -19,12 +20,22 @@ export default function Header({
 }) {
   const { user, logout, isAdmin } = auth || {};
 
-  const reqPartA = config?.exam_type === 'CAT-1' || config?.exam_type === 'CAT-2' || config?.exam_type === 'IAT-1' || config?.exam_type === 'IAT-2' ? 5 : 10;
-  const reqPartB = config?.exam_type === 'CAT-1' || config?.exam_type === 'CAT-2' || config?.exam_type === 'IAT-1' || config?.exam_type === 'IAT-2' ? 2 : 5;
+  const is2025 = is2025Regulation(config?.regulation);
+  const isCAT = isCATExam(config?.exam_type, config?.regulation);
 
-  const partACount = selectedPartA.filter(Boolean).length;
-  const partBCount = selectedPartB.filter(s => s && s.a && s.b).length;
-  const partCCount = (selectedPartC.a && selectedPartC.b) ? 1 : 0;
+  const reqPartA = (is2025 || isCAT) ? 5 : 10;
+  const reqPartB = 5;
+  const reqPartC = is2025 ? 3 : 1;
+
+  const partACount = (selectedPartA || []).slice(0, reqPartA).filter(Boolean).length;
+  
+  const partBCount = is2025 
+    ? (selectedPartB || []).slice(0, 5).filter(s => s && (s.a || s.b || s.text)).length
+    : (selectedPartB || []).slice(0, 5).filter(s => s && (s.a || s.b)).length;
+
+  const partCCount = is2025
+    ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3).filter(s => s && (s.a || s.b)).length : 0)
+    : (selectedPartC ? (Array.isArray(selectedPartC) ? (selectedPartC[0]?.a || selectedPartC[0]?.b ? 1 : 0) : (selectedPartC.a || selectedPartC.b ? 1 : 0)) : 0);
 
   return (
     <header className="sidebar" style={{
@@ -91,7 +102,7 @@ export default function Header({
                 if (questions.length === 0 && subjects.length > 0) {
                   const sub = subjects[0];
                   setSelectedSubCode(sub.code);
-                  loadQuestionsForSubject(sub.code, sub.semester);
+                  loadQuestionsForSubject(sub.code, sub.semester, false, sub);
                 }
                 setActiveTab('questions');
               }}
@@ -115,8 +126,8 @@ export default function Header({
               <span style={{ color: partBCount === reqPartB ? 'var(--success)' : 'var(--text-muted)' }}>
                 Part B: <strong>{partBCount}/{reqPartB}</strong>
               </span>
-              <span style={{ color: partCCount === 1 ? 'var(--success)' : 'var(--text-muted)' }}>
-                Part C: <strong>{partCCount}/1</strong>
+              <span style={{ color: partCCount === reqPartC ? 'var(--success)' : 'var(--text-muted)' }}>
+                Part C: <strong>{partCCount}/{reqPartC}</strong>
               </span>
             </div>
 

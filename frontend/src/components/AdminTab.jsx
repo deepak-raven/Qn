@@ -379,7 +379,7 @@ export default function AdminTab({
                               style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
                               onClick={() => {
                                 setSelectedSubCode(item.code);
-                                loadQuestionsForSubject(item.code, item.semester);
+                                loadQuestionsForSubject(item.code, item.semester, false, item);
                                 setActiveTab('questions');
                               }}
                             >

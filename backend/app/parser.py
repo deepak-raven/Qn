@@ -94,13 +94,39 @@ def parse_part_marks_from_text(text: str):
         return None, None
     for line in text.split('\n'):
         line_clean = re.sub(r'\s+', ' ', line.lower()).strip()
-        if len(line_clean) <= 120:
-            if 'two mark' in line_clean or '2 mark' in line_clean or re.search(r'\bpart\s*[-–:]?\s*a\b', line_clean):
-                return 'A', 2
-            if 'thirteen mark' in line_clean or '13 mark' in line_clean or re.search(r'\bpart\s*[-–:]?\s*b\b', line_clean):
-                return 'B', 13
-            if 'fifteen mark' in line_clean or '15 mark' in line_clean or 'fourteen mark' in line_clean or '14 mark' in line_clean or re.search(r'\bpart\s*[-–:]?\s*c\b', line_clean):
-                return 'C', 15
+        if len(line_clean) <= 150:
+            # Check Part A / 1 or 2 Marks
+            if (re.search(r'\b(one|1)\s*marks?\b', line_clean) or 
+                re.search(r'\b(two|2)\s*marks?\b', line_clean) or 
+                re.search(r'\bpart\s*[-–:]?\s*a\b', line_clean)):
+                m_val = 1 if ('one' in line_clean or '1' in line_clean) else 2
+                return 'A', m_val
+
+            # Check Part B / 3 or 13 Marks
+            if (re.search(r'\b(three|3)\s*marks?\b', line_clean) or 
+                re.search(r'\b(thirteen|13)\s*marks?\b', line_clean) or 
+                re.search(r'\bpart\s*[-–:]?\s*b\b', line_clean)):
+                m_val = 3 if ('three' in line_clean or '3' in line_clean) else 13
+                return 'B', m_val
+
+            # Check Part C / 10, 12, 14, 15, 16 Marks
+            if (re.search(r'\b(ten|10)\s*marks?\b', line_clean) or 
+                re.search(r'\b(twelve|12)\s*marks?\b', line_clean) or 
+                re.search(r'\b(fourteen|14)\s*marks?\b', line_clean) or 
+                re.search(r'\b(fifteen|15)\s*marks?\b', line_clean) or 
+                re.search(r'\b(sixteen|16)\s*marks?\b', line_clean) or 
+                re.search(r'\bpart\s*[-–:]?\s*c\b', line_clean)):
+                if 'ten' in line_clean or '10' in line_clean:
+                    m_val = 10
+                elif 'twelve' in line_clean or '12' in line_clean:
+                    m_val = 12
+                elif 'fourteen' in line_clean or '14' in line_clean:
+                    m_val = 14
+                elif 'sixteen' in line_clean or '16' in line_clean:
+                    m_val = 16
+                else:
+                    m_val = 15
+                return 'C', m_val
     return None, None
 
 def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str) -> List[Dict[str, Any]]:
@@ -419,5 +445,13 @@ def parse_text_metadata(text: str) -> dict:
         match_reg_dash = re.search(r'(\d{4})[ \t]*-[ \t]*Regulation', text, re.IGNORECASE)
         if match_reg_dash:
             metadata["regulation"] = match_reg_dash.group(1).strip()
-            
+        else:
+            match_reg_paren = re.search(r'\((\d{4})[ \t]*-[ \t]*REGULATION\)', text, re.IGNORECASE)
+            if match_reg_paren:
+                metadata["regulation"] = match_reg_paren.group(1).strip()
+            else:
+                match_reg_word = re.search(r'Regulation[ \t]*(\d{4})', text, re.IGNORECASE)
+                if match_reg_word:
+                    metadata["regulation"] = match_reg_word.group(1).strip()
+
     return metadata

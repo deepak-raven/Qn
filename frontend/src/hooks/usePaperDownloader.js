@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { API_BASE } from '../config';
-import { getPartBQuestionNo, getPartCQuestionNo } from './useSetsManager';
+import { getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from './useSetsManager';
 
 export function usePaperDownloader() {
   const [downloading, setDownloading] = useState(false);
@@ -9,13 +9,9 @@ export function usePaperDownloader() {
     const subCode = (config?.subject_code || '').trim();
     const subName = (config?.subject_name || '').trim();
 
-    const isSubCodeValid = subCode !== '' && subCode !== 'SUB CODE' && subCode !== 'ENTER SUBJECT CODE';
-    const isSubNameValid = subName !== '' && subName !== 'SUBJECT NAME' && subName !== 'ENTER SUBJECT NAME';
+    const isSubCodeValid = subCode !== '' && subCode !== 'ALL';
+    const isSubNameValid = subName !== '' && subName !== 'SELECT SUBJECT...';
 
-    if (!isSubCodeValid && !isSubNameValid) {
-      alert('Please fill in both Subject Code and Subject Name before downloading the question paper.');
-      return;
-    }
     if (!isSubCodeValid) {
       alert('Please fill in the Subject Code before downloading the question paper.');
       return;
@@ -25,9 +21,9 @@ export function usePaperDownloader() {
       return;
     }
 
-    const isIAT = config.exam_type === 'CAT-1' || config.exam_type === 'CAT-2' || config.exam_type === 'IAT-1' || config.exam_type === 'IAT-2';
-    const reqPartA = isIAT ? 5 : 10;
-    const reqPartB = isIAT ? 2 : 5;
+    const is2025 = is2025Regulation(config.regulation);
+    const isCAT = isCATExam(config.exam_type, config.regulation);
+    const reqPartA = (is2025 || isCAT) ? 5 : 10;
 
     const filledPartA = selectedPartA.filter(Boolean);
     if (filledPartA.length !== reqPartA) {
@@ -35,16 +31,34 @@ export function usePaperDownloader() {
       return;
     }
     
-    for (let i = 0; i < reqPartB; i++) {
-      if (!selectedPartB[i] || !selectedPartB[i].a || !selectedPartB[i].b) {
-        alert(`Please complete both choices (a and b) for Question ${getPartBQuestionNo(config.exam_type, i)} in Part B.`);
+    if (is2025) {
+      const filledPartB = selectedPartB.slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean);
+      if (filledPartB.length < 5) {
+        alert(`Please select 5 questions for Part B (currently chosen: ${filledPartB.length}).`);
         return;
       }
-    }
 
-    if (!selectedPartC.a || !selectedPartC.b) {
-      alert(`Please complete both choices (a and b) for Question ${getPartCQuestionNo(config.exam_type)} in Part C.`);
-      return;
+      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC];
+      for (let i = 0; i < 3; i++) {
+        const pair = partCPairs[i];
+        if (!pair || !pair.a || !pair.b) {
+          alert(`Please complete both choices (a and b) for Question ${11 + i} in Part C.`);
+          return;
+        }
+      }
+    } else {
+      for (let i = 0; i < 5; i++) {
+        if (!selectedPartB[i] || !selectedPartB[i].a || !selectedPartB[i].b) {
+          alert(`Please complete both choices (a and b) for Question ${getPartBQuestionNo(config.exam_type, i, config.regulation)} in Part B.`);
+          return;
+        }
+      }
+
+      const singlePartC = Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC;
+      if (!singlePartC || !singlePartC.a || !singlePartC.b) {
+        alert(`Please complete both choices (a and b) for Question ${getPartCQuestionNo(config.exam_type, 0, config.regulation)} in Part C.`);
+        return;
+      }
     }
 
     setDownloading(true);
@@ -52,8 +66,12 @@ export function usePaperDownloader() {
       const payload = {
         config,
         part_a: filledPartA,
-        part_b: selectedPartB.slice(0, reqPartB).map(slot => [slot.a, slot.b]),
-        part_c: [selectedPartC.a, selectedPartC.b]
+        part_b: is2025 
+          ? selectedPartB.slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean)
+          : selectedPartB.slice(0, 5).map(slot => [slot.a, slot.b]),
+        part_c: is2025
+          ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC]).map(pair => [pair?.a, pair?.b])
+          : [(Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.a, (Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.b]
       };
 
       const res = await fetch(`${API_BASE}/generate-docx`, {

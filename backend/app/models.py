@@ -19,16 +19,18 @@ class Subject(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+from typing import List, Optional, Any
+
 class Question(BaseModel):
     id: Optional[str] = Field(None, alias="_id", description="MongoDB ObjectId string")
-    subject_code: str
-    semester: str
+    subject_code: Optional[str] = None
+    semester: Optional[str] = None
     text: str
-    unit: str  # Unit I, Unit II, Unit III, Unit IV, Unit V
-    part: str  # A, B, C
-    marks: int # 2, 13, 15
-    kl: str    # K1, K2, K3, K4, K5, K6
-    co: str    # CO1, CO2, CO3, CO4, CO5
+    unit: Optional[str] = "Unit I"
+    part: Optional[str] = "A"
+    marks: Optional[int] = 2
+    kl: Optional[str] = "K1"
+    co: Optional[str] = "CO1"
     uploaded_by: Optional[str] = Field(None, description="Email address of the staff member who uploaded this question")
 
     model_config = ConfigDict(populate_by_name=True)
@@ -51,9 +53,9 @@ class PaperConfig(BaseModel):
 
 class GenerateRequest(BaseModel):
     config: PaperConfig
-    part_a: List[Question]  # Exactly 10 questions
-    part_b: List[List[Question]]  # 5 pairs of questions [[Q11a, Q11b], [Q12a, Q12b], ...]
-    part_c: List[Question]  # Exactly 2 questions [Q16a, Q16b]
+    part_a: List[Question]
+    part_b: List[Any]
+    part_c: List[Any]
 
     model_config = ConfigDict(populate_by_name=True)
 
