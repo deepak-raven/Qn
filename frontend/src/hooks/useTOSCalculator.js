@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { is2025Regulation } from './useSetsManager';
 
 export function normalizeUnit(unitStr) {
   if (!unitStr) return 'Unit I';
@@ -33,6 +34,7 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
     const isCAT1 = config?.exam_type === 'CAT-1' || config?.exam_type === 'IAT-1';
     const isCAT2 = config?.exam_type === 'CAT-2' || config?.exam_type === 'IAT-2';
     const isCAT = isCAT1 || isCAT2;
+    const is2025 = is2025Regulation(config?.regulation);
     const catTargetUnits = isCAT1 ? ['Unit I', 'Unit II'] : (isCAT2 ? ['Unit III', 'Unit IV'] : null);
 
     const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
@@ -56,8 +58,7 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
         unitKey = catTargetUnits[0];
       }
       const klKey = normalizeKL(q.kl);
-      const parsed = parseInt(String(q.marks).replace(/[^\d.]/g, ''), 10);
-      const marksVal = defaultMarks !== undefined ? defaultMarks : (!isNaN(parsed) && parsed > 0 ? parsed : 0);
+      const marksVal = defaultMarks !== undefined ? defaultMarks : 0;
       
       if (tosCounts[unitKey] && tosCounts[unitKey][klKey] !== undefined) {
         tosCounts[unitKey][klKey] += 1;
@@ -65,15 +66,31 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
       }
     };
 
-    selectedPartA.filter(Boolean).forEach(q => addQuestion(q, parseInt(String(q.marks).replace(/[^\d.]/g, ''), 10) || 2));
+    const partAMarks = is2025 ? 1 : 2;
+    const partBMarks = is2025 ? 3 : 13;
+    const partCMarks = is2025 ? 10 : (isCAT ? 14 : 15);
+
+    selectedPartA.filter(Boolean).forEach(q => addQuestion(q, partAMarks));
+    
     selectedPartB.forEach(slot => {
-      if (slot && slot.a) addQuestion(slot.a, parseInt(String(slot.a.marks).replace(/[^\d.]/g, ''), 10) || 13);
-      if (slot && slot.b) addQuestion(slot.b, parseInt(String(slot.b.marks).replace(/[^\d.]/g, ''), 10) || 13);
+      if (!slot) return;
+      if (slot.a) addQuestion(slot.a, partBMarks);
+      if (slot.b) addQuestion(slot.b, partBMarks);
+      if (!slot.a && !slot.b && slot.text) addQuestion(slot, partBMarks);
     });
 
-    const partCMarks = isCAT ? 14 : 15;
-    if (selectedPartC && selectedPartC.a) addQuestion(selectedPartC.a, partCMarks);
-    if (selectedPartC && selectedPartC.b) addQuestion(selectedPartC.b, partCMarks);
+    if (Array.isArray(selectedPartC)) {
+      selectedPartC.forEach(slot => {
+        if (!slot) return;
+        if (slot.a) addQuestion(slot.a, partCMarks);
+        if (slot.b) addQuestion(slot.b, partCMarks);
+        if (!slot.a && !slot.b && slot.text) addQuestion(slot, partCMarks);
+      });
+    } else if (selectedPartC) {
+      if (selectedPartC.a) addQuestion(selectedPartC.a, partCMarks);
+      if (selectedPartC.b) addQuestion(selectedPartC.b, partCMarks);
+      if (!selectedPartC.a && !selectedPartC.b && selectedPartC.text) addQuestion(selectedPartC, partCMarks);
+    }
 
     const unitTotalsCount = {};
     const klTotalsCount = { K1: 0, K2: 0, K3: 0, K4: 0, K5: 0, K6: 0 };
@@ -112,3 +129,4 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
     };
   }, [selectedPartA, selectedPartB, selectedPartC, config]);
 }
+

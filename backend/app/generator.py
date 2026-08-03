@@ -349,20 +349,33 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     tos_counts = [[0 for _ in range(6)] for _ in range(2)]
     tos_marks = [[0 for _ in range(6)] for _ in range(2)]
 
-    all_questions = []
-    all_questions.extend([q for q in part_a if q])
+    is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
+    part_a_mark = 1 if is_2025 else 2
+    part_b_mark = 3 if is_2025 else 13
+    part_c_mark = 10 if is_2025 else 14
+
+    questions_with_marks = []
+    for q in part_a:
+        if q:
+            questions_with_marks.append((q, part_a_mark))
+
     for item in part_b:
         if isinstance(item, list):
-            all_questions.extend([q for q in item if q])
+            for q in item:
+                if q:
+                    questions_with_marks.append((q, part_b_mark))
         elif item:
-            all_questions.append(item)
+            questions_with_marks.append((item, part_b_mark))
+
     for item in part_c:
         if isinstance(item, list):
-            all_questions.extend([q for q in item if q])
+            for q in item:
+                if q:
+                    questions_with_marks.append((q, part_c_mark))
         elif item:
-            all_questions.append(item)
+            questions_with_marks.append((item, part_c_mark))
 
-    for q in all_questions:
+    for q, section_mark in questions_with_marks:
         u_norm = normalize_unit(get_q_field(q, "unit", "Unit I"))
         if u_norm == target_units[0]:
             u_idx = 0
@@ -374,13 +387,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         kl_key = normalize_kl(get_q_field(q, "kl", "K1"))
         kl_idx = kls_map.get(kl_key, 0)
 
-        try:
-            m_val = int(get_q_field(q, "marks", "0"))
-        except (ValueError, TypeError):
-            m_val = 0
-
         tos_counts[u_idx][kl_idx] += 1
-        tos_marks[u_idx][kl_idx] += m_val
+        tos_marks[u_idx][kl_idx] += section_mark
 
     # Table 6 (Question-wise TOS) - Index 6 for 9-table, Index 5 or 6 depending on total
     t6_idx = 6 if len(doc.tables) >= 9 else (6 if len(doc.tables) > 6 else -1)
@@ -534,27 +542,41 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     tos_counts = [[0 for _ in range(6)] for _ in range(5)]
     tos_marks = [[0 for _ in range(6)] for _ in range(5)]
     
-    all_selected_questions = []
-    all_selected_questions.extend([q for q in part_a if q])
+    is_2025 = (config.regulation == "2025") if config.regulation else False
+    part_a_mark = 1 if is_2025 else 2
+    part_b_mark = 3 if is_2025 else 13
+    part_c_mark = 10 if is_2025 else 15
+
+    questions_with_marks = []
+    for q in part_a:
+        if q:
+            questions_with_marks.append((q, part_a_mark))
+            
     for pair in part_b:
-        if pair:
-            all_selected_questions.extend([q for q in pair if q])
-    all_selected_questions.extend([q for q in part_c if q])
-    
-    for q in all_selected_questions:
+        if isinstance(pair, list):
+            for q in pair:
+                if q:
+                    questions_with_marks.append((q, part_b_mark))
+        elif pair:
+            questions_with_marks.append((pair, part_b_mark))
+            
+    for item in part_c:
+        if isinstance(item, list):
+            for q in item:
+                if q:
+                    questions_with_marks.append((q, part_c_mark))
+        elif item:
+            questions_with_marks.append((item, part_c_mark))
+            
+    for q, section_mark in questions_with_marks:
         u_norm = normalize_unit(get_q_field(q, "unit", "Unit I"))
         unit_idx = units_map.get(u_norm)
         kl_key = normalize_kl(get_q_field(q, "kl", "K1"))
         kl_idx = kls_map.get(kl_key)
-
-        try:
-            m_val = int(get_q_field(q, "marks", "0"))
-        except (ValueError, TypeError):
-            m_val = 0
         
         if unit_idx is not None and kl_idx is not None:
             tos_counts[unit_idx][kl_idx] += 1
-            tos_marks[unit_idx][kl_idx] += m_val
+            tos_marks[unit_idx][kl_idx] += section_mark
 
     # 6. Populate Table 4 (Question-Wise TOS)
     t4 = doc.tables[4]
