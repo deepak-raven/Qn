@@ -141,6 +141,17 @@ export function getExpectedUnitForPartASlot(examType, index, regulation) {
 }
 
 export function getExpectedUnitForPartBSlot(examType, index, regulation) {
+  const is2021CAT = isCATExam(examType, regulation) && !is2025Regulation(regulation);
+  if (is2021CAT) {
+    if (examType === 'CAT-2' || examType === 'IAT-2') {
+      if (index === 0) return ['Unit III'];
+      if (index === 1) return ['Unit IV'];
+      return ['Unit III', 'Unit IV'];
+    }
+    if (index === 0) return ['Unit I'];
+    if (index === 1) return ['Unit II'];
+    return ['Unit I', 'Unit II'];
+  }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
     if (index === 0 || index === 1) return ['Unit III'];
     if (index === 2 || index === 3) return ['Unit IV'];
@@ -160,7 +171,10 @@ export function getPartBQuestionNo(examType, index, regulation) {
 }
 
 export function getPartCQuestionNo(examType, index = 0, regulation) {
-  return (isCATExam(examType, regulation) ? 11 : 16) + index;
+  if (isCATExam(examType, regulation)) {
+    return (is2025Regulation(regulation) ? 11 : 8) + index;
+  }
+  return 16 + index;
 }
 
 function createDefaultSetData(config) {

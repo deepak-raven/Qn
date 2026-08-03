@@ -70,26 +70,31 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
     const partBMarks = is2025 ? 3 : 13;
     const partCMarks = is2025 ? 10 : (isCAT ? 14 : 15);
 
-    selectedPartA.filter(Boolean).forEach(q => addQuestion(q, partAMarks));
-    
-    selectedPartB.forEach(slot => {
+    selectedPartA.slice(0, (is2025 || isCAT) ? 5 : 10).filter(Boolean).forEach(q => addQuestion(q, partAMarks));
+
+    const reqPartBSlots = (isCAT && !is2025) ? 2 : 5;
+    selectedPartB.slice(0, reqPartBSlots).forEach(slot => {
       if (!slot) return;
       if (slot.a) addQuestion(slot.a, partBMarks);
       if (slot.b) addQuestion(slot.b, partBMarks);
       if (!slot.a && !slot.b && slot.text) addQuestion(slot, partBMarks);
     });
 
-    if (Array.isArray(selectedPartC)) {
-      selectedPartC.forEach(slot => {
+    const targetPartC = (isCAT && !is2025)
+      ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])
+      : selectedPartC;
+
+    if (Array.isArray(targetPartC)) {
+      targetPartC.forEach(slot => {
         if (!slot) return;
         if (slot.a) addQuestion(slot.a, partCMarks);
         if (slot.b) addQuestion(slot.b, partCMarks);
         if (!slot.a && !slot.b && slot.text) addQuestion(slot, partCMarks);
       });
-    } else if (selectedPartC) {
-      if (selectedPartC.a) addQuestion(selectedPartC.a, partCMarks);
-      if (selectedPartC.b) addQuestion(selectedPartC.b, partCMarks);
-      if (!selectedPartC.a && !selectedPartC.b && selectedPartC.text) addQuestion(selectedPartC, partCMarks);
+    } else if (targetPartC) {
+      if (targetPartC.a) addQuestion(targetPartC.a, partCMarks);
+      if (targetPartC.b) addQuestion(targetPartC.b, partCMarks);
+      if (!targetPartC.a && !targetPartC.b && targetPartC.text) addQuestion(targetPartC, partCMarks);
     }
 
     const unitTotalsCount = {};

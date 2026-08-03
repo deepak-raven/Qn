@@ -47,7 +47,8 @@ export function usePaperDownloader() {
         }
       }
     } else {
-      for (let i = 0; i < 5; i++) {
+      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
+      for (let i = 0; i < reqPartBCount; i++) {
         if (!selectedPartB[i] || !selectedPartB[i].a || !selectedPartB[i].b) {
           alert(`Please complete both choices (a and b) for Question ${getPartBQuestionNo(config.exam_type, i, config.regulation)} in Part B.`);
           return;
@@ -63,15 +64,16 @@ export function usePaperDownloader() {
 
     setDownloading(true);
     try {
+      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
       const payload = {
         config,
         part_a: filledPartA,
         part_b: is2025 
           ? selectedPartB.slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean)
-          : selectedPartB.slice(0, 5).map(slot => [slot.a, slot.b]),
+          : selectedPartB.slice(0, reqPartBCount).map(slot => [slot.a, slot.b]),
         part_c: is2025
           ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC]).map(pair => [pair?.a, pair?.b])
-          : [(Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.a, (Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.b]
+          : [[(Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.a, (Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.b]]
       };
 
       const res = await fetch(`${API_BASE}/generate-docx`, {

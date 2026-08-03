@@ -449,6 +449,7 @@ export function useAppState() {
             return { selectedPartA: next };
           } else if (activeTabSub === 'B') {
             const isCAT = isCATExam(config.exam_type, config.regulation);
+            const is2025 = is2025Regulation(config.regulation);
             const partB = [...(set.selectedPartB || [])];
             while (partB.length < 5) {
               partB.push({ a: null, b: null });
@@ -457,8 +458,9 @@ export function useAppState() {
             const qUnitNorm = normalizeUnit(q.unit);
             let targetIdx = -1;
             let targetSubKey = 'a';
+            const reqPartBSlots = (isCAT && !is2025) ? 2 : 5;
 
-            for (let i = 0; i < partB.length; i++) {
+            for (let i = 0; i < reqPartBSlots; i++) {
               const expectedUnits = getExpectedUnitForPartBSlot(config.exam_type, i, config.regulation);
               const allowedNorm = expectedUnits.map(normalizeUnit);
               if (allowedNorm.includes(qUnitNorm)) {
@@ -467,7 +469,7 @@ export function useAppState() {
                   targetIdx = i;
                   targetSubKey = 'a';
                   break;
-                } else if (!isCAT && !isFilled(slot.b)) {
+                } else if (!is2025 && !isFilled(slot.b)) {
                   targetIdx = i;
                   targetSubKey = 'b';
                   break;

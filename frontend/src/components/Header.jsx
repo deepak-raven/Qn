@@ -24,14 +24,14 @@ export default function Header({
   const isCAT = isCATExam(config?.exam_type, config?.regulation);
 
   const reqPartA = (is2025 || isCAT) ? 5 : 10;
-  const reqPartB = 5;
+  const reqPartB = (isCAT && !is2025) ? 2 : 5;
   const reqPartC = is2025 ? 3 : 1;
 
   const partACount = (selectedPartA || []).slice(0, reqPartA).filter(Boolean).length;
   
   const partBCount = is2025 
     ? (selectedPartB || []).slice(0, 5).filter(s => s && (s.a || s.b || s.text)).length
-    : (selectedPartB || []).slice(0, 5).filter(s => s && (s.a || s.b)).length;
+    : (selectedPartB || []).slice(0, reqPartB).filter(s => s && (s.a || s.b)).length;
 
   const partCCount = is2025
     ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3).filter(s => s && (s.a || s.b)).length : 0)

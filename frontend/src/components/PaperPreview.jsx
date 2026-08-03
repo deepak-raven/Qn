@@ -554,7 +554,7 @@ export default function PaperPreview({
 
         {/* PART B PREVIEW TABLE */}
         <div ref={partBRef} className="paper-part-title">
-          PART &ndash; B ({is2025 ? '5 x 3 = 15' : `${selectedPartB.length} x 13 = ${selectedPartB.length * 13}`} Marks)<br />
+          PART &ndash; B ({is2025 ? '5 x 3 = 15' : (isCAT ? '2 x 13 = 26' : `${selectedPartB.length} x 13 = ${selectedPartB.length * 13}`)} Marks)<br />
           <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer ALL the questions</span>
         </div>
 
@@ -641,7 +641,7 @@ export default function PaperPreview({
             </tbody>
           </table>
         ) : (
-          /* MODEL EXAM PART B: 5 Either-OR Pairs (13 Marks each) */
+          /* MODEL EXAM & 2021 CAT PART B: Either-OR Pairs (13 Marks each) */
           <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
             <thead>
               <tr>
@@ -655,7 +655,7 @@ export default function PaperPreview({
               </tr>
             </thead>
             <tbody>
-              {selectedPartB.map((slot, idx) => {
+              {selectedPartB.slice(0, isCAT ? 2 : 5).map((slot, idx) => {
                 const qNo = getPartBQuestionNo(config.exam_type, idx, config.regulation);
                 const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation);
 
@@ -704,7 +704,7 @@ export default function PaperPreview({
                           </span>
                         )}
                       </td>
-                      <td className="center">{slot?.a ? slot.a.marks : ''}</td>
+                      <td className="center">{slot?.a ? 13 : ''}</td>
                       <td className="center">{slot?.a ? slot.a.co : ''}</td>
                       <td className="center">{slot?.a ? slot.a.kl : ''}</td>
                       <td className="center">
@@ -774,7 +774,7 @@ export default function PaperPreview({
                           </span>
                         )}
                       </td>
-                      <td className="center">{slot?.b ? slot.b.marks : ''}</td>
+                      <td className="center">{slot?.b ? 13 : ''}</td>
                       <td className="center">{slot?.b ? slot.b.co : ''}</td>
                       <td className="center">{slot?.b ? slot.b.kl : ''}</td>
                       <td className="center">
@@ -790,8 +790,7 @@ export default function PaperPreview({
                       </td>
                     </tr>
 
-                    {/* Blank space separating questions */}
-                    {idx < 4 && (
+                    {idx < (isCAT ? 1 : 4) && (
                       <tr style={{ height: '1.25rem' }}>
                         <td colSpan={7} style={{ border: 'none', background: 'transparent' }}></td>
                       </tr>
@@ -805,7 +804,7 @@ export default function PaperPreview({
 
         {/* PART C PREVIEW TABLE */}
         <div ref={partCRef} className="paper-part-title">
-          PART &ndash; C ({is2025 ? '3 x 10 = 30' : '1 x 15 = 15'} Marks)<br />
+          PART &ndash; C ({is2025 ? '3 x 10 = 30' : (isCAT ? '1 x 14 = 14' : '1 x 15 = 15')} Marks)<br />
           <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>Answer ALL the questions</span>
         </div>
 
@@ -824,8 +823,8 @@ export default function PaperPreview({
           <tbody>
             {(is2025 ? (
               Array.isArray(selectedPartC) ? selectedPartC : [selectedPartC, { a: null, b: null }, { a: null, b: null }]
-            ).slice(0, is2025 ? 3 : 1) : (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])).map((pairSlot, pairIdx) => {
-              const qNo = is2025 ? (11 + pairIdx) : getPartCQuestionNo(config.exam_type);
+            ).slice(0, 3) : (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])).map((pairSlot, pairIdx) => {
+              const qNo = is2025 ? (11 + pairIdx) : (isCAT ? (8 + pairIdx) : getPartCQuestionNo(config.exam_type, pairIdx, config.regulation));
               const slotA = pairSlot?.a;
               const slotB = pairSlot?.b;
 
@@ -874,7 +873,7 @@ export default function PaperPreview({
                         </span>
                       )}
                     </td>
-                    <td className="center">{slotA ? (isCAT ? 10 : (slotA.marks || 15)) : ''}</td>
+                    <td className="center">{slotA ? (is2025 ? 10 : (isCAT ? 14 : 15)) : ''}</td>
                     <td className="center">{slotA ? slotA.co : ''}</td>
                     <td className="center">{slotA ? slotA.kl : ''}</td>
                     <td className="center">
@@ -944,7 +943,7 @@ export default function PaperPreview({
                         </span>
                       )}
                     </td>
-                    <td className="center">{slotB ? (isCAT ? 10 : (slotB.marks || 15)) : ''}</td>
+                    <td className="center">{slotB ? (is2025 ? 10 : (isCAT ? 14 : 15)) : ''}</td>
                     <td className="center">{slotB ? slotB.co : ''}</td>
                     <td className="center">{slotB ? slotB.kl : ''}</td>
                     <td className="center">
