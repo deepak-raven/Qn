@@ -3,6 +3,8 @@ import { Search, GripVertical } from 'lucide-react';
 
 export default function QuestionPool({
   API_BASE,
+  config,
+  setConfig,
   selectedSubCode,
   searchQuery,
   setSearchQuery,
@@ -16,13 +18,13 @@ export default function QuestionPool({
   handleToggleQuestion
 }) {
   return (
-    <div className="glass-panel card-body" style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: '1rem', 
-      height: 'calc(100vh - 64px)', 
-      overflowY: 'auto', 
-      position: 'sticky', 
+    <div className="glass-panel card-body" style={{
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '1rem',
+      height: 'calc(100vh - 64px)',
+      overflowY: 'auto',
+      position: 'sticky',
       top: '64px',
       borderRadius: 0,
       borderTop: 'none',
@@ -32,8 +34,43 @@ export default function QuestionPool({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>
           <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)', margin: 0 }}>
-            Question Bank Pool
+            Question Bank
           </h3>
+
+          {/* Exam Type Selector */}
+          {config && setConfig && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
+              <select
+                value={config.exam_type || 'MODEL EXAMINATION'}
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  const isCatType = newType === 'CAT-1' || newType === 'CAT-2';
+                  setConfig(prev => ({
+                    ...prev,
+                    exam_type: newType,
+                    exam_name: isCatType ? (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : 'MODEL EXAMINATION',
+                    time: isCatType ? '90 Minutes' : '3 Hours',
+                    max_marks: isCatType ? 50 : 100
+                  }));
+                }}
+                style={{
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  padding: '0.2rem 0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: 'var(--primary)',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="MODEL EXAMINATION">MODEL EXAMINATION</option>
+                <option value="CAT-1">CAT - I</option>
+                <option value="CAT-2">CAT - II</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
@@ -44,10 +81,10 @@ export default function QuestionPool({
       {/* SEARCH & FILTERS */}
       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
         <div style={{ position: 'relative', flex: 4 }}>
-          <input 
-            type="text" 
-            placeholder="Search questions..." 
-            className="form-input" 
+          <input
+            type="text"
+            placeholder="Search questions..."
+            className="form-input"
             style={{ paddingLeft: '2rem' }}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -55,9 +92,9 @@ export default function QuestionPool({
           <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '0.7rem', color: 'var(--text-dimmed)' }} />
         </div>
 
-        <select 
-          className="form-select" 
-          value={filterUnit} 
+        <select
+          className="form-select"
+          value={filterUnit}
           onChange={(e) => setFilterUnit(e.target.value)}
           style={{ flex: 1, fontSize: '0.8rem', padding: '0.4rem 0.5rem' }}
         >
@@ -72,7 +109,7 @@ export default function QuestionPool({
 
       {/* POOL TAB SUB-SELECTOR */}
       <div className="part-tabs" style={{ marginTop: '0.25rem' }}>
-        {['Part A (2m)', 'Part B (13m)', 'Part C (14m/15m)'].map((label, idx) => {
+        {['Part A', 'Part B', 'Part C'].map((label, idx) => {
           const keys = ['A', 'B', 'C'];
           const active = activeTabSub === keys[idx];
           return (
@@ -100,7 +137,7 @@ export default function QuestionPool({
           filteredPool.map((q, idx) => {
             const assigned = isAssigned(q);
             return (
-              <div 
+              <div
                 key={q._id || idx}
                 className={`pool-item ${assigned ? 'assigned' : ''}`}
                 draggable={!assigned}
@@ -123,16 +160,16 @@ export default function QuestionPool({
                   </div>
                 </div>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', paddingLeft: '8px' }}>
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={assigned}
                     onChange={() => handleToggleQuestion(q)}
                     title={assigned ? "Remove question from paper" : "Add question to paper"}
-                    style={{ 
-                      width: '16px', 
-                      height: '16px', 
+                    style={{
+                      width: '16px',
+                      height: '16px',
                       cursor: 'pointer',
-                      accentColor: 'var(--primary)' 
+                      accentColor: 'var(--primary)'
                     }}
                   />
                 </div>

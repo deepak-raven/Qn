@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2, GripVertical, RotateCcw } from 'lucide-react';
-import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getSuggestedUnitForPartASlot, getSuggestedUnitForPartBSlot, getSuggestedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from '../hooks/useSetsManager';
+import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getSuggestedUnitForPartASlot, getSuggestedUnitForPartBSlot, getSuggestedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation, cleanDegreeBranch, formatYearSem } from '../hooks/useSetsManager';
 
 export default function PaperPreview({
   config,
@@ -172,39 +172,8 @@ export default function PaperPreview({
           )}
         </div>
         
-        {/* Exam Type Selector & Clear Questions Button */}
+        {/* Clear Questions Button */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.85rem', paddingBottom: '0.25rem', whiteSpace: 'nowrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Exam Type:</span>
-            <select
-              value={config.exam_type || 'MODEL EXAMINATION'}
-              onChange={(e) => {
-                const newType = e.target.value;
-                const isCatType = newType === 'CAT-1' || newType === 'CAT-2';
-                setConfig(prev => ({
-                  ...prev,
-                  exam_type: newType,
-                  exam_name: isCatType ? (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : 'MODEL EXAMINATION',
-                  time: isCatType ? '90 Minutes' : '3 Hours',
-                  max_marks: isCatType ? 50 : 100
-                }));
-              }}
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 700,
-                padding: '0.2rem 0.5rem',
-                borderRadius: '4px',
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: 'var(--primary)',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="MODEL EXAMINATION">MODEL EXAMINATION</option>
-              <option value="CAT-1">CAT - I</option>
-              <option value="CAT-2">CAT - II</option>
-            </select>
-          </div>
 
           <button
             onClick={handleClearAllQuestions}
@@ -310,25 +279,25 @@ export default function PaperPreview({
             {/* Course Details Box */}
             <div style={{ border: '1px solid #000000', marginBottom: '1.25rem', fontFamily: "'Times New Roman', Times, serif", fontSize: '0.88rem', color: '#000000' }}>
               <div style={{ borderBottom: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
-                <strong>Sub. Code / Sub. Name :</strong>{' '}
+                <strong>Sub. Code / Sub. Name  :</strong>{' '}
                 <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_code: e.target.innerText }))}>{config.subject_code || 'SUB CODE'}</span>
-                {' / '}
+                {' – '}
                 <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, subject_name: e.target.innerText }))}>{config.subject_name || 'SUBJECT NAME'}</span>
               </div>
               <div style={{ display: 'flex', borderBottom: '1px solid #000000' }}>
                 <div style={{ flex: 1, borderRight: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
                   <strong>Degree / Branch:</strong>{' '}
-                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, degree_branch_sem: e.target.innerText }))}>{config.degree_branch_sem || 'BE/BTECH'}</span>
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, degree_branch_sem: e.target.innerText }))}>{cleanDegreeBranch(config.degree_branch_sem)}</span>
                 </div>
                 <div style={{ flex: 1, padding: '0.35rem 0.6rem' }}>
-                  <strong>Year / Semester :</strong>{' '}
-                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}>{config.semester || 'ENTER SEMESTER'}</span>
+                  <strong>Year / Sem :</strong>{' '}
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}>{formatYearSem(config.semester)}</span>
                 </div>
               </div>
               <div style={{ display: 'flex' }}>
                 <div style={{ flex: 1, borderRight: '1px solid #000000', padding: '0.35rem 0.6rem' }}>
                   <strong>Time:</strong>{' '}
-                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, time: e.target.innerText }))}>{config.time || '1.5 Hours'}</span>
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, time: e.target.innerText }))}>{config.time || '90 Minutes'}</span>
                 </div>
                 <div style={{ flex: 1, padding: '0.35rem 0.6rem' }}>
                   <strong>Maximum Marks:</strong>{' '}

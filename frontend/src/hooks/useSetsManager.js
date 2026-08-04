@@ -15,6 +15,29 @@ export const DEFAULT_CONFIG = {
   date: ''
 };
 
+export function cleanDegreeBranch(degInput) {
+  if (!degInput) return 'B.E/CSE';
+  let cleaned = String(degInput).trim().replace(/\s*\/\s*(?:[I|V|X]+|\d+)\s*$/i, '');
+  cleaned = cleaned.replace(/BE\/BTECH/gi, 'B.E').replace(/BE \/ BTECH/gi, 'B.E');
+  cleaned = cleaned.replace(/\s*\/\s*/g, '/');
+  return cleaned || 'B.E/CSE';
+}
+
+export function formatYearSem(semInput) {
+  if (!semInput) return 'II / III';
+  const s = String(semInput).trim().toUpperCase();
+  if (s.includes('/') && !s.includes('SEMESTER')) return s;
+  if (s.includes('VIII') || s === '8') return 'IV / VIII';
+  if (s.includes('VII') || s === '7') return 'IV / VII';
+  if (s.includes('VI') || s === '6') return 'III / VI';
+  if (s.includes('V') || s === '5') return 'III / V';
+  if (s.includes('IV') || s === '4') return 'II / IV';
+  if (s.includes('III') || s === '3') return 'II / III';
+  if (s.includes('II') || s === '2') return 'I / II';
+  if (s.includes('I') || s === '1') return 'I / I';
+  return 'II / III';
+}
+
 // --- SEPARATE REGULATION RULES (2021 REGULATION vs 2025 REGULATION) ---
 
 export const REGULATION_2021_RULES = {

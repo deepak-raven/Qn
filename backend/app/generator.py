@@ -67,6 +67,47 @@ def set_cell_text_preserve_style(cell, text: str):
         run.font.name = "Times New Roman"
         run.font.size = Pt(12)
 
+def clean_degree_branch(deg_input: str) -> str:
+    if not deg_input:
+        return "B.E/CSE"
+    cleaned = re.sub(r'\s*/\s*(?:[I|V|X]+|\d+)\s*$', '', deg_input.strip(), flags=re.IGNORECASE)
+    cleaned = cleaned.replace("BE/BTECH", "B.E").replace("BE / BTECH", "B.E")
+    cleaned = re.sub(r'\s*/\s*', '/', cleaned)
+    return cleaned if cleaned else "B.E/CSE"
+
+def format_year_sem(sem_input: str) -> str:
+    if not sem_input:
+        return "II / III"
+    s = sem_input.strip().upper()
+    if "/" in s and "SEMESTER" not in s:
+        return s
+    if "VIII" in s or s == "8": return "IV / VIII"
+    if "VII" in s or s == "7": return "IV / VII"
+    if "VI" in s or s == "6": return "III / VI"
+    if "V" in s or s == "5": return "III / V"
+    if "IV" in s or s == "4": return "II / IV"
+    if "III" in s or s == "3": return "II / III"
+    if "II" in s or s == "2": return "I / II"
+    if "I" in s or s == "1": return "I / I"
+    return "II / III"
+
+def set_cell_bold_label_value(cell, label_bold: str, value_normal: str, font_size_pt: float = 11):
+    if len(cell.paragraphs) == 0:
+        cell.add_paragraph()
+    p = cell.paragraphs[0]
+    p.text = ""
+    
+    r1 = p.add_run(label_bold)
+    r1.bold = True
+    r1.font.name = "Times New Roman"
+    r1.font.size = Pt(font_size_pt)
+    
+    if value_normal:
+        r2 = p.add_run(f" {value_normal.strip()}")
+        r2.bold = False
+        r2.font.name = "Times New Roman"
+        r2.font.size = Pt(font_size_pt)
+
 def replace_text_runs(doc, old_text: str, new_text: str):
     if not old_text:
         return
@@ -191,36 +232,34 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         sub_code = (config.subject_code or "").strip()
         sub_name = (config.subject_name or "").strip()
         if sub_code and sub_name:
-            sub_info = f"Sub. Code / Sub. Name  : {sub_code} – {sub_name}"
+            sub_val = f"{sub_code} – {sub_name}"
         elif sub_code:
-            sub_info = f"Sub. Code / Sub. Name  : {sub_code}"
+            sub_val = sub_code
         elif sub_name:
-            sub_info = f"Sub. Code / Sub. Name  : {sub_name}"
+            sub_val = sub_name
         else:
-            sub_info = "Sub. Code / Sub. Name  :"
+            sub_val = ""
 
         if len(t2.rows) > 0 and len(t2.rows[0].cells) > 0:
-            set_cell_text_preserve_style(t2.rows[0].cells[0], sub_info)
+            set_cell_bold_label_value(t2.rows[0].cells[0], "Sub. Code / Sub. Name  :", sub_val)
             if len(t2.rows[0].cells) > 1:
-                set_cell_text_preserve_style(t2.rows[0].cells[1], sub_info)
+                set_cell_bold_label_value(t2.rows[0].cells[1], "Sub. Code / Sub. Name  :", sub_val)
             
-        deg_branch = (config.degree_branch_sem or "").strip()
+        deg_branch = clean_degree_branch(config.degree_branch_sem)
         if len(t2.rows) > 1 and len(t2.rows[1].cells) > 0:
-            deg_str = f"Degree / Branch: {deg_branch}" if deg_branch else "Degree / Branch:"
-            set_cell_text_preserve_style(t2.rows[1].cells[0], deg_str)
+            set_cell_bold_label_value(t2.rows[1].cells[0], "Degree / Branch:", deg_branch)
             
-        sem_val = (config.semester or "").strip()
+        sem_val = format_year_sem(config.semester)
         if len(t2.rows) > 1 and len(t2.rows[1].cells) > 1:
-            sem_str = f"Year / Sem : {sem_val}" if sem_val else "Year / Sem :"
-            set_cell_text_preserve_style(t2.rows[1].cells[1], sem_str)
+            set_cell_bold_label_value(t2.rows[1].cells[1], "Year / Sem :", sem_val)
             
         time_val = (config.time or "").strip() or "90 Minutes"
         if len(t2.rows) > 2 and len(t2.rows[2].cells) > 0:
-            set_cell_text_preserve_style(t2.rows[2].cells[0], f"Time: {time_val}")
+            set_cell_bold_label_value(t2.rows[2].cells[0], "Time:", time_val)
             
         marks_val = str(config.max_marks) if config.max_marks else "50"
         if len(t2.rows) > 2 and len(t2.rows[2].cells) > 1:
-            set_cell_text_preserve_style(t2.rows[2].cells[1], f"Maximum Marks: {marks_val}")
+            set_cell_bold_label_value(t2.rows[2].cells[1], "Maximum Marks:", marks_val)
 
     # 2. Part A (Table 3)
     if len(doc.tables) > 3:

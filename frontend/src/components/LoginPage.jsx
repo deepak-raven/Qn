@@ -152,7 +152,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onResend
             Jaya Engineering College
           </h2>
           <p style={{ margin: '0.4rem 0 0', fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
-            Question Bank & Exam Orchestration System
+            Question Paper Generator
           </p>
         </div>
 
@@ -300,26 +300,26 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onResend
               disabled={googleLoading || loading}
               style={{
                 width: '100%',
-                padding: '0.7rem 1rem',
-                fontSize: '0.92rem',
+                padding: '0.8rem 1rem',
+                fontSize: '0.95rem',
                 fontWeight: 600,
                 color: '#374151',
                 backgroundColor: '#ffffff',
-                border: '1px solid #d1d5db',
+                border: '1px solid #cbd5e1',
                 borderRadius: '8px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '0.65rem',
                 cursor: 'pointer',
-                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.08)',
                 transition: 'all 0.15s ease',
-                marginBottom: '1.25rem'
+                marginTop: '0.5rem'
               }}
-              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f9fafb'; }}
-              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
+              onMouseOver={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+              onMouseOut={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24">
+              <svg width="20" height="20" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                 <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -327,150 +327,6 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onResend
               </svg>
               {googleLoading ? 'Connecting Google...' : 'Continue with Google'}
             </button>
-
-            {/* Divider */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              textAlign: 'center',
-              marginBottom: '1.25rem',
-              color: '#94a3b8',
-              fontSize: '0.78rem',
-              fontWeight: 500
-            }}>
-              <div style={{ flex: 1, borderBottom: '1px solid #e2e8f0' }}></div>
-              <span style={{ padding: '0 0.75rem' }}>or sign in with email/username</span>
-              <div style={{ flex: 1, borderBottom: '1px solid #e2e8f0' }}></div>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {isRegister && (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Full Name / Title</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="Enter your full name (e.g. Dr. K. Deepak)"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">
-                  {isRegister ? 'Choose Username' : 'Username or Email'}
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder={isRegister ? 'Enter a username (e.g. deepak)' : 'Enter username or email address'}
-                  value={username}
-                  onChange={e => setUsername(e.target.value)}
-                  required
-                />
-              </div>
-
-              {isRegister && (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Email Address</label>
-                  <input
-                    type="email"
-                    className="form-input"
-                    placeholder="Enter your email address (e.g. name@gmail.com)"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label className="form-label">Password</label>
-                <input
-                  type="password"
-                  className="form-input"
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={loading || googleLoading}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  fontSize: '0.95rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                  marginTop: '0.4rem'
-                }}
-              >
-                {loading ? 'Authenticating...' : isRegister ? 'Create Account' : 'Sign In'}
-                {isRegister ? <UserPlus size={18} /> : <LogIn size={18} />}
-              </button>
-            </form>
-
-            {/* Bottom Toggle Link */}
-            <div style={{
-              marginTop: '1.5rem',
-              textAlign: 'center',
-              fontSize: '0.85rem',
-              color: '#64748b',
-              borderTop: '1px solid #f1f5f9',
-              paddingTop: '1.25rem'
-            }}>
-              {isRegister ? (
-                <span>
-                  Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setIsRegister(false); setError(''); }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--primary, #2563eb)',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      padding: 0,
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Sign In
-                  </button>
-                </span>
-              ) : (
-                <span>
-                  Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => { setIsRegister(true); setError(''); }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--primary, #2563eb)',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      fontSize: '0.85rem',
-                      padding: 0,
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Sign Up
-                  </button>
-                </span>
-              )}
-            </div>
           </>
         )}
       </div>
