@@ -47,7 +47,7 @@ export default function App() {
   }
 
   if (!auth.user || !auth.token) {
-    return <LoginPage onLogin={auth.login} onRegister={auth.register} />;
+    return <LoginPage onLogin={auth.login} onRegister={auth.register} onGoogleLogin={auth.loginWithGoogle} />;
   }
 
   return (

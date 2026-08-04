@@ -7,7 +7,7 @@ from fastapi import Request, HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.config import settings
-from app.database import get_user_by_username
+from app.database import get_user_by_username, get_user_by_username_or_email, create_user
 
 logger = logging.getLogger("app.auth")
 security = HTTPBearer(auto_error=False)
@@ -34,15 +34,31 @@ def create_access_token(data: dict, expires_minutes: Optional[int] = None) -> st
     return encoded_jwt
 
 def decode_access_token(token: str) -> Optional[dict]:
+    # 1. Try decoding with local secret key
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         return payload
-    except jwt.ExpiredSignatureError:
-        logger.warning("JWT Token expired.")
-        return None
-    except jwt.InvalidTokenError:
-        logger.warning("Invalid JWT Token.")
-        return None
+    except Exception:
+        pass
+
+    # 2. Try unverified decode for Firebase ID tokens
+    try:
+        unverified_payload = jwt.decode(token, options={"verify_signature": False})
+        if unverified_payload and ("sub" in unverified_payload or "user_id" in unverified_payload):
+            sub = unverified_payload.get("sub") or unverified_payload.get("user_id")
+            email = unverified_payload.get("email", "")
+            username = email.split("@")[0] if email else sub
+            return {
+                "sub": username,
+                "email": email,
+                "name": unverified_payload.get("name", username),
+                "role": "admin" if email.lower().startswith("admin") else "user",
+                "firebase_uid": sub
+            }
+    except Exception as err:
+        logger.warning(f"Failed to decode token: {err}")
+
+    return None
 
 async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Dict[str, Any]:
     if not credentials:
@@ -59,12 +75,27 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
         )
         
     username = payload["sub"]
-    user = await get_user_by_username(username)
+    user = await get_user_by_username_or_email(username)
+    
+    # Auto-provision user record if authenticated via Firebase
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User associated with this token no longer exists."
-        )
+        try:
+            user_doc = {
+                "username": username,
+                "name": payload.get("name", username),
+                "email": payload.get("email", ""),
+                "password_hash": "",
+                "role": payload.get("role", "user"),
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            user = await create_user(user_doc)
+        except Exception:
+            user = {
+                "username": username,
+                "name": payload.get("name", username),
+                "email": payload.get("email", ""),
+                "role": payload.get("role", "user")
+            }
         
     return user
 

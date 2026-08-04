@@ -347,18 +347,19 @@ async def upload_question_bank_stream(
     uploader_name: str = Form("System"),
     uploaded_by: str = Form(...)
 ):
+    uploaded_filename = file.filename or "unknown"
+    file_bytes = await file.read()
+
     async def generate_events():
         try:
             yield f"data: {json.dumps({'progress': 10, 'step': 'Uploading question bank...'})}\n\n"
             await asyncio.sleep(0.15)
             
-            uploaded_filename = file.filename or "unknown"
             ext = os.path.splitext(uploaded_filename)[1].lower()
             if ext not in [".docx", ".pdf", ".doc"]:
                 yield f"data: {json.dumps({'error': 'Only .docx, .pdf, and .doc files are supported.'})}\n\n"
                 return
                 
-            file_bytes = await file.read()
             max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
             if len(file_bytes) > max_bytes:
                 yield f"data: {json.dumps({'error': f'File exceeds maximum size of {settings.MAX_UPLOAD_SIZE_MB}MB.'})}\n\n"
