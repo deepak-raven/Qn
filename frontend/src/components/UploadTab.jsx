@@ -459,7 +459,6 @@ export default function UploadTab({
                   accept=".docx,.pdf,.doc" 
                   style={{ display: 'none' }} 
                   onChange={handleFileChange}
-                  required={!isQBAvailable}
                 />
               </div>
 
