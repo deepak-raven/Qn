@@ -49,8 +49,7 @@ from app.parser import (
     parse_question_bank_pdf,
     extract_text_from_docx,
     extract_text_from_pdf,
-    parse_text_metadata,
-    convert_doc_to_docx
+    parse_text_metadata
 )
 from app.generator import generate_question_paper
 import hashlib
@@ -252,13 +251,16 @@ async def upload_question_bank(
     subject_name: str = Form(...),
     semester: str = Form(...),
     regulation: str = Form("2021"),
+    degree: Optional[str] = Form(None),
+    branch: Optional[str] = Form(None),
+    year: Optional[str] = Form(None),
     uploader_name: str = Form("System"),
     uploaded_by: str = Form(...)
 ):
     uploaded_filename = file.filename or "unknown"
     ext = os.path.splitext(uploaded_filename)[1].lower()
-    if ext not in [".docx", ".pdf", ".doc"]:
-        raise HTTPException(status_code=400, detail="Only .docx, .pdf, and .doc files are supported.")
+    if ext not in [".docx", ".pdf"]:
+        raise HTTPException(status_code=400, detail="Only .docx and .pdf files are supported.")
         
     try:
         file_bytes = await file.read()
@@ -281,11 +283,18 @@ async def upload_question_bank(
                 f.write(file_bytes)
         await anyio.to_thread.run_sync(_save_physical)
 
+        final_degree = degree or "B.E"
+        final_branch = branch or "CSE"
+        final_year = year
+
         subject_data = {
             "code": subject_code,
             "name": subject_name,
             "semester": semester,
             "regulation": regulation,
+            "degree": final_degree,
+            "branch": final_branch,
+            "year": final_year,
             "uploader_name": uploader_name,
             "uploaded_by": uploaded_by,
             "qb_filename": filename,
@@ -295,30 +304,6 @@ async def upload_question_bank(
         
         if ext == ".pdf":
             questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
-        elif ext == ".doc":
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_doc_path = os.path.join(temp_dir, filename)
-                docx_filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}.docx"
-                temp_docx_path = os.path.join(temp_dir, docx_filename)
-                
-                def save_temp():
-                    with open(temp_doc_path, "wb") as f:
-                        f.write(file_bytes)
-                await anyio.to_thread.run_sync(save_temp)
-                
-                try:
-                    await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
-                except Exception as conv_err:
-                    raise HTTPException(status_code=500, detail=f"Failed to convert .doc file: {str(conv_err)}")
-                
-                def read_converted():
-                    with open(temp_docx_path, "rb") as f:
-                        return f.read()
-                docx_bytes = await anyio.to_thread.run_sync(read_converted)
-                questions = await anyio.to_thread.run_sync(parse_question_bank_docx, docx_bytes, subject_code, semester)
-                
-                subject_data["qb_filename"] = docx_filename
-                await add_subject(subject_data)
         else:
             questions = await anyio.to_thread.run_sync(parse_question_bank_docx, file_bytes, subject_code, semester)
         
@@ -352,6 +337,9 @@ async def upload_question_bank_stream(
     subject_name: str = Form(...),
     semester: str = Form(...),
     regulation: str = Form("2021"),
+    degree: Optional[str] = Form(None),
+    branch: Optional[str] = Form(None),
+    year: Optional[str] = Form(None),
     uploader_name: str = Form("System"),
     uploaded_by: str = Form(...)
 ):
@@ -364,8 +352,8 @@ async def upload_question_bank_stream(
             await asyncio.sleep(0.15)
             
             ext = os.path.splitext(uploaded_filename)[1].lower()
-            if ext not in [".docx", ".pdf", ".doc"]:
-                yield f"data: {json.dumps({'error': 'Only .docx, .pdf, and .doc files are supported.'})}\n\n"
+            if ext not in [".docx", ".pdf"]:
+                yield f"data: {json.dumps({'error': 'Only .docx and .pdf files are supported.'})}\n\n"
                 return
                 
             max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
@@ -387,11 +375,18 @@ async def upload_question_bank_stream(
                     f.write(file_bytes)
             await anyio.to_thread.run_sync(_save_physical)
 
+            final_degree = degree or "B.E"
+            final_branch = branch or "CSE"
+            final_year = year
+
             subject_data = {
                 "code": subject_code,
                 "name": subject_name,
                 "semester": semester,
                 "regulation": regulation,
+                "degree": final_degree,
+                "branch": final_branch,
+                "year": final_year,
                 "uploader_name": uploader_name,
                 "uploaded_by": uploaded_by,
                 "qb_filename": filename,
@@ -404,27 +399,6 @@ async def upload_question_bank_stream(
 
             if ext == ".pdf":
                 questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
-            elif ext == ".doc":
-                yield f"data: {json.dumps({'progress': 65, 'step': 'Converting .doc to .docx format...'})}\n\n"
-                await asyncio.sleep(0.15)
-                with tempfile.TemporaryDirectory() as temp_dir:
-                    temp_doc_path = os.path.join(temp_dir, filename)
-                    docx_filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}.docx"
-                    temp_docx_path = os.path.join(temp_dir, docx_filename)
-                    
-                    def save_temp():
-                        with open(temp_doc_path, "wb") as f:
-                            f.write(file_bytes)
-                    await anyio.to_thread.run_sync(save_temp)
-                    await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
-                    
-                    def read_converted():
-                        with open(temp_docx_path, "rb") as f:
-                            return f.read()
-                    docx_bytes = await anyio.to_thread.run_sync(read_converted)
-                    questions = await anyio.to_thread.run_sync(parse_question_bank_docx, docx_bytes, subject_code, semester)
-                    subject_data["qb_filename"] = docx_filename
-                    await add_subject(subject_data)
             else:
                 questions = await anyio.to_thread.run_sync(parse_question_bank_docx, file_bytes, subject_code, semester)
 
@@ -455,32 +429,12 @@ async def upload_question_bank_stream(
 async def analyze_file(file: UploadFile = File(...)):
     uploaded_filename = file.filename or "unknown"
     ext = os.path.splitext(uploaded_filename)[1].lower()
-    if ext not in [".docx", ".pdf", ".doc"]:
-        raise HTTPException(status_code=400, detail="Only .docx, .pdf, and .doc files are supported.")
+    if ext not in [".docx", ".pdf"]:
+        raise HTTPException(status_code=400, detail="Only .docx and .pdf files are supported.")
         
     try:
         file_bytes = await file.read()
         
-        if ext == ".doc":
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_doc_path = os.path.join(temp_dir, f"temp_analyze_{sanitize_filename(uploaded_filename)}.doc")
-                temp_docx_path = temp_doc_path + "x"
-                
-                def save_temp():
-                    with open(temp_doc_path, "wb") as f:
-                        f.write(file_bytes)
-                await anyio.to_thread.run_sync(save_temp)
-                
-                try:
-                    await anyio.to_thread.run_sync(convert_doc_to_docx, temp_doc_path, temp_docx_path)
-                    def read_temp_docx():
-                        with open(temp_docx_path, "rb") as f:
-                            return f.read()
-                    file_bytes = await anyio.to_thread.run_sync(read_temp_docx)
-                    ext = ".docx"
-                except Exception as conv_err:
-                    raise HTTPException(status_code=500, detail=f"Failed to convert .doc for analysis: {str(conv_err)}")
-                    
         if ext == ".pdf":
             text = await anyio.to_thread.run_sync(extract_text_from_pdf, file_bytes)
         else:
@@ -495,7 +449,11 @@ async def analyze_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail="Failed to analyze document metadata.")
 
 @app.get("/api/questions")
-async def fetch_questions(subject_code: str, semester: str, uploaded_by: str):
+async def fetch_questions(
+    subject_code: str,
+    semester: Optional[str] = None,
+    uploaded_by: Optional[str] = None
+):
     try:
         return await get_questions(subject_code, semester, uploaded_by)
     except Exception as e:
@@ -592,8 +550,9 @@ async def admin_uploads(admin_user: Dict[str, Any] = Depends(get_current_admin))
         logger.error(f"Error fetching admin uploads list: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch upload list.")
 
+@app.delete("/api/admin/subjects/{subject_code}")
 @app.delete("/api/admin/subjects/{subject_code}/{semester}")
-async def delete_subject_bank(subject_code: str, semester: str, admin_user: Dict[str, Any] = Depends(get_current_admin)):
+async def delete_subject_bank(subject_code: str, semester: Optional[str] = None, admin_user: Dict[str, Any] = Depends(get_current_admin)):
     try:
         success = await delete_question_bank(subject_code, semester, UPLOADED_QBS_DIR)
         if not success:
@@ -605,15 +564,20 @@ async def delete_subject_bank(subject_code: str, semester: str, admin_user: Dict
         logger.error(f"Error deleting question bank: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete question bank.")
 
+@app.delete("/api/subjects/{subject_code}")
 @app.delete("/api/subjects/{subject_code}/{semester}")
 async def delete_user_subject_bank(
     subject_code: str,
-    semester: str,
+    semester: Optional[str] = None,
     current_user: Dict[str, Any] = Depends(get_current_user)
 ):
     try:
         database = get_db()
-        subject = await database["subjects"].find_one({"code": subject_code, "semester": semester})
+        query = {"code": subject_code}
+        if semester:
+            query["semester"] = semester
+            
+        subject = await database["subjects"].find_one(query)
         if not subject:
             subject = await database["subjects"].find_one({"code": subject_code})
             

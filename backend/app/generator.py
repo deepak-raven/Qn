@@ -75,21 +75,28 @@ def clean_degree_branch(deg_input: str) -> str:
     cleaned = re.sub(r'\s*/\s*', '/', cleaned)
     return cleaned if cleaned else "B.E/CSE"
 
-def format_year_sem(sem_input: str) -> str:
-    if not sem_input:
+ROMAN_YEAR_SEM = {
+    1: ("I", "I"), 2: ("I", "II"), 3: ("II", "III"), 4: ("II", "IV"),
+    5: ("III", "V"), 6: ("III", "VI"), 7: ("IV", "VII"), 8: ("IV", "VIII")
+}
+ROMAN_MAP = {8: "VIII", 7: "VII", 6: "VI", 5: "V", 4: "IV", 3: "III", 2: "II", 1: "I"}
+
+def format_year_sem(sem_input: str, alt_input: str = "") -> str:
+    text = f"{sem_input or ''} {alt_input or ''}".upper()
+    if not text.strip():
         return "II / III"
-    s = sem_input.strip().upper()
-    if "/" in s and "SEMESTER" not in s:
-        return s
-    if "VIII" in s or s == "8": return "IV / VIII"
-    if "VII" in s or s == "7": return "IV / VII"
-    if "VI" in s or s == "6": return "III / VI"
-    if "V" in s or s == "5": return "III / V"
-    if "IV" in s or s == "4": return "II / IV"
-    if "III" in s or s == "3": return "II / III"
-    if "II" in s or s == "2": return "I / II"
-    if "I" in s or s == "1": return "I / I"
-    return "II / III"
+
+    m = re.search(r'\b([I|V|X]+)\s*/\s*([I|V|X]+)\b', text)
+    if m:
+        return f"{m.group(1)} / {m.group(2)}"
+
+    for num in range(8, 0, -1):
+        rom = ROMAN_MAP[num]
+        if re.search(rf'\b({rom}|SEM\s*{num}|{num})\b', text):
+            year_rom, sem_rom = ROMAN_YEAR_SEM[num]
+            return f"{year_rom} / {sem_rom}"
+
+    return " / "
 
 def set_cell_bold_label_value(cell, label_bold: str, value_normal: str, font_size_pt: float = 11):
     if len(cell.paragraphs) == 0:
@@ -188,6 +195,22 @@ def replace_set_placeholder(doc, target_set: str):
                     for match_str in set(matches):
                         replace_text_runs(doc, match_str, target_set)
 
+def replace_exam_title_placeholder(doc, exam_title: str):
+    if not exam_title:
+        return
+    pattern = re.compile(r'CONTINUOUS ASSESSMENT TEST\s*[\u2013\u2014\-–]?\s*(?:I{1,3}|IV|V|VI|VII|\d+)', re.IGNORECASE)
+    for p in doc.paragraphs:
+        m = pattern.search(p.text)
+        if m:
+            replace_text_runs(doc, m.group(0), exam_title)
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    m = pattern.search(p.text)
+                    if m:
+                        replace_text_runs(doc, m.group(0), exam_title)
+
 def remove_table_rows(table, start_row_idx: int):
     """
     Safely removes rows from start_row_idx to the end of the table.
@@ -201,13 +224,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if config.institution_name:
         replace_text_runs(doc, "NAME OF THE INSTITUTION:", config.institution_name.upper())
 
-    exam_title = config.exam_name or ("CONTINUOUS ASSESSMENT TEST – II" if config.exam_type in ["CAT-2", "IAT-2"] else "CONTINUOUS ASSESSMENT TEST – I")
-    for title_variant in [
-        "CONTINUOUS ASSESSMENT TEST - II", "CONTINUOUS ASSESSMENT TEST- II", 
-        "CONTINUOUS ASSESSMENT TEST - I", "CONTINUOUS ASSESSMENT TEST- I",
-        "CONTINUOUS ASSESSMENT TEST – I", "CONTINUOUS ASSESSMENT TEST – II"
-    ]:
-        replace_text_runs(doc, title_variant, exam_title)
+    exam_title = config.exam_name or ("CONTINUOUS ASSESSMENT TEST - II" if config.exam_type in ["CAT-2", "IAT-2"] else "CONTINUOUS ASSESSMENT TEST - I")
+    replace_exam_title_placeholder(doc, exam_title)
     
     if config.set:
         replace_set_placeholder(doc, config.set)
@@ -249,7 +267,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         if len(t2.rows) > 1 and len(t2.rows[1].cells) > 0:
             set_cell_bold_label_value(t2.rows[1].cells[0], "Degree / Branch:", deg_branch)
             
-        sem_val = format_year_sem(config.semester)
+        sem_val = format_year_sem(config.degree_branch_sem, config.semester)
         if len(t2.rows) > 1 and len(t2.rows[1].cells) > 1:
             set_cell_bold_label_value(t2.rows[1].cells[1], "Year / Sem :", sem_val)
             

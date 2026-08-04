@@ -12,7 +12,7 @@ logger = logging.getLogger("app.database")
 client: Optional[motor.motor_asyncio.AsyncIOMotorClient] = None
 db: Optional[motor.motor_asyncio.AsyncIOMotorDatabase] = None
 
-def format_bytes(size: int) -> str:
+def format_bytes(size: float) -> str:
     if size <= 0:
         return "0 B"
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -173,13 +173,15 @@ async def add_questions(questions: list, uploader_name: str = "System"):
     })
     await database["questions"].insert_many(questions)
 
-async def get_questions(subject_code: str, semester: str, uploaded_by: str) -> List[Dict[str, Any]]:
+async def get_questions(subject_code: str, semester: Optional[str] = None, uploaded_by: Optional[str] = None) -> List[Dict[str, Any]]:
     database = get_db()
-    cursor = database["questions"].find({
-        "subject_code": subject_code, 
-        "semester": semester,
-        "uploaded_by": uploaded_by
-    })
+    query = {"subject_code": subject_code}
+    if semester:
+        query["semester"] = semester
+    if uploaded_by:
+        query["uploaded_by"] = uploaded_by
+
+    cursor = database["questions"].find(query)
     q_list = await cursor.to_list(length=2000)
     for q in q_list:
         if "_id" in q:
@@ -336,9 +338,12 @@ async def get_all_uploads_detailed(uploaded_dir: str) -> List[Dict[str, Any]]:
         
     return uploads
 
-async def delete_question_bank(subject_code: str, semester: str, uploaded_dir: str) -> bool:
+async def delete_question_bank(subject_code: str, semester: Optional[str], uploaded_dir: str) -> bool:
     database = get_db()
-    subject = await database["subjects"].find_one({"code": subject_code, "semester": semester})
+    query = {"code": subject_code}
+    if semester:
+        query["semester"] = semester
+    subject = await database["subjects"].find_one(query)
     if not subject:
         subject = await database["subjects"].find_one({"code": subject_code})
         

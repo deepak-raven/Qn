@@ -23,18 +23,30 @@ export function cleanDegreeBranch(degInput) {
   return cleaned || 'B.E/CSE';
 }
 
-export function formatYearSem(semInput) {
-  if (!semInput) return 'II / III';
-  const s = String(semInput).trim().toUpperCase();
-  if (s.includes('/') && !s.includes('SEMESTER')) return s;
-  if (s.includes('VIII') || s === '8') return 'IV / VIII';
-  if (s.includes('VII') || s === '7') return 'IV / VII';
-  if (s.includes('VI') || s === '6') return 'III / VI';
-  if (s.includes('V') || s === '5') return 'III / V';
-  if (s.includes('IV') || s === '4') return 'II / IV';
-  if (s.includes('III') || s === '3') return 'II / III';
-  if (s.includes('II') || s === '2') return 'I / II';
-  if (s.includes('I') || s === '1') return 'I / I';
+const ROMAN_YEAR_SEM = {
+  1: ['I', 'I'], 2: ['I', 'II'], 3: ['II', 'III'], 4: ['II', 'IV'],
+  5: ['III', 'V'], 6: ['III', 'VI'], 7: ['IV', 'VII'], 8: ['IV', 'VIII']
+};
+const ROMAN_MAP = { 8: 'VIII', 7: 'VII', 6: 'VI', 5: 'V', 4: 'IV', 3: 'III', 2: 'II', 1: 'I' };
+
+export function formatYearSem(semInput, altInput) {
+  const text = `${semInput || ''} ${altInput || ''}`.trim().toUpperCase();
+  if (!text) return 'II / III';
+
+  const match = text.match(/\b([I|V|X]+)\s*\/\s*([I|V|X]+)\b/i);
+  if (match) {
+    return `${match[1]} / ${match[2]}`;
+  }
+
+  for (let num = 8; num >= 1; num--) {
+    const rom = ROMAN_MAP[num];
+    const regex = new RegExp(`\\b(${rom}|SEM\\s*${num}|${num})\\b`, 'i');
+    if (regex.test(text)) {
+      const [yearRom, semRom] = ROMAN_YEAR_SEM[num];
+      return `${yearRom} / ${semRom}`;
+    }
+  }
+
   return 'II / III';
 }
 

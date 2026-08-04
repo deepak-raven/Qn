@@ -291,7 +291,7 @@ export default function PaperPreview({
                 </div>
                 <div style={{ flex: 1, padding: '0.35rem 0.6rem' }}>
                   <strong>Year / Sem :</strong>{' '}
-                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}>{formatYearSem(config.semester)}</span>
+                  <span contentEditable suppressContentEditableWarning onBlur={(e) => setConfig(prev => ({ ...prev, semester: e.target.innerText }))}>{formatYearSem(config.degree_branch_sem, config.semester)}</span>
                 </div>
               </div>
               <div style={{ display: 'flex' }}>

@@ -9,86 +9,11 @@ import docx
 from docx.text.paragraph import Paragraph
 from docx.table import Table
 import pdfplumber
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger("app.parser")
 
-def convert_doc_to_docx(doc_path: str, docx_path: str):
-    """
-    Converts .doc file to .docx format.
-    Supports LibreOffice (Linux/macOS/Windows) and MS Word COM Automation (Windows).
-    """
-    doc_path_abs = os.path.abspath(doc_path)
-    docx_path_abs = os.path.abspath(docx_path)
-    errors = []
 
-    # 1. Try LibreOffice CLI if installed
-    soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
-    if not soffice_cmd:
-        for candidate in ["/usr/bin/libreoffice", "/usr/bin/soffice", "/usr/local/bin/soffice"]:
-            if os.path.exists(candidate):
-                soffice_cmd = candidate
-                break
-
-    if soffice_cmd:
-        try:
-            output_dir = os.path.dirname(docx_path_abs)
-            env = os.environ.copy()
-            env["HOME"] = os.environ.get("TMPDIR", "/tmp")
-            cmd = [soffice_cmd, "--headless", "--convert-to", "docx", doc_path_abs, "--outdir", output_dir]
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60, env=env)
-            if res.returncode == 0 and os.path.exists(docx_path_abs):
-                logger.info("Successfully converted .doc to .docx using LibreOffice.")
-                return
-            else:
-                err_msg = res.stderr.decode('utf-8', errors='ignore') if res.stderr else "Conversion returned non-zero code"
-                errors.append(f"LibreOffice: {err_msg}")
-        except Exception as e:
-            errors.append(f"LibreOffice error: {e}")
-
-    # 2. Try Windows MS Word COM Automation
-    if platform.system() == "Windows":
-        try:
-            import sys
-            for p in sys.path:
-                candidate = os.path.join(p, "pywin32_system32")
-                if os.path.isdir(candidate):
-                    try:
-                        os.add_dll_directory(candidate)
-                        break
-                    except Exception:
-                        pass
-            import pythoncom
-            import win32com.client
-
-            pythoncom.CoInitialize()
-            word = None
-            try:
-                word = win32com.client.Dispatch("Word.Application")
-                word.Visible = False
-                try:
-                    word.DisplayAlerts = 0 # Disable popup dialogs
-                except Exception:
-                    pass
-
-                doc = word.Documents.Open(doc_path_abs, ReadOnly=True, ConfirmConversions=False)
-                doc.SaveAs2(docx_path_abs, FileFormat=16) # FileFormat 16 = .docx
-                doc.Close(SaveChanges=False)
-                logger.info("Successfully converted .doc to .docx using MS Word COM.")
-                return
-            finally:
-                if word:
-                    try:
-                        word.Quit()
-                    except Exception:
-                        pass
-                pythoncom.CoUninitialize()
-        except Exception as win_err:
-            logger.warning(f"Windows Word COM conversion failed: {win_err}")
-            errors.append(f"MS Word COM error: {win_err}")
-
-    error_detail = " | ".join(errors) if errors else "Ensure Microsoft Word or LibreOffice is installed and responsive on the server."
-    raise RuntimeError(f"No conversion tool available: {error_detail}")
 
 
 def parse_unit_from_text(text: str):
@@ -424,11 +349,45 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     return ""
 
 
+ROMAN_TO_NUM = {'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8}
+NUM_TO_ROMAN = {1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V', 6: 'VI', 7: 'VII', 8: 'VIII'}
+YEAR_ROMAN = {1: 'I', 2: 'II', 3: 'III', 4: 'IV'}
+
+def derive_year_from_semester(sem_val: Optional[str]) -> str:
+    if not sem_val:
+        return "II"
+    s = sem_val.strip().upper()
+    if s in ROMAN_TO_NUM:
+        sem_num = ROMAN_TO_NUM[s]
+    elif s.isdigit():
+        sem_num = int(s)
+    else:
+        sem_num = None
+        for rom, num in ROMAN_TO_NUM.items():
+            if re.search(rf'\b{rom}\b', s):
+                sem_num = num
+                break
+        if not sem_num:
+            digits = re.findall(r'\d+', s)
+            if digits:
+                sem_num = int(digits[0])
+
+    if sem_num:
+        year_num = (sem_num + 1) // 2
+        return YEAR_ROMAN.get(year_num, "II")
+    return "II"
+
+
 def parse_text_metadata(text: str) -> dict:
     metadata = {
         "subject_code": None,
         "subject_name": None,
         "semester": None,
+        "year": None,
+        "degree": None,
+        "branch": None,
+        "degree_branch": None,
+        "degree_branch_sem": None,
         "regulation": None
     }
     
@@ -447,18 +406,87 @@ def parse_text_metadata(text: str) -> dict:
             name_val = re.split(r'\s{2,}', name_val)[0]
             metadata["subject_name"] = name_val.strip()
 
-    match_sem_line = re.search(r'(?:Sem|Semester|Year[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
-    if match_sem_line:
-        sem_str = match_sem_line.group(1).strip()
-        sem_str = re.split(r'\s{2,}', sem_str)[0]
-        if "/" in sem_str:
-            sem_str = sem_str.split("/")[-1].strip()
-        metadata["semester"] = sem_str
+    # Parse Degree / Branch
+    match_deg_br = re.search(r'(?:Degree[ \t]*/[ \t]*Branch)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+    if match_deg_br:
+        val = match_deg_br.group(1).strip()
+        val = re.split(r'\s{2,}', val)[0]
+        parts = [p.strip() for p in val.split('/') if p.strip()]
+        if len(parts) >= 2:
+            metadata["degree"] = parts[0]
+            metadata["branch"] = parts[1]
+            metadata["degree_branch"] = f"{parts[0]}/{parts[1]}"
+        elif len(parts) == 1:
+            metadata["degree_branch"] = parts[0]
+            if any(w in parts[0].upper() for w in ["B.E", "BE", "B.TECH", "BTECH"]):
+                metadata["degree"] = parts[0]
+            else:
+                metadata["branch"] = parts[0]
     else:
-        match_branch_sem = re.search(r'(?:Degree[ \t]*/[ \t]*Branch[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r]+)', text, re.IGNORECASE)
-        if match_branch_sem:
-            sem_str = match_branch_sem.group(1).strip().split("/")[-1].strip()
+        match_deg_br_sem = re.search(r'(?:Degree[ \t]*/[ \t]*Branch[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+        if match_deg_br_sem:
+            val = match_deg_br_sem.group(1).strip()
+            parts = [p.strip() for p in val.split('/') if p.strip()]
+            if len(parts) >= 2:
+                metadata["degree"] = parts[0]
+                metadata["branch"] = parts[1]
+                metadata["degree_branch"] = f"{parts[0]}/{parts[1]}"
+            if len(parts) >= 3:
+                metadata["semester"] = parts[2]
+        else:
+            match_deg = re.search(r'Degree[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+            match_br = re.search(r'Branch[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+            if match_deg:
+                metadata["degree"] = match_deg.group(1).strip().split()[0]
+            if match_br:
+                metadata["branch"] = match_br.group(1).strip().split()[0]
+            if metadata["degree"] or metadata["branch"]:
+                metadata["degree_branch"] = f"{metadata.get('degree') or 'B.E'}/{metadata.get('branch') or 'CSE'}"
+
+    # Parse Year / Sem
+    match_yr_sem = re.search(r'(?:Year[ \t]*/[ \t]*Sem|Year[ \t]*/[ \t]*Semester)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+    if match_yr_sem:
+        val = match_yr_sem.group(1).strip()
+        val = re.split(r'\s{2,}', val)[0]
+        parts = [p.strip() for p in val.split('/') if p.strip()]
+        if len(parts) >= 2:
+            metadata["year"] = parts[0]
+            metadata["semester"] = parts[1]
+        elif len(parts) == 1:
+            metadata["semester"] = parts[0]
+
+    if not metadata["semester"]:
+        match_sem_line = re.search(r'(?:Sem|Semester)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+        if match_sem_line:
+            sem_str = match_sem_line.group(1).strip()
+            sem_str = re.split(r'\s{2,}', sem_str)[0]
+            if "/" in sem_str:
+                sem_str = sem_str.split("/")[-1].strip()
             metadata["semester"] = sem_str
+
+    if metadata["semester"]:
+        sem_clean = metadata["semester"].strip().upper()
+        if sem_clean in ROMAN_TO_NUM:
+            metadata["semester"] = sem_clean
+        elif sem_clean.isdigit() and int(sem_clean) in NUM_TO_ROMAN:
+            metadata["semester"] = NUM_TO_ROMAN[int(sem_clean)]
+
+    if metadata["semester"] and not metadata["year"]:
+        metadata["year"] = derive_year_from_semester(metadata["semester"])
+    elif not metadata["year"]:
+        metadata["year"] = "II"
+
+    if not metadata["degree"]:
+        metadata["degree"] = "B.E"
+    if not metadata["branch"]:
+        metadata["branch"] = "CSE"
+    if not metadata["degree_branch"]:
+        metadata["degree_branch"] = f"{metadata['degree']}/{metadata['branch']}"
+
+    if metadata["semester"]:
+        metadata["degree_branch_sem"] = f"{metadata['degree_branch']} / {metadata['semester']}"
+    else:
+        metadata["degree_branch_sem"] = metadata["degree_branch"]
 
     match_reg = re.search(r'Regulation[ \t]*:[ \t]*(\d{4})', text, re.IGNORECASE)
     if match_reg:

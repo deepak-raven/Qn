@@ -16,6 +16,9 @@ export default function UploadTab({
   const [upName, setUpName] = useState('');
   const [upSem, setUpSem] = useState('');
   const [upReg, setUpReg] = useState('2021');
+  const [upDegree, setUpDegree] = useState('B.E');
+  const [upBranch, setUpBranch] = useState('CSE');
+  const [upYear, setUpYear] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploaderName, setUploaderName] = useState(auth?.user?.name || auth?.user?.username || '');
   const [forceReupload, setForceReupload] = useState(false);
@@ -41,7 +44,12 @@ export default function UploadTab({
     if (existingSubject) {
       setLoadingQuestions(true);
       const username = auth?.user?.username || '';
-      fetch(`${API_BASE}/questions?subject_code=${upCode}&semester=${existingSubject.semester}&uploaded_by=${username}`)
+      const qParams = new URLSearchParams();
+      if (upCode) qParams.append('subject_code', upCode);
+      if (existingSubject.semester) qParams.append('semester', existingSubject.semester);
+      if (username) qParams.append('uploaded_by', username);
+
+      fetch(`${API_BASE}/questions?${qParams.toString()}`)
         .then(res => {
           if (!res.ok) throw new Error("Failed to fetch questions");
           return res.json();
@@ -77,6 +85,9 @@ export default function UploadTab({
       setUpName('');
       setUpSem('');
       setUpReg('2021');
+      setUpDegree('B.E');
+      setUpBranch('CSE');
+      setUpYear('');
       return;
     }
     setSelectedFile(file);
@@ -97,11 +108,17 @@ export default function UploadTab({
         const detectedName = data.subject_name || '';
         const detectedSem = data.semester || '';
         const detectedReg = data.regulation || '2021';
+        const detectedDegree = data.degree || 'B.E';
+        const detectedBranch = data.branch || 'CSE';
+        const detectedYear = data.year || '';
 
         setUpCode(detectedCode);
         setUpName(detectedName);
         setUpSem(toRomanSem(detectedSem));
         setUpReg(detectedReg);
+        setUpDegree(detectedDegree);
+        setUpBranch(detectedBranch);
+        setUpYear(detectedYear);
       }
     } catch (err) {
       console.error("Error analyzing file:", err);
@@ -139,10 +156,10 @@ export default function UploadTab({
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
       const fileName = file.name.toLowerCase();
-      if (fileName.endsWith('.docx') || fileName.endsWith('.pdf') || fileName.endsWith('.doc')) {
+      if (fileName.endsWith('.docx') || fileName.endsWith('.pdf')) {
         await processFile(file);
       } else {
-        alert('Please drop a valid .docx, .pdf, or .doc file.');
+        alert('Please drop a valid .docx or .pdf file.');
       }
     }
   };
@@ -150,7 +167,7 @@ export default function UploadTab({
   const handleUploadQuestionBank = async (e) => {
     e.preventDefault();
     if (!selectedFile) {
-      alert('Please select a .docx, .pdf, or .doc file first.');
+      alert('Please select a .docx or .pdf file first.');
       return;
     }
 
@@ -164,6 +181,9 @@ export default function UploadTab({
     formData.append('subject_name', upName);
     formData.append('semester', upSem);
     formData.append('regulation', upReg);
+    formData.append('degree', upDegree);
+    formData.append('branch', upBranch);
+    formData.append('year', upYear);
     formData.append('uploader_name', uploaderName || 'System');
     formData.append('uploaded_by', auth?.user?.username || '');
 
@@ -247,7 +267,13 @@ export default function UploadTab({
     
     try {
       const token = auth?.token || localStorage.getItem('jec_auth_token') || '';
-      const res = await fetch(`${API_BASE}/subjects/${subjectCode}/${semester}`, {
+      const encodedCode = encodeURIComponent(subjectCode);
+      const encodedSem = encodeURIComponent(semester || '');
+      const url = semester 
+        ? `${API_BASE}/subjects/${encodedCode}/${encodedSem}`
+        : `${API_BASE}/subjects/${encodedCode}`;
+
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -390,7 +416,7 @@ export default function UploadTab({
             <>
               {/* File Upload Zone */}
               <div className="form-group">
-                <label className="form-label">Question Bank File (.docx, .pdf, .doc)</label>
+                <label className="form-label">Question Bank File (.docx, .pdf)</label>
                 <div 
                   className="drag-drop-zone" 
                   onClick={() => !isParsing && !isAnalyzing && document.getElementById('docx-file-input').click()}
@@ -443,7 +469,7 @@ export default function UploadTab({
                       <>
                         <FileText size={44} style={{ color: 'var(--primary)', margin: '0 auto' }} />
                         <p style={{ fontWeight: 600 }}>Click to choose or drag file here</p>
-                        <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Only standard Word (.docx, .doc) or PDF (.pdf) Question Banks containing tables are parsed.</p>
+                        <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Only standard Word (.docx) or PDF (.pdf) Question Banks containing tables are parsed.</p>
                         {selectedFile && (
                           <div style={{ marginTop: '1rem', color: 'var(--text-main)', fontSize: '0.9rem', fontWeight: 700 }}>
                             Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
@@ -456,7 +482,7 @@ export default function UploadTab({
                 <input 
                   type="file" 
                   id="docx-file-input" 
-                  accept=".docx,.pdf,.doc" 
+                  accept=".docx,.pdf" 
                   style={{ display: 'none' }} 
                   onChange={handleFileChange}
                 />

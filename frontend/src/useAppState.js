@@ -279,7 +279,9 @@ export function useAppState() {
     const subReg = sub?.regulation ? (sub.regulation.includes('REGULATION') ? sub.regulation : `${sub.regulation}-REGULATION`) : '2021-REGULATION';
     const subSem = sub?.semester || sem || 'V';
     const semesterTypeStr = getSemesterTypeString(subSem);
-    const degreeSem = `BE/BTECH / CSE / ${subSem}`;
+    const subDeg = sub?.degree || 'B.E';
+    const subBranch = sub?.branch || 'CSE';
+    const degreeSem = `${subDeg}/${subBranch} / ${subSem}`;
 
     // Check if saved workspace exists for this specific subject
     const savedForSub = loadSavedWorkspaceData(currentUser.username, code);
@@ -362,7 +364,12 @@ export function useAppState() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/questions?subject_code=${code}&semester=${sem}&uploaded_by=${currentUser.username}`);
+      const qParams = new URLSearchParams();
+      if (code) qParams.append('subject_code', code);
+      if (sem) qParams.append('semester', sem);
+      if (currentUser?.username) qParams.append('uploaded_by', currentUser.username);
+
+      const res = await fetch(`${API_BASE}/questions?${qParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
         setQuestions(data);

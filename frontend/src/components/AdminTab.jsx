@@ -132,7 +132,13 @@ export default function AdminTab({
 
   const handleDeleteQuestionBank = async (code, semester) => {
     try {
-      const res = await fetch(`${API_BASE}/admin/subjects/${code}/${semester}`, {
+      const encodedCode = encodeURIComponent(code);
+      const encodedSem = encodeURIComponent(semester || '');
+      const url = semester 
+        ? `${API_BASE}/admin/subjects/${encodedCode}/${encodedSem}`
+        : `${API_BASE}/admin/subjects/${encodedCode}`;
+
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: authHeaders
       });
