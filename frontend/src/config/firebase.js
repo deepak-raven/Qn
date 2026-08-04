@@ -3,6 +3,8 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
@@ -14,9 +16,10 @@ const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyBHUFAoHW3rYB02_guX_QHoS0OzY-ZxtaQ",
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "ai-edtech-tools.firebaseapp.com",
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "ai-edtech-tools",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "ai-edtech-tools.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || ""
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "ai-edtech-tools.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "832116145668",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:832116145668:web:15df895c08068bf72fff51",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-LMFKN1TM4F"
 };
 
 // Initialize Firebase safely
@@ -24,16 +27,35 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Custom Google Sign-In helper
+// Custom Google Sign-In helper (with automatic fallback to redirect if popups are blocked)
 export const loginWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     const idToken = await result.user.getIdToken();
     return { user: result.user, idToken };
   } catch (error) {
+    if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+      console.warn("Popup blocked by browser. Falling back to signInWithRedirect...");
+      await signInWithRedirect(auth, googleProvider);
+      return null;
+    }
     console.error("Firebase Google Sign-In error:", error);
     throw error;
   }
+};
+
+// Check redirect login results on page load
+export const checkRedirectResult = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      const idToken = await result.user.getIdToken();
+      return { user: result.user, idToken };
+    }
+  } catch (error) {
+    console.error("Error retrieving redirect result:", error);
+  }
+  return null;
 };
 
 // Custom Email/Password Sign-In helper
