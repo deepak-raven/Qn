@@ -29,6 +29,7 @@ export function useAuth() {
             email: firebaseUser.email || '',
             photoURL: firebaseUser.photoURL || '',
             uid: firebaseUser.uid,
+            emailVerified: firebaseUser.emailVerified || false,
             role: (user?.role) || (firebaseUser.email?.toLowerCase().includes('admin') ? 'admin' : 'user')
           };
 

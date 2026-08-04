@@ -7,6 +7,7 @@ import {
   getRedirectResult,
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
+  sendEmailVerification,
   signOut,
   updateProfile
 } from "firebase/auth";
@@ -70,12 +71,17 @@ export const loginWithEmail = async (email, password) => {
   }
 };
 
-// Custom Email/Password Registration helper
+// Custom Email/Password Registration helper with Email Verification
 export const registerWithEmail = async (email, password, displayName = "") => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    if (displayName && userCredential.user) {
-      await updateProfile(userCredential.user, { displayName });
+    if (userCredential.user) {
+      if (displayName) {
+        await updateProfile(userCredential.user, { displayName });
+      }
+      // Send verification link to user's email address
+      await sendEmailVerification(userCredential.user);
+      console.log("Verification email sent to:", email);
     }
     const idToken = await userCredential.user.getIdToken();
     return { user: userCredential.user, idToken };
@@ -83,6 +89,15 @@ export const registerWithEmail = async (email, password, displayName = "") => {
     console.error("Firebase Email Registration error:", error);
     throw error;
   }
+};
+
+// Helper to manually trigger verification email resend
+export const resendVerificationEmail = async () => {
+  if (auth.currentUser) {
+    await sendEmailVerification(auth.currentUser);
+    return true;
+  }
+  return false;
 };
 
 // Logout helper
