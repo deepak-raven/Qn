@@ -68,44 +68,82 @@ export default function UploadTab({
     return map[parsed] || sem;
   };
 
-  const handleFileChange = async (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      try {
-        setIsAnalyzing(true);
-        const res = await fetch(`${API_BASE}/analyze-file`, {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (res.ok) {
-          const data = await res.json();
-          const detectedCode = data.subject_code || '';
-          const detectedName = data.subject_name || '';
-          const detectedSem = data.semester || '';
-          const detectedReg = data.regulation || '2021';
+  const [isDragging, setIsDragging] = useState(false);
 
-          setUpCode(detectedCode);
-          setUpName(detectedName);
-          setUpSem(toRomanSem(detectedSem));
-          setUpReg(detectedReg);
-        }
-      } catch (err) {
-        console.error("Error analyzing file:", err);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    } else {
+  const processFile = async (file) => {
+    if (!file) {
       setSelectedFile(null);
       setUpCode('');
       setUpName('');
       setUpSem('');
       setUpReg('2021');
+      return;
+    }
+    setSelectedFile(file);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      setIsAnalyzing(true);
+      const res = await fetch(`${API_BASE}/analyze-file`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        const detectedCode = data.subject_code || '';
+        const detectedName = data.subject_name || '';
+        const detectedSem = data.semester || '';
+        const detectedReg = data.regulation || '2021';
+
+        setUpCode(detectedCode);
+        setUpName(detectedName);
+        setUpSem(toRomanSem(detectedSem));
+        setUpReg(detectedReg);
+      }
+    } catch (err) {
+      console.error("Error analyzing file:", err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      await processFile(e.target.files[0]);
+    } else {
+      await processFile(null);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDropFile = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (isParsing || isAnalyzing) return;
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.docx') || fileName.endsWith('.pdf') || fileName.endsWith('.doc')) {
+        await processFile(file);
+      } else {
+        alert('Please drop a valid .docx, .pdf, or .doc file.');
+      }
     }
   };
 
@@ -356,10 +394,15 @@ export default function UploadTab({
                 <div 
                   className="drag-drop-zone" 
                   onClick={() => !isParsing && !isAnalyzing && document.getElementById('docx-file-input').click()}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDropFile}
                   style={{ 
                     cursor: (isParsing || isAnalyzing) ? 'default' : 'pointer',
                     position: 'relative',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    borderColor: isDragging ? 'var(--primary, #2563eb)' : undefined,
+                    backgroundColor: isDragging ? 'rgba(37, 99, 235, 0.08)' : undefined
                   }}
                 >
                   {/* Seamless Progress Fill Background */}
