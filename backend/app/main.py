@@ -274,6 +274,13 @@ async def upload_question_bank(
         safe_uploader = sanitize_filename(uploader_name)
         filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}{ext}"
         
+        # Save physical file to storage
+        save_path = os.path.join(UPLOADED_QBS_DIR, filename)
+        def _save_physical():
+            with open(save_path, "wb") as f:
+                f.write(file_bytes)
+        await anyio.to_thread.run_sync(_save_physical)
+
         subject_data = {
             "code": subject_code,
             "name": subject_name,
@@ -281,7 +288,8 @@ async def upload_question_bank(
             "regulation": regulation,
             "uploader_name": uploader_name,
             "uploaded_by": uploaded_by,
-            "qb_filename": filename
+            "qb_filename": filename,
+            "file_size": len(file_bytes)
         }
         await add_subject(subject_data)
         
@@ -372,6 +380,13 @@ async def upload_question_bank_stream(
             safe_uploader = sanitize_filename(uploader_name)
             filename = f"{subject_code} {safe_subject_name} QB {safe_uploader}{ext}"
             
+            # Save physical file to storage
+            save_path = os.path.join(UPLOADED_QBS_DIR, filename)
+            def _save_physical():
+                with open(save_path, "wb") as f:
+                    f.write(file_bytes)
+            await anyio.to_thread.run_sync(_save_physical)
+
             subject_data = {
                 "code": subject_code,
                 "name": subject_name,
@@ -379,7 +394,8 @@ async def upload_question_bank_stream(
                 "regulation": regulation,
                 "uploader_name": uploader_name,
                 "uploaded_by": uploaded_by,
-                "qb_filename": filename
+                "qb_filename": filename,
+                "file_size": len(file_bytes)
             }
             await add_subject(subject_data)
 

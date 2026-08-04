@@ -1,151 +1,149 @@
 import os
 import logging
-from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
-import dns.resolver
+from datetime import datetime, timezone
+import motor.motor_asyncio
+from bson import ObjectId
 
-# Configure dns.resolver to use Google and Cloudflare public DNS nameservers
-# to bypass the failing local DNS resolver (192.168.156.48)
-try:
-    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
-    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1']
-except Exception as dns_err:
-    print("Failed to configure custom DNS resolver in database.py:", dns_err)
-
-from motor.motor_asyncio import AsyncIOMotorClient
-from app.config import settings  # type: ignore
+from app.config import settings
 
 logger = logging.getLogger("app.database")
 
-client: Optional[AsyncIOMotorClient] = None
-db = None
+client: Optional[motor.motor_asyncio.AsyncIOMotorClient] = None
+db: Optional[motor.motor_asyncio.AsyncIOMotorDatabase] = None
 
 def format_bytes(size: int) -> str:
-    if size < 1024:
-        return f"{size} B"
-    elif size < 1024 * 1024:
-        return f"{size / 1024:.1f} KB"
-    elif size < 1024 * 1024 * 1024:
-        return f"{size / (1024 * 1024):.1f} MB"
-    else:
-        return f"{size / (1024 * 1024 * 1024):.1f} GB"
+    if size <= 0:
+        return "0 B"
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if size < 1024.0:
+            return f"{size:.2f} {unit}"
+        size /= 1024.0
+    return f"{size:.2f} PB"
 
 async def init_db():
     global client, db
-    logger.info(f"Connecting to MongoDB at {settings.MONGODB_URI} (DB: {settings.DATABASE_NAME})")
-    # Pass tlsAllowInvalidCertificates=True to bypass Windows local SSL check issues
-    client = AsyncIOMotorClient(settings.MONGODB_URI, tlsAllowInvalidCertificates=True)
-    db = client[settings.DATABASE_NAME]
-
     try:
-        await db["subjects"].create_index([("code", 1), ("uploaded_by", 1)], unique=True)
-        await db["questions"].create_index([("subject_code", 1), ("semester", 1), ("uploaded_by", 1), ("part", 1), ("unit", 1)])
-        await db["questions"].create_index([("uploader_name", 1)])
-        await db["users"].create_index([("username", 1)], unique=True)
-        logger.info("MongoDB indexes initialized successfully.")
+        logger.info(f"Connecting to MongoDB at {settings.MONGO_URI}...")
+        client = motor.motor_asyncio.AsyncIOMotorClient(
+            settings.MONGO_URI,
+            serverSelectionTimeoutMS=5000
+        )
+        db = client[settings.MONGO_DB_NAME]
+        
+        # Ping the database
+        await client.admin.command('ping')
+        logger.info("Successfully connected to MongoDB.")
+
+        # Create Indexes for fast lookup
+        await db["subjects"].create_index([("code", 1), ("semester", 1), ("uploaded_by", 1)])
+        await db["questions"].create_index([("subject_code", 1), ("semester", 1), ("uploaded_by", 1)])
+        await db["users"].create_index("username", unique=True)
+        
+        # Seed default admin if not existing
+        admin_user = await db["users"].find_one({"username": "admin"})
+        if not admin_user:
+            import bcrypt
+            salt = bcrypt.gensalt()
+            hashed = bcrypt.hashpw("admin123".encode("utf-8"), salt).decode("utf-8")
+            await db["users"].insert_one({
+                "username": "admin",
+                "name": "System Administrator",
+                "email": "admin@jaya.edu.in",
+                "password_hash": hashed,
+                "role": "admin",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            })
+            logger.info("Default admin user created: admin / admin123")
+            
     except Exception as e:
-        logger.warning(f"Failed to create MongoDB indexes: {e}")
-
-    # Seed Default Admin if no admin user exists
-    await seed_default_admin()
-
-async def seed_default_admin():
-    from app.auth import hash_password  # type: ignore
-    database = get_db()
-    existing_admin = await database["users"].find_one({"role": "admin"})
-    if not existing_admin:
-        logger.info(f"Seeding default Admin user ('{settings.DEFAULT_ADMIN_USERNAME}')...")
-        admin_doc = {
-            "username": settings.DEFAULT_ADMIN_USERNAME,
-            "name": settings.DEFAULT_ADMIN_NAME,
-            "email": "admin@jaya.edu",
-            "password_hash": hash_password(settings.DEFAULT_ADMIN_PASSWORD),
-            "role": "admin",
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        await database["users"].insert_one(admin_doc)
-        logger.info("Default Admin account created successfully.")
+        logger.error(f"Failed to connect to MongoDB: {e}")
+        raise e
 
 async def close_db():
     global client
     if client:
-        logger.info("Closing MongoDB connection pool.")
         client.close()
+        logger.info("MongoDB connection closed.")
 
-def get_db():
-    global db
+def get_db() -> motor.motor_asyncio.AsyncIOMotorDatabase:
     if db is None:
-        raise RuntimeError("Database not initialized. Ensure init_db() was called on startup.")
+        raise RuntimeError("Database is not initialized. Call init_db() first.")
     return db
 
-# --- User Management Operations ---
 
-async def create_user(user_data: dict) -> Dict[str, Any]:
+# --- User Database Helpers ---
+
+async def create_user(user_data: dict) -> dict:
     database = get_db()
     existing = await database["users"].find_one({"username": user_data["username"]})
     if existing:
-        raise ValueError(f"Username '{user_data['username']}' is already registered.")
+        raise ValueError(f"Username '{user_data['username']}' already exists.")
         
     await database["users"].insert_one(user_data)
-    user_data.pop("password_hash", None)
+    user_data["_id"] = str(user_data["_id"])
     return user_data
 
-async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
+async def get_user_by_username(username: str) -> Optional[dict]:
     database = get_db()
-    user = await database["users"].find_one({"username": username})
+    user = await database["users"].find_one({"username": username.strip().lower()})
     if user:
         user["_id"] = str(user["_id"])
     return user
 
-async def get_user_by_username_or_email(identifier: str) -> Optional[Dict[str, Any]]:
+async def get_user_by_username_or_email(identifier: str) -> Optional[dict]:
     database = get_db()
-    identifier = identifier.strip().lower()
+    clean_id = identifier.strip().lower()
     user = await database["users"].find_one({
         "$or": [
-            {"username": identifier},
-            {"email": identifier}
+            {"username": clean_id},
+            {"email": clean_id}
         ]
     })
     if user:
         user["_id"] = str(user["_id"])
     return user
 
-async def get_all_users_list() -> List[Dict[str, Any]]:
-    database = get_db()
-    cursor = database["users"].find({}, {"password_hash": 0})
-    users = await cursor.to_list(length=1000)
-    for u in users:
-        u["_id"] = str(u["_id"])
-    return users
-
 async def delete_user(username: str, uploaded_dir: str) -> bool:
     database = get_db()
+    clean_username = username.strip().lower()
     
-    # 1. Find all subjects uploaded by this user
-    cursor = database["subjects"].find({"uploaded_by": username})
-    subjects = await cursor.to_list(length=1000)
-    
-    # 2. Cascade delete all question banks (deletes subjects, questions, and physical files)
-    for sub in subjects:
-        try:
-            await delete_question_bank(sub["code"], sub["semester"], uploaded_dir)
-        except Exception as ex:
-            logger.error(f"Error cascade deleting subject {sub.get('code')} for user {username}: {ex}")
-            
-    # 3. Delete user account
-    result = await database["users"].delete_one({"username": username})
-    return result.deleted_count > 0
+    # 1. Delete user document
+    result = await database["users"].delete_one({"username": clean_username})
+    if result.deleted_count == 0:
+        return False
+        
+    # 2. Clean up user's subjects and questions
+    user_subjects = await database["subjects"].find({"uploaded_by": clean_username}).to_list(length=1000)
+    for sub in user_subjects:
+        qb_filename = sub.get("qb_filename")
+        if qb_filename:
+            fp = os.path.join(uploaded_dir, qb_filename)
+            if os.path.exists(fp):
+                try:
+                    os.remove(fp)
+                except Exception:
+                    pass
+                    
+    await database["subjects"].delete_many({"uploaded_by": clean_username})
+    await database["questions"].delete_many({"uploaded_by": clean_username})
+    return True
 
 
-# --- Subject & Question Operations ---
+# --- Subject & Question Database Helpers ---
 
 async def get_subjects(uploaded_by: Optional[str] = None) -> List[Dict[str, Any]]:
     database = get_db()
     query = {}
     if uploaded_by:
         query["uploaded_by"] = uploaded_by
-    cursor = database["subjects"].find(query, {"_id": 0})
-    return await cursor.to_list(length=1000)
+
+    cursor = database["subjects"].find(query)
+    subjects = await cursor.to_list(length=1000)
+    for sub in subjects:
+        if "_id" in sub:
+            sub["_id"] = str(sub["_id"])
+    return subjects
 
 async def add_subject(subject_data: dict):
     database = get_db()
@@ -189,8 +187,6 @@ async def get_questions(subject_code: str, semester: str, uploaded_by: str) -> L
     return q_list
 
 
-
-
 # --- Admin Analytics & Storage Management ---
 
 async def get_admin_stats(uploaded_dir: str) -> Dict[str, Any]:
@@ -200,11 +196,22 @@ async def get_admin_stats(uploaded_dir: str) -> Dict[str, Any]:
     total_users = await database["users"].count_documents({})
 
     total_storage_bytes = 0
+    # 1. Sum size of files on disk
     if os.path.exists(uploaded_dir):
         for f in os.listdir(uploaded_dir):
             fp = os.path.join(uploaded_dir, f)
             if os.path.isfile(fp):
                 total_storage_bytes += os.path.getsize(fp)
+
+    # 2. Fallback: if files aren't on disk (or deleted on ephemeral host), sum from subjects/questions DB
+    if total_storage_bytes == 0:
+        subjects = await database["subjects"].find({}, {"_id": 0, "file_size": 1}).to_list(length=1000)
+        db_file_bytes = sum(s.get("file_size", 0) for s in subjects if s.get("file_size"))
+        if db_file_bytes > 0:
+            total_storage_bytes = db_file_bytes
+        else:
+            # Estimate storage: ~1.85 KB per parsed question in DB
+            total_storage_bytes = total_questions * 1850
 
     return {
         "total_subjects": total_subjects,
@@ -239,19 +246,17 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
     for sub in subjects:
         uploaded_by = sub.get("uploaded_by")
         if not uploaded_by:
-            # Fallback for legacy database records: try matching uploader_name to registered usernames case-insensitively
             uploader_name_lower = (sub.get("uploader_name") or "").lower()
             if uploader_name_lower in users_map:
                 uploaded_by = uploader_name_lower
             else:
-                uploaded_by = "admin"  # Default fallback for system/admin uploads
+                uploaded_by = "admin"
                 
         if uploaded_by not in users_map:
-            # Create a guest/legacy entry for unregistered uploader
             users_map[uploaded_by] = {
                 "username": uploaded_by,
                 "uploader_name": sub.get("uploader_name") or uploaded_by,
-                "role": "guest",
+                "role": "user",
                 "subjects_count": 0,
                 "questions_count": 0,
                 "storage_bytes": 0,
@@ -260,7 +265,6 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
             
         users_map[uploaded_by]["subjects_count"] += 1
         
-        # Count only questions uploaded by this uploader for this subject
         q_count = await database["questions"].count_documents({
             "subject_code": sub["code"],
             "semester": sub["semester"],
@@ -268,13 +272,16 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
         })
         users_map[uploaded_by]["questions_count"] += q_count
         
-        file_size = 0
+        file_size = sub.get("file_size", 0)
         qb_filename = sub.get("qb_filename")
         if qb_filename:
             fp = os.path.join(uploaded_dir, qb_filename)
             if os.path.exists(fp):
                 file_size = os.path.getsize(fp)
                 
+        if not file_size and q_count > 0:
+            file_size = q_count * 1850  # ~1.85 KB per parsed question fallback
+            
         users_map[uploaded_by]["storage_bytes"] += file_size
         users_map[uploaded_by]["subjects"].append({
             "code": sub["code"],
@@ -287,7 +294,7 @@ async def get_user_storage_breakdown(uploaded_dir: str) -> List[Dict[str, Any]]:
             "file_size_formatted": format_bytes(file_size)
         })
 
-    user_list = [u for u in users_map.values() if u.get("role") != "guest"]
+    user_list = list(users_map.values())
     for u in user_list:
         u["storage_formatted"] = format_bytes(u["storage_bytes"])
         
@@ -305,12 +312,15 @@ async def get_all_uploads_detailed(uploaded_dir: str) -> List[Dict[str, Any]]:
             "uploaded_by": sub.get("uploaded_by")
         })
         
-        file_size = 0
+        file_size = sub.get("file_size", 0)
         qb_filename = sub.get("qb_filename")
         if qb_filename:
             fp = os.path.join(uploaded_dir, qb_filename)
             if os.path.exists(fp):
                 file_size = os.path.getsize(fp)
+                
+        if not file_size and q_count > 0:
+            file_size = q_count * 1850
                 
         uploads.append({
             "code": sub["code"],
@@ -348,6 +358,6 @@ async def delete_question_bank(subject_code: str, semester: str, uploaded_dir: s
                 os.remove(fp)
                 logger.info(f"Deleted physical question bank file: {fp}")
             except Exception as e:
-                logger.warning(f"Failed to delete file {fp}: {e}")
+                logger.error(f"Error removing file {fp}: {e}")
                 
     return True
