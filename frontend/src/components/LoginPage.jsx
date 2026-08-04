@@ -201,7 +201,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
               <input
                 type="text"
                 className="form-input"
-                placeholder="e.g. Dr. K. Deepak"
+                placeholder="Enter your full name (e.g. Dr. K. Deepak)"
                 value={name}
                 onChange={e => setName(e.target.value)}
                 required
@@ -216,7 +216,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
             <input
               type="text"
               className="form-input"
-              placeholder={isRegister ? 'e.g. deepak' : 'enter username or email'}
+              placeholder={isRegister ? 'Enter a username (e.g. deepak)' : 'Enter username or email address'}
               value={username}
               onChange={e => setUsername(e.target.value)}
               required
@@ -229,7 +229,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
               <input
                 type="email"
                 className="form-input"
-                placeholder="name@gmail.com"
+                placeholder="Enter your email address (e.g. name@gmail.com)"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
@@ -242,7 +242,7 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin }) {
             <input
               type="password"
               className="form-input"
-              placeholder="••••••••"
+              placeholder="Enter your password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
