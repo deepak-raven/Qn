@@ -24,12 +24,12 @@ def format_bytes(size: int) -> str:
 async def init_db():
     global client, db
     try:
-        logger.info(f"Connecting to MongoDB at {settings.MONGO_URI}...")
+        logger.info(f"Connecting to MongoDB at {settings.MONGODB_URI}...")
         client = motor.motor_asyncio.AsyncIOMotorClient(
-            settings.MONGO_URI,
+            settings.MONGODB_URI,
             serverSelectionTimeoutMS=5000
         )
-        db = client[settings.MONGO_DB_NAME]
+        db = client[settings.DATABASE_NAME]
         
         # Ping the database
         await client.admin.command('ping')
