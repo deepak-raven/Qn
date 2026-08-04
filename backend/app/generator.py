@@ -277,17 +277,24 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                     r_idx = row_indices[idx]
                     if r_idx < len(t5.rows):
                         r = t5.rows[r_idx]
-                        n_cells = len(r.cells)
-                        if n_cells >= 4:
-                            set_cell_text_preserve_style(r.cells[3], get_q_field(q, "text"))
-                            if n_cells >= 5 and n_cells > 5:
-                                set_cell_text_preserve_style(r.cells[4], get_q_field(q, "text"))
-                        col_kl = n_cells - 2 if n_cells >= 6 else 2
-                        col_co = n_cells - 1 if n_cells >= 6 else 3
-                        if col_kl < n_cells:
-                            set_cell_text_preserve_style(r.cells[col_kl], get_q_field(q, "kl"))
-                        if col_co < n_cells:
-                            set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"))
+                        unique_cells = []
+                        for cell in r.cells:
+                            if not any(uc._tc == cell._tc for uc in unique_cells):
+                                unique_cells.append(cell)
+                        if len(unique_cells) >= 5:
+                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"))
+                            set_cell_text_preserve_style(unique_cells[3], get_q_field(q, "kl"))
+                            set_cell_text_preserve_style(unique_cells[4], get_q_field(q, "co"))
+                        else:
+                            n_cells = len(r.cells)
+                            if n_cells >= 4:
+                                set_cell_text_preserve_style(r.cells[3], get_q_field(q, "text"))
+                            col_kl = n_cells - 2 if n_cells >= 6 else 2
+                            col_co = n_cells - 1 if n_cells >= 6 else 3
+                            if col_kl < n_cells:
+                                set_cell_text_preserve_style(r.cells[col_kl], get_q_field(q, "kl"))
+                            if col_co < n_cells:
+                                set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"))
 
     else:
         # 2021 CAT layout (Either-Or pairs in Table 4 and Table 5)
