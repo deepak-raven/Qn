@@ -20,19 +20,31 @@ def convert_doc_to_docx(doc_path: str, docx_path: str):
     """
     doc_path_abs = os.path.abspath(doc_path)
     docx_path_abs = os.path.abspath(docx_path)
-    
+    errors = []
+
     # 1. Try LibreOffice CLI if installed
     soffice_cmd = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice_cmd:
+        for candidate in ["/usr/bin/libreoffice", "/usr/bin/soffice", "/usr/local/bin/soffice"]:
+            if os.path.exists(candidate):
+                soffice_cmd = candidate
+                break
+
     if soffice_cmd:
         try:
             output_dir = os.path.dirname(docx_path_abs)
+            env = os.environ.copy()
+            env["HOME"] = os.environ.get("TMPDIR", "/tmp")
             cmd = [soffice_cmd, "--headless", "--convert-to", "docx", doc_path_abs, "--outdir", output_dir]
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60, env=env)
             if res.returncode == 0 and os.path.exists(docx_path_abs):
                 logger.info("Successfully converted .doc to .docx using LibreOffice.")
                 return
+            else:
+                err_msg = res.stderr.decode('utf-8', errors='ignore') if res.stderr else "Conversion returned non-zero code"
+                errors.append(f"LibreOffice: {err_msg}")
         except Exception as e:
-            logger.warning(f"LibreOffice conversion attempted but failed: {e}")
+            errors.append(f"LibreOffice error: {e}")
 
     # 2. Try Windows MS Word COM Automation
     if platform.system() == "Windows":
@@ -54,19 +66,29 @@ def convert_doc_to_docx(doc_path: str, docx_path: str):
             try:
                 word = win32com.client.Dispatch("Word.Application")
                 word.Visible = False
-                doc = word.Documents.Open(doc_path_abs)
+                try:
+                    word.DisplayAlerts = 0 # Disable popup dialogs
+                except Exception:
+                    pass
+
+                doc = word.Documents.Open(doc_path_abs, ReadOnly=True, ConfirmConversions=False)
                 doc.SaveAs2(docx_path_abs, FileFormat=16) # FileFormat 16 = .docx
-                doc.Close()
+                doc.Close(SaveChanges=False)
                 logger.info("Successfully converted .doc to .docx using MS Word COM.")
                 return
             finally:
                 if word:
-                    word.Quit()
+                    try:
+                        word.Quit()
+                    except Exception:
+                        pass
                 pythoncom.CoUninitialize()
         except Exception as win_err:
-            raise RuntimeError(f"Windows Word COM conversion failed: {win_err}. Ensure MS Word or LibreOffice is installed.")
+            logger.warning(f"Windows Word COM conversion failed: {win_err}")
+            errors.append(f"MS Word COM error: {win_err}")
 
-    raise RuntimeError("No conversion tool available: Please install Microsoft Word or LibreOffice on the server to process legacy .doc files.")
+    error_detail = " | ".join(errors) if errors else "Ensure Microsoft Word or LibreOffice is installed and responsive on the server."
+    raise RuntimeError(f"No conversion tool available: {error_detail}")
 
 
 def parse_unit_from_text(text: str):
