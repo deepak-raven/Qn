@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from './hooks/useSetsManager';
+import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getExpectedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from './hooks/useSetsManager';
 import { useTOSCalculator, normalizeUnit } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
 
@@ -296,10 +296,10 @@ export function useAppState() {
         subject_name: subName,
         regulation: targetReg,
         semester: semesterTypeStr,
-        exam_type: is2025 ? 'CAT-1' : 'MODEL EXAMINATION',
-        exam_name: is2025 ? 'CONTINUOUS ASSESSMENT TEST - I' : 'MODEL EXAMINATION',
-        time: is2025 ? '90 Minutes' : '3 Hours',
-        max_marks: is2025 ? 50 : 100,
+        exam_type: 'CAT-2',
+        exam_name: 'CONTINUOUS ASSESSMENT TEST - II',
+        time: '90 Minutes',
+        max_marks: 50,
         degree_branch_sem: degreeSem
       };
       return {
@@ -441,7 +441,8 @@ export function useAppState() {
               }
             }
             if (emptyIdx === -1) {
-              alert(`No empty Part A slot available for ${q.unit}.`);
+              const expectedUnitsForExam = getExpectedUnitForPartASlot(config.exam_type, 0, config.regulation);
+              alert(`Cannot add Part A question (${q.unit}): Part A requires questions matching unit blueprint rules.`);
               return {};
             }
             const next = [...set.selectedPartA];
@@ -478,7 +479,7 @@ export function useAppState() {
             }
 
             if (targetIdx === -1) {
-              alert(`No empty Part B slot available for ${q.unit}.`);
+              alert(`Cannot add Part B question (${q.unit}): Part B requires questions matching unit blueprint rules.`);
               return {};
             }
 
@@ -502,18 +503,26 @@ export function useAppState() {
 
             let added = false;
             const next = [...partC];
+            const qUnitNorm = normalizeUnit(q.unit);
+
             for (let i = 0; i < next.length; i++) {
-              if (!isFilled(next[i]?.a)) {
+              const expectedA = getExpectedUnitForPartCSlot(config.exam_type, i, 'a', config.regulation).map(normalizeUnit);
+              const expectedB = getExpectedUnitForPartCSlot(config.exam_type, i, 'b', config.regulation).map(normalizeUnit);
+
+              if (!isFilled(next[i]?.a) && expectedA.includes(qUnitNorm)) {
                 next[i] = { ...next[i], a: q };
                 added = true;
                 break;
-              } else if (!isFilled(next[i]?.b)) {
+              } else if (!isFilled(next[i]?.b) && expectedB.includes(qUnitNorm)) {
                 next[i] = { ...next[i], b: q };
                 added = true;
                 break;
               }
             }
-            if (!added) alert('All Part C slots are full.');
+            if (!added) {
+              alert(`Cannot add Part C question (${q.unit}): Part C requires questions matching unit blueprint rules.`);
+              return {};
+            }
             return { selectedPartC: is2025 ? next : (next[0] || { a: null, b: null }) };
           }
         }
@@ -587,7 +596,7 @@ export function useAppState() {
           const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, index, config.regulation);
           const allowedNorm = expectedUnits.map(normalizeUnit);
           if (!allowedNorm.includes(normalizeUnit(q.unit))) {
-            alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in Part A Question ${index + 1}.`);
+            alert(`Only Part A questions from ${expectedUnits.join(' or ')} can be placed in Question ${index + 1}.`);
             return;
           }
 
@@ -617,7 +626,7 @@ export function useAppState() {
           const allowedNorm = expectedUnits.map(normalizeUnit);
           if (!allowedNorm.includes(normalizeUnit(q.unit))) {
             const qNo = getPartBQuestionNo(config.exam_type, index, config.regulation);
-            alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in Question ${qNo}.`);
+            alert(`Only Part B questions from ${expectedUnits.join(' or ')} can be placed in Question ${qNo}.`);
             return;
           }
 
@@ -658,14 +667,25 @@ export function useAppState() {
             return { selectedPartB: next };
           });
         } else if (part === 'C') {
+          const expectedUnits = getExpectedUnitForPartCSlot(config.exam_type, index, subKey, config.regulation);
+          const allowedNorm = expectedUnits.map(normalizeUnit);
+          if (!allowedNorm.includes(normalizeUnit(q.unit))) {
+            const is2025 = is2025Regulation(config.regulation);
+            const isCAT = isCATExam(config.exam_type, config.regulation);
+            const qNo = is2025 ? (11 + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
+            alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in Part C Question ${qNo}(${subKey}).`);
+            return;
+          }
+
           updateCurrentSet(set => {
             const isCAT = isCATExam(config.exam_type, config.regulation);
+            const is2025 = is2025Regulation(config.regulation);
             let next = Array.isArray(set.selectedPartC) 
               ? [...set.selectedPartC] 
               : [{ a: set.selectedPartC?.a || null, b: set.selectedPartC?.b || null }];
 
-            if (isCAT) {
-              while (next.length < 3) {
+            if (isCAT || is2025) {
+              while (next.length < (is2025 ? 3 : 1)) {
                 next.push({ a: null, b: null });
               }
             }
@@ -674,14 +694,27 @@ export function useAppState() {
             if (payload.type === 'preview_c') {
               const sourcePairIdx = payload.pairIdx !== undefined ? payload.pairIdx : 0;
               const sourceSubKey = payload.subKey;
+              const sourceExpectedUnits = getExpectedUnitForPartCSlot(config.exam_type, sourcePairIdx, sourceSubKey, config.regulation);
+              const sourceAllowedNorm = sourceExpectedUnits.map(normalizeUnit);
+
               if (isCArray) {
                 const temp = next[index] ? next[index][subKey] : null;
+                if (temp && !sourceAllowedNorm.includes(normalizeUnit(temp.unit))) {
+                  const sourceQNo = is2025 ? (11 + sourcePairIdx) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, sourcePairIdx, config.regulation));
+                  const targetQNo = is2025 ? (11 + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
+                  alert(`Swap failed: Question ${targetQNo}(${subKey}) (${temp.unit}) cannot be placed in Question ${sourceQNo}(${sourceSubKey}) (${sourceExpectedUnits.join(' or ')} expected).`);
+                  return {};
+                }
                 next[index] = { ...next[index], [subKey]: q };
                 if (next[sourcePairIdx]) {
                   next[sourcePairIdx] = { ...next[sourcePairIdx], [sourceSubKey]: temp };
                 }
               } else {
                 const temp = next[subKey];
+                if (temp && !sourceAllowedNorm.includes(normalizeUnit(temp.unit))) {
+                  alert(`Swap failed: Question (${temp.unit}) cannot be placed in Question (${sourceExpectedUnits.join(' or ')} expected).`);
+                  return {};
+                }
                 next[subKey] = q;
                 next[sourceSubKey] = temp;
               }
@@ -704,7 +737,7 @@ export function useAppState() {
                 }
               }
             }
-            return { selectedPartC: next };
+            return { selectedPartC: is2025 ? next : (next[0] || { a: null, b: null }) };
           });
         }
       } catch (err) {

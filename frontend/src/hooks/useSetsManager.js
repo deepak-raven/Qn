@@ -2,15 +2,15 @@ import { useState } from 'react';
 
 export const DEFAULT_CONFIG = {
   institution_name: 'Jaya Engineering College',
-  exam_type: 'MODEL EXAMINATION', // 'MODEL EXAMINATION' | 'CAT-1' | 'CAT-2'
-  exam_name: 'MODEL EXAMINATION',
+  exam_type: 'CAT-2', // 'MODEL EXAMINATION' | 'CAT-1' | 'CAT-2'
+  exam_name: 'CONTINUOUS ASSESSMENT TEST - II',
   regulation: '',
   semester: '',
   subject_code: '',
   subject_name: '',
   degree_branch_sem: '',
-  time: '3 Hours',
-  max_marks: 100,
+  time: '90 Minutes',
+  max_marks: 50,
   set: 'SET-I',
   date: ''
 };
@@ -21,10 +21,10 @@ export const REGULATION_2021_RULES = {
   regulation: '2021-REGULATION',
   code: '2021',
   name: 'Regulation 2021',
-  defaultExamType: 'MODEL EXAMINATION',
-  defaultExamName: 'MODEL EXAMINATION',
-  defaultTime: '3 Hours',
-  defaultMaxMarks: 100,
+  defaultExamType: 'CAT-2',
+  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - II',
+  defaultTime: '90 Minutes',
+  defaultMaxMarks: 50,
   partA: {
     count: 10,
     marksPerQuestion: 2,
@@ -48,8 +48,8 @@ export const REGULATION_2025_RULES = {
   regulation: '2025-REGULATION',
   code: '2025',
   name: 'Regulation 2025',
-  defaultExamType: 'CAT-1',
-  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - I',
+  defaultExamType: 'CAT-2',
+  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - II',
   defaultTime: '90 Minutes',
   defaultMaxMarks: 50,
   partA: {
@@ -97,13 +97,13 @@ function getSlotCounts(examType, regulation) {
 
 export function getSuggestedUnitForPartASlot(examType, index, regulation) {
   if (examType === 'CAT-2' || examType === 'IAT-2') {
-    if (index === 0 || index === 1) return ['Unit III'];
-    if (index === 2 || index === 3) return ['Unit IV'];
-    return ['Unit III', 'Unit IV'];
+    if (index === 0 || index === 1) return ['Unit II'];
+    if (index >= 2 && index <= 4) return ['Unit III'];
+    return ['Unit II', 'Unit III'];
   }
   if (isCATExam(examType, regulation)) {
-    if (index === 0 || index === 1) return ['Unit I'];
-    if (index === 2 || index === 3) return ['Unit II'];
+    if (index === 0 || index === 1 || index === 2) return ['Unit I'];
+    if (index === 3 || index === 4) return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
   const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
@@ -111,14 +111,28 @@ export function getSuggestedUnitForPartASlot(examType, index, regulation) {
 }
 
 export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
+  const is2025 = is2025Regulation(regulation);
+
   if (examType === 'CAT-2' || examType === 'IAT-2') {
-    if (index === 0 || index === 1) return ['Unit III'];
-    if (index === 2 || index === 3) return ['Unit IV'];
-    return ['Unit III', 'Unit IV'];
+    if (is2025) {
+      if (index === 0 || index === 1) return ['Unit II'];
+      if (index >= 2 && index <= 4) return ['Unit III'];
+      return ['Unit II', 'Unit III'];
+    }
+    // 2021 Regulation CAT-2 (2 Either-Or pairs Q6 and Q7)
+    if (index === 0) return ['Unit II'];
+    if (index === 1) return ['Unit III'];
+    return ['Unit II', 'Unit III'];
   }
   if (isCATExam(examType, regulation)) {
-    if (index === 0 || index === 1) return ['Unit I'];
-    if (index === 2 || index === 3) return ['Unit II'];
+    if (is2025) {
+      if (index === 0 || index === 1 || index === 2) return ['Unit I'];
+      if (index === 3 || index === 4) return ['Unit II'];
+      return ['Unit I', 'Unit II'];
+    }
+    // 2021 Regulation CAT-1 (2 Either-Or pairs Q6 and Q7)
+    if (index === 0) return ['Unit I'];
+    if (index === 1) return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
   const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
@@ -126,44 +140,52 @@ export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
 }
 
 export function getExpectedUnitForPartASlot(examType, index, regulation) {
-  if (examType === 'CAT-2' || examType === 'IAT-2') {
-    if (index === 0 || index === 1) return ['Unit III'];
-    if (index === 2 || index === 3) return ['Unit IV'];
-    return ['Unit III', 'Unit IV'];
-  }
-  if (isCATExam(examType, regulation)) {
-    if (index === 0 || index === 1) return ['Unit I'];
-    if (index === 2 || index === 3) return ['Unit II'];
-    return ['Unit I', 'Unit II'];
-  }
-  const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
-  return [units[index] || `Unit ${Math.floor(index / 2) + 1}`];
+  return getSuggestedUnitForPartASlot(examType, index, regulation);
 }
 
 export function getExpectedUnitForPartBSlot(examType, index, regulation) {
+  return getSuggestedUnitForPartBSlot(examType, index, regulation);
+}
+
+export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null, regulation) {
   const is2021CAT = isCATExam(examType, regulation) && !is2025Regulation(regulation);
-  if (is2021CAT) {
-    if (examType === 'CAT-2' || examType === 'IAT-2') {
-      if (index === 0) return ['Unit III'];
-      if (index === 1) return ['Unit IV'];
-      return ['Unit III', 'Unit IV'];
-    }
-    if (index === 0) return ['Unit I'];
-    if (index === 1) return ['Unit II'];
-    return ['Unit I', 'Unit II'];
-  }
+  const is2025 = is2025Regulation(regulation);
+
   if (examType === 'CAT-2' || examType === 'IAT-2') {
-    if (index === 0 || index === 1) return ['Unit III'];
-    if (index === 2 || index === 3) return ['Unit IV'];
-    return ['Unit III', 'Unit IV'];
+    if (is2021CAT) {
+      if (subKey === 'a') return ['Unit II'];
+      if (subKey === 'b') return ['Unit III'];
+      return ['Unit II', 'Unit III'];
+    }
+    if (is2025) {
+      if (index === 0) return ['Unit II'];
+      if (index === 1 || index === 2) return ['Unit III'];
+      return ['Unit II', 'Unit III'];
+    }
+    if (subKey === 'a') return ['Unit II'];
+    if (subKey === 'b') return ['Unit III'];
+    return ['Unit II', 'Unit III'];
   }
   if (isCATExam(examType, regulation)) {
-    if (index === 0 || index === 1) return ['Unit I'];
-    if (index === 2 || index === 3) return ['Unit II'];
+    if (is2021CAT) {
+      if (subKey === 'a') return ['Unit I'];
+      if (subKey === 'b') return ['Unit II'];
+      return ['Unit I', 'Unit II'];
+    }
+    if (is2025) {
+      if (index === 0 || index === 1) return ['Unit I'];
+      if (index === 2) return ['Unit II'];
+      return ['Unit I', 'Unit II'];
+    }
+    if (subKey === 'a') return ['Unit I'];
+    if (subKey === 'b') return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
-  const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
-  return [units[index] || `Unit ${index + 1}`];
+  return ['Unit V', 'Unit IV'];
+}
+
+export function getExpectedUnitForPartCSlot(examType, index = 0, subKey = null, regulation) {
+  return getSuggestedUnitForPartCSlot(examType, index, subKey, regulation);
 }
 
 export function getPartBQuestionNo(examType, index, regulation) {

@@ -31,21 +31,15 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
               }}
               style={{ fontSize: '0.95rem', fontWeight: 600, padding: '0.6rem' }}
             >
-              <option value="MODEL EXAMINATION">
-                MODEL EXAMINATION (Full Syllabus: Unit I - V | 100 Marks | 10 Part A, 5 Part B pairs, 1 Part C pair)
-              </option>
-              <option value="CAT-1">
-                CAT - I: Continuous Assessment Test 1 (Syllabus: Unit I & II | 50 Marks | 5 Part A, 2 Part B pairs, 1 Part C pair)
-              </option>
-              <option value="CAT-2">
-                CAT - II: Continuous Assessment Test 2 (Syllabus: Unit III & IV | 50 Marks | 5 Part A, 2 Part B pairs, 1 Part C pair)
-              </option>
+              <option value="MODEL EXAMINATION">MODEL EXAMINATION</option>
+              <option value="CAT-1">CAT - I</option>
+              <option value="CAT-2">CAT - II</option>
             </select>
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
             <span className="tag tag-unit" style={{ background: '#fff' }}>
-              Selected Rule: {(config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') ? 'Unit I & II (50 Marks)' : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') ? 'Unit III & IV (50 Marks)' : 'Full Syllabus (100 Marks)'}
+              Selected Rule: {(config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') ? 'Unit I & II (50 Marks)' : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') ? ((config.regulation || '').includes('2025') ? 'Unit III & IV (50 Marks)' : 'Unit II & III (50 Marks)') : 'Full Syllabus (100 Marks)'}
             </span>
           </div>
         </div>

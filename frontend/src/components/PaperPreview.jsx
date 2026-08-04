@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2, GripVertical, RotateCcw } from 'lucide-react';
-import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getSuggestedUnitForPartASlot, getSuggestedUnitForPartBSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from '../hooks/useSetsManager';
+import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getSuggestedUnitForPartASlot, getSuggestedUnitForPartBSlot, getSuggestedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from '../hooks/useSetsManager';
 
 export default function PaperPreview({
   config,
@@ -40,11 +40,12 @@ export default function PaperPreview({
   const isCAT2 = config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2';
   const isCAT = isCATExam(config.exam_type, config.regulation);
   const is2025 = is2025Regulation(config.regulation);
+  const is2021CAT = isCAT && !is2025;
 
   const tosUnits = isCAT1 
     ? ['Unit I', 'Unit II'] 
     : isCAT2 
-    ? ['Unit III', 'Unit IV'] 
+    ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
     : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
 
   const filteredKlTotalsCount = React.useMemo(() => {
@@ -199,9 +200,9 @@ export default function PaperPreview({
                 cursor: 'pointer'
               }}
             >
-              <option value="MODEL EXAMINATION">MODEL EXAM (Unit I-V | 100 Marks)</option>
-              <option value="CAT-1">CAT - I (Unit I & II | 50 Marks)</option>
-              <option value="CAT-2">CAT - II (Unit III & IV | 50 Marks)</option>
+              <option value="MODEL EXAMINATION">MODEL EXAMINATION</option>
+              <option value="CAT-1">CAT - I</option>
+              <option value="CAT-2">CAT - II</option>
             </select>
           </div>
 
@@ -866,10 +867,11 @@ export default function PaperPreview({
                           style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
                           onClick={() => {
                             setActiveTabSub('C');
-                            setFilterUnit('All');
+                            const suggested = getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'a', config.regulation);
+                            setFilterUnit(suggested.length === 1 ? suggested[0] : 'All');
                           }}
                         >
-                          [Drop target for Part C Question {qNo}(a)]
+                          [Drop target for Part C Question {qNo}(a) ({getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'a', config.regulation).join('/')})]
                         </span>
                       )}
                     </td>
@@ -936,10 +938,11 @@ export default function PaperPreview({
                           style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
                           onClick={() => {
                             setActiveTabSub('C');
-                            setFilterUnit('All');
+                            const suggested = getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'b', config.regulation);
+                            setFilterUnit(suggested.length === 1 ? suggested[0] : 'All');
                           }}
                         >
-                          [Drop target for Part C Question {qNo}(b)]
+                          [Drop target for Part C Question {qNo}(b) ({getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'b', config.regulation).join('/')})]
                         </span>
                       )}
                     </td>

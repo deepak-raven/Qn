@@ -35,7 +35,12 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
     const isCAT2 = config?.exam_type === 'CAT-2' || config?.exam_type === 'IAT-2';
     const isCAT = isCAT1 || isCAT2;
     const is2025 = is2025Regulation(config?.regulation);
-    const catTargetUnits = isCAT1 ? ['Unit I', 'Unit II'] : (isCAT2 ? ['Unit III', 'Unit IV'] : null);
+    const is2021CAT = isCAT && !is2025;
+    const catTargetUnits = isCAT1 
+      ? ['Unit I', 'Unit II'] 
+      : (isCAT2 
+          ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
+          : null);
 
     const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
     const kls = ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'];

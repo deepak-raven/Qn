@@ -342,8 +342,16 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
     # 4. Table of Specifications (TOS) for CAT
     is_cat2 = config.exam_type in ["CAT-2", "IAT-2"]
-    target_units = ["Unit III", "Unit IV"] if is_cat2 else ["Unit I", "Unit II"]
-    unit_labels = ["III", "IV"] if is_cat2 else ["I", "II"]
+    is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
+    if is_cat2 and not is_2025:
+        target_units = ["Unit II", "Unit III"]
+        unit_labels = ["II", "III"]
+    elif is_cat2:
+        target_units = ["Unit III", "Unit IV"]
+        unit_labels = ["III", "IV"]
+    else:
+        target_units = ["Unit I", "Unit II"]
+        unit_labels = ["I", "II"]
 
     kls_map = {"K1": 0, "K2": 1, "K3": 2, "K4": 3, "K5": 4, "K6": 5}
     tos_counts = [[0 for _ in range(6)] for _ in range(2)]
