@@ -14,27 +14,25 @@ from typing import List, Dict, Any, Optional
 logger = logging.getLogger("app.parser")
 
 
-
-
 def parse_unit_from_text(text: str):
     if not text:
         return None
     for line in text.split('\n'):
         line_clean = re.sub(r'\s+', ' ', line.upper()).strip()
-        if len(line_clean) <= 120:
-            m = re.search(r'\bUNIT\s*[-–:]?\s*([IVX\d]+)\b', line_clean)
-            if m:
-                u = m.group(1)
-                mapping = {
-                    'I': 'Unit I', '1': 'Unit I',
-                    'II': 'Unit II', '2': 'Unit II',
-                    'III': 'Unit III', '3': 'Unit III',
-                    'IV': 'Unit IV', '4': 'Unit IV',
-                    'V': 'Unit V', '5': 'Unit V'
-                }
-                if u in mapping:
-                    return mapping[u]
+        m = re.search(r'\bUNIT\s*[-–:]?\s*([IVX\d]+)\b', line_clean)
+        if m:
+            u = m.group(1)
+            mapping = {
+                'I': 'Unit I', '1': 'Unit I',
+                'II': 'Unit II', '2': 'Unit II',
+                'III': 'Unit III', '3': 'Unit III',
+                'IV': 'Unit IV', '4': 'Unit IV',
+                'V': 'Unit V', '5': 'Unit V'
+            }
+            if u in mapping:
+                return mapping[u]
     return None
+
 
 def parse_part_marks_from_text(text: str):
     if not text:
@@ -75,6 +73,39 @@ def parse_part_marks_from_text(text: str):
                     m_val = 15
                 return 'C', m_val
     return None, None
+
+
+def clean_pdf_cell_text(text: str) -> str:
+    if not text:
+        return ""
+    text = re.sub(r'(\w+)-\s*\n\s*(\w+)', r'\1\2', text)
+    text = re.sub(r'(\w+)-\s+(\w+)', r'\1\2', text)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def merge_continuation_text(prev_text: str, new_text: str) -> str:
+    if not prev_text:
+        return new_text
+    if not new_text:
+        return prev_text
+    if prev_text.endswith('-'):
+        return prev_text[:-1] + new_text
+    return prev_text + ' ' + new_text
+
+
+def is_pdf_table_header_row(cells: List[str]) -> bool:
+    if not cells:
+        return False
+    c0 = cells[0].strip().lower()
+    if re.match(r'^(s|q|sl)[\.\s]*no[\.]?$|^question(s)?$', c0):
+        return True
+    if re.match(r'^\d+[a-z]?$', c0):
+        return False
+    row_str = " ".join(cells).lower()
+    if ('question' in row_str or 'description' in row_str) and ('kl' in row_str or 'co' in row_str or 'level' in row_str or 'bloom' in row_str):
+        return True
+    return False
+
 
 def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str) -> List[Dict[str, Any]]:
     doc = docx.Document(io.BytesIO(file_bytes))
@@ -117,7 +148,6 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                 
             header_cells = [c.text.strip().lower() for c in table.rows[0].cells]
             
-            # Check if Row 0 itself is an in-cell header
             row0_text = " ".join([c.text.strip() for c in table.rows[0].cells if c.text.strip()])
             u_r0 = parse_unit_from_text(row0_text)
             if u_r0:
@@ -130,7 +160,7 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                 found_any_heading = True
 
             if len(header_cells) < 3 and not (u_r0 or p_part_r0):
-                continue  # Skip cover/metadata tables with fewer than 3 columns unless it's an in-cell section header
+                continue
                 
             if not found_any_heading:
                 unit_name = units[min(table_counter // 3, 4)]
@@ -143,7 +173,6 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
 
             table_counter += 1
 
-            # Determine column positions dynamically
             q_idx = 1
             kl_idx = 2
             co_idx = 3
@@ -160,7 +189,6 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                 cells = [c.text.strip() for c in row.cells]
                 row_text = " ".join([c for c in cells if c])
                 
-                # Check for in-cell heading rows
                 u_row = parse_unit_from_text(row_text)
                 if u_row:
                     current_unit = u_row
@@ -175,10 +203,10 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                     found_any_heading = True
                     
                 if row_idx == 0:
-                    continue  # Skip header row
+                    continue
                     
                 if (u_row or p_part_row) and (len(cells) <= q_idx or len(cells[q_idx]) < 20):
-                    continue  # Skip divider heading rows inside table
+                    continue
 
                 if len(cells) <= q_idx:
                     continue
@@ -218,110 +246,209 @@ def parse_question_bank_pdf(file_bytes: bytes, subject_code: str, semester: str)
     found_any_heading = False
     table_counter = 0
 
-    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text() or ""
-            lines = page_text.split('\n')
-            for line in lines:
-                u = parse_unit_from_text(line)
-                if u:
-                    current_unit = u
-                    found_any_heading = True
-                p_part, p_marks = parse_part_marks_from_text(line)
-                if p_part:
-                    current_part = p_part
-                    current_marks = p_marks
-                    found_any_heading = True
+    def _process_pdf_pages(pdf_doc, table_settings=None):
+        nonlocal current_unit, current_part, current_marks, found_any_heading, table_counter
+        parsed_q = []
 
-            tables = page.extract_tables()
-            for table in (tables or []):
-                if not table or not table[0]:
-                    continue
-                    
-                header_row = [(c or "").strip().lower() for c in table[0]]
-                row0_text = " ".join(header_row)
-                u_r0 = parse_unit_from_text(row0_text)
-                if u_r0:
-                    current_unit = u_r0
-                    found_any_heading = True
-                p_part_r0, p_marks_r0 = parse_part_marks_from_text(row0_text)
-                if p_part_r0:
-                    current_part = p_part_r0
-                    current_marks = p_marks_r0
-                    found_any_heading = True
+        for page in pdf_doc.pages:
+            tables = page.find_tables(table_settings=table_settings) if table_settings else page.find_tables()
+            text_lines = page.extract_text_lines() or []
 
-                if len(header_row) < 3 and not (u_r0 or p_part_r0):
-                    continue
+            items = []
+            for l in text_lines:
+                items.append(('text', l['top'], l['text']))
+            for t in (tables or []):
+                items.append(('table', t.bbox[1], t))
 
-                if not found_any_heading:
-                    unit_name = units[min(table_counter // 3, 4)]
-                    part_name = parts[table_counter % 3]
-                    marks = marks_list[table_counter % 3]
-                else:
-                    unit_name = current_unit
-                    part_name = current_part
-                    marks = current_marks
+            items.sort(key=lambda x: x[1])
 
-                table_counter += 1
-
-                q_idx = 1
-                kl_idx = 2
-                co_idx = 3
-                has_header = False
-                
-                for idx, c_text in enumerate(header_row):
-                    if 'question' in c_text or 'q.no' in c_text or 'description' in c_text or 's.no' in c_text:
-                        has_header = True
-                    if 'question' in c_text or 'q.no' in c_text or 'description' in c_text:
-                        q_idx = idx
-                    elif 'kl' in c_text or 'knowledge' in c_text or 'bloom' in c_text:
-                        kl_idx = idx
-                    elif 'co' in c_text or 'outcome' in c_text:
-                        co_idx = idx
-
-                data_rows = table[1:] if has_header else table
-
-                for row in data_rows:
-                    cells = [(c or "").strip() for c in row]
-                    row_text = " ".join([c for c in cells if c])
-                    
-                    u_row = parse_unit_from_text(row_text)
-                    if u_row:
-                        current_unit = u_row
-                        unit_name = current_unit
+            for item_type, top_y, item in items:
+                if item_type == 'text':
+                    text_str = item.strip()
+                    u = parse_unit_from_text(text_str)
+                    if u:
+                        current_unit = u
                         found_any_heading = True
-                    p_part_row, p_marks_row = parse_part_marks_from_text(row_text)
-                    if p_part_row:
-                        current_part = p_part_row
-                        current_marks = p_marks_row
+                    p_part, p_marks = parse_part_marks_from_text(text_str)
+                    if p_part:
+                        current_part = p_part
+                        current_marks = p_marks
+                        found_any_heading = True
+
+                elif item_type == 'table':
+                    table_obj = item
+                    table_data = table_obj.extract()
+                    if not table_data or not table_data[0]:
+                        continue
+
+                    header_row = [clean_pdf_cell_text(c).lower() for c in table_data[0]]
+
+                    # Check for 1 or 2 column metadata / syllabus / title boxes
+                    if len(header_row) < 3:
+                        full_tbl_text = " ".join([" ".join([clean_pdf_cell_text(c) for c in row if c]) for row in table_data])
+                        u_full = parse_unit_from_text(full_tbl_text)
+                        if u_full:
+                            current_unit = u_full
+                            found_any_heading = True
+                        p_part_full, p_marks_full = parse_part_marks_from_text(full_tbl_text)
+                        if p_part_full:
+                            current_part = p_part_full
+                            current_marks = p_marks_full
+                            found_any_heading = True
+                        continue
+
+                    row0_text = " ".join([c for c in header_row if c])
+                    u_r0 = parse_unit_from_text(row0_text)
+                    if u_r0:
+                        current_unit = u_r0
+                        found_any_heading = True
+                    p_part_r0, p_marks_r0 = parse_part_marks_from_text(row0_text)
+                    if p_part_r0:
+                        current_part = p_part_r0
+                        current_marks = p_marks_r0
+                        found_any_heading = True
+
+                    if not found_any_heading:
+                        unit_name = units[min(table_counter // 3, 4)]
+                        part_name = parts[table_counter % 3]
+                        marks = marks_list[table_counter % 3]
+                    else:
+                        unit_name = current_unit
                         part_name = current_part
                         marks = current_marks
-                        found_any_heading = True
 
-                    if (u_row or p_part_row) and (len(cells) <= q_idx or len(cells[q_idx]) < 20):
+                    table_counter += 1
+
+                    q_idx = 1
+                    kl_idx = 2
+                    co_idx = 3
+
+                    first_row_cells = [clean_pdf_cell_text(c) for c in table_data[0]]
+                    if is_pdf_table_header_row(first_row_cells):
+                        for idx, c_text in enumerate(header_row):
+                            if 'question' in c_text or 'q.no' in c_text or 'description' in c_text:
+                                q_idx = idx
+                            elif 'kl' in c_text or 'knowledge' in c_text or 'bloom' in c_text:
+                                kl_idx = idx
+                            elif 'co' in c_text or 'outcome' in c_text:
+                                co_idx = idx
+
+                    for row in table_data:
+                        cells = [clean_pdf_cell_text(c) for c in row]
+                        if is_pdf_table_header_row(cells):
+                            for idx, c_text in enumerate([c.lower() for c in cells]):
+                                if 'question' in c_text or 'q.no' in c_text or 'description' in c_text:
+                                    q_idx = idx
+                                elif 'kl' in c_text or 'knowledge' in c_text or 'bloom' in c_text:
+                                    kl_idx = idx
+                                elif 'co' in c_text or 'outcome' in c_text:
+                                    co_idx = idx
+                            continue
+
+                        row_text = " ".join([c for c in cells if c])
+                        u_row = parse_unit_from_text(row_text)
+                        if u_row:
+                            current_unit = u_row
+                            unit_name = current_unit
+                            found_any_heading = True
+                        p_part_row, p_marks_row = parse_part_marks_from_text(row_text)
+                        if p_part_row:
+                            current_part = p_part_row
+                            current_marks = p_marks_row
+                            part_name = current_part
+                            marks = current_marks
+                            found_any_heading = True
+
+                        if u_row or p_part_row:
+                            continue
+
+                        if len(cells) <= q_idx:
+                            continue
+
+                        sno_cell = cells[0] if len(cells) > 0 else ""
+                        question_text = cells[q_idx]
+                        kl = cells[kl_idx] if len(cells) > kl_idx else ""
+                        co = cells[co_idx] if len(cells) > co_idx else ""
+
+                        if not question_text or question_text.lower().startswith("question") or question_text.lower() == "s. no":
+                            continue
+
+                        is_new_q = bool(re.match(r'^\d+[a-z]?$', sno_cell.lower()))
+
+                        if not is_new_q and parsed_q:
+                            parsed_q[-1]["text"] = merge_continuation_text(parsed_q[-1]["text"], question_text)
+                            if kl and not parsed_q[-1]["kl"]:
+                                parsed_q[-1]["kl"] = kl
+                            if co and not parsed_q[-1]["co"]:
+                                parsed_q[-1]["co"] = co
+                        else:
+                            parsed_q.append({
+                                "subject_code": subject_code,
+                                "semester": semester,
+                                "text": question_text,
+                                "unit": unit_name,
+                                "part": part_name,
+                                "marks": marks,
+                                "kl": kl,
+                                "co": co
+                            })
+        return parsed_q
+
+    with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+        questions = _process_pdf_pages(pdf)
+        
+        # Fallback 1: Text-based table strategy if line strategy yields 0 questions
+        if not questions:
+            logger.info("Default table extraction returned 0 questions. Trying text-strategy table extraction...")
+            questions = _process_pdf_pages(pdf, table_settings={"vertical_strategy": "text", "horizontal_strategy": "text"})
+
+        # Fallback 2: Text-line extraction if PDF has no tables at all
+        if not questions:
+            logger.info("Table extraction returned 0 questions. Trying text-line question parser fallback...")
+            c_unit = "Unit I"
+            c_part = "A"
+            c_marks = 2
+
+            for page in pdf.pages:
+                page_text = page.extract_text() or ""
+                for line in page_text.split('\n'):
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    u = parse_unit_from_text(line_str)
+                    if u:
+                        c_unit = u
+                        continue
+                    p_p, p_m = parse_part_marks_from_text(line_str)
+                    if p_p:
+                        c_part = p_p
+                        c_marks = p_m
                         continue
 
-                    if len(cells) <= q_idx:
-                        continue
+                    # Look for numbered questions: "1. What is...", "1) Explain...", "Q1. ..."
+                    q_match = re.match(r'^(?:Q\.?\s*)?(\d+)[\.\)]\s+(.*)', line_str, re.IGNORECASE)
+                    if q_match and len(q_match.group(2).strip()) > 10:
+                        q_body = q_match.group(2).strip()
+                        # Extract trailing KL / CO if present e.g. "(K1, CO1)"
+                        kl_match = re.search(r'\b(K[1-6])\b', q_body, re.IGNORECASE)
+                        co_match = re.search(r'\b(CO[1-6])\b', q_body, re.IGNORECASE)
+                        kl_val = kl_match.group(1).upper() if kl_match else ""
+                        co_val = co_match.group(1).upper() if co_match else ""
                         
-                    question_text = cells[q_idx]
-                    kl = cells[kl_idx] if len(cells) > kl_idx else ""
-                    co = cells[co_idx] if len(cells) > co_idx else ""
-                    
-                    if not question_text or question_text.lower().startswith("question") or question_text.lower() == "s. no":
-                        continue
-                        
-                    questions.append({
-                        "subject_code": subject_code,
-                        "semester": semester,
-                        "text": question_text,
-                        "unit": unit_name,
-                        "part": part_name,
-                        "marks": marks,
-                        "kl": kl,
-                        "co": co
-                    })
-            
+                        questions.append({
+                            "subject_code": subject_code,
+                            "semester": semester,
+                            "text": q_body,
+                            "unit": c_unit,
+                            "part": c_part,
+                            "marks": c_marks,
+                            "kl": kl_val,
+                            "co": co_val
+                        })
+                    elif questions and not line_str.lower().startswith("page ") and not line_str.lower().startswith("question bank"):
+                        # Append continuation line to previous question
+                        questions[-1]["text"] = merge_continuation_text(questions[-1]["text"], line_str)
+
     logger.info(f"Parsed {len(questions)} questions from PDF file.")
     return questions
 
@@ -406,7 +533,6 @@ def parse_text_metadata(text: str) -> dict:
             name_val = re.split(r'\s{2,}', name_val)[0]
             metadata["subject_name"] = name_val.strip()
 
-    # Parse Degree / Branch
     match_deg_br = re.search(r'(?:Degree[ \t]*/[ \t]*Branch)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
     if match_deg_br:
         val = match_deg_br.group(1).strip()
@@ -443,7 +569,6 @@ def parse_text_metadata(text: str) -> dict:
             if metadata["degree"] or metadata["branch"]:
                 metadata["degree_branch"] = f"{metadata.get('degree') or 'B.E'}/{metadata.get('branch') or 'CSE'}"
 
-    # Parse Year / Sem
     match_yr_sem = re.search(r'(?:Year[ \t]*/[ \t]*Sem|Year[ \t]*/[ \t]*Semester)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
     if match_yr_sem:
         val = match_yr_sem.group(1).strip()
@@ -486,7 +611,7 @@ def parse_text_metadata(text: str) -> dict:
     if metadata["semester"]:
         metadata["degree_branch_sem"] = f"{metadata['degree_branch']} / {metadata['semester']}"
     else:
-        metadata["degree_branch_sem"] = metadata["degree_branch"]
+        metadata["degree_branch_sem"] = metadata['degree_branch']
 
     match_reg = re.search(r'Regulation[ \t]*:[ \t]*(\d{4})', text, re.IGNORECASE)
     if match_reg:
