@@ -45,11 +45,14 @@ export default function QuestionPool({
                 value={config.exam_type || 'MODEL EXAMINATION'}
                 onChange={(e) => {
                   const newType = e.target.value;
-                  const isCatType = newType === 'CAT-1' || newType === 'CAT-2';
+                  const isCatType = newType === 'CAT-1' || newType === 'CAT-2' || newType === 'CAT-3';
+                  const catExamName = newType === 'CAT-3'
+                    ? 'CONTINUOUS ASSESSMENT TEST - III'
+                    : (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I');
                   setConfig(prev => ({
                     ...prev,
                     exam_type: newType,
-                    exam_name: isCatType ? (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : 'MODEL EXAMINATION',
+                    exam_name: isCatType ? catExamName : 'MODEL EXAMINATION',
                     time: isCatType ? '90 Minutes' : '3 Hours',
                     max_marks: isCatType ? 50 : 100
                   }));
@@ -68,6 +71,7 @@ export default function QuestionPool({
                 <option value="MODEL EXAMINATION">MODEL EXAMINATION</option>
                 <option value="CAT-1">CAT - I</option>
                 <option value="CAT-2">CAT - II</option>
+                <option value="CAT-3">CAT - III</option>
               </select>
             </div>
           )}

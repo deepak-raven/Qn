@@ -33,14 +33,17 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
   return useMemo(() => {
     const isCAT1 = config?.exam_type === 'CAT-1' || config?.exam_type === 'IAT-1';
     const isCAT2 = config?.exam_type === 'CAT-2' || config?.exam_type === 'IAT-2';
-    const isCAT = isCAT1 || isCAT2;
+    const isCAT3 = config?.exam_type === 'CAT-3' || config?.exam_type === 'IAT-3';
+    const isCAT = isCAT1 || isCAT2 || isCAT3;
     const is2025 = is2025Regulation(config?.regulation);
     const is2021CAT = isCAT && !is2025;
-    const catTargetUnits = isCAT1 
-      ? ['Unit I', 'Unit II'] 
-      : (isCAT2 
-          ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
-          : null);
+    const catTargetUnits = isCAT3
+      ? ['Unit IV', 'Unit V']
+      : isCAT2 
+      ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
+      : isCAT1
+      ? ['Unit I', 'Unit II']
+      : null;
 
     const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
     const kls = ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'];

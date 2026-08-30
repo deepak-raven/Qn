@@ -20,11 +20,14 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
               value={config.exam_type || 'MODEL EXAMINATION'}
               onChange={e => {
                 const newType = e.target.value;
-                const isCatType = newType === 'CAT-1' || newType === 'CAT-2';
+                const isCatType = newType === 'CAT-1' || newType === 'CAT-2' || newType === 'CAT-3';
+                const catExamName = newType === 'CAT-3'
+                  ? 'CONTINUOUS ASSESSMENT TEST - III'
+                  : (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I');
                 setConfig({
                   ...config,
                   exam_type: newType,
-                  exam_name: isCatType ? (newType === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : 'MODEL EXAMINATION',
+                  exam_name: isCatType ? catExamName : 'MODEL EXAMINATION',
                   time: isCatType ? '90 Minutes' : '3 Hours',
                   max_marks: isCatType ? 50 : 100
                 });
@@ -34,12 +37,13 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
               <option value="MODEL EXAMINATION">MODEL EXAMINATION</option>
               <option value="CAT-1">CAT - I</option>
               <option value="CAT-2">CAT - II</option>
+              <option value="CAT-3">CAT - III</option>
             </select>
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
             <span className="tag tag-unit" style={{ background: '#fff' }}>
-              Selected Rule: {(config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') ? 'Unit I & II (50 Marks)' : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') ? ((config.regulation || '').includes('2025') ? 'Unit III & IV (50 Marks)' : 'Unit II & III (50 Marks)') : 'Full Syllabus (100 Marks)'}
+              Selected Rule: {(config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3') ? 'Unit IV & V (50 Marks)' : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') ? ((config.regulation || '').includes('2025') ? 'Unit III & IV (50 Marks)' : 'Unit II & III (50 Marks)') : (config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') ? 'Unit I & II (50 Marks)' : 'Full Syllabus (100 Marks)'}
             </span>
           </div>
         </div>

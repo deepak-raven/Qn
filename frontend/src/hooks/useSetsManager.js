@@ -120,7 +120,7 @@ export function getRegulationRules(regulation) {
 
 export function isCATExam(examType, regulation) {
   if (is2025Regulation(regulation)) return true;
-  return examType === 'CAT-1' || examType === 'CAT-2' || examType === 'IAT-1' || examType === 'IAT-2';
+  return examType === 'CAT-1' || examType === 'CAT-2' || examType === 'CAT-3' || examType === 'IAT-1' || examType === 'IAT-2' || examType === 'IAT-3';
 }
 
 function getSlotCounts(examType, regulation) {
@@ -131,6 +131,11 @@ function getSlotCounts(examType, regulation) {
 }
 
 export function getSuggestedUnitForPartASlot(examType, index, regulation) {
+  if (examType === 'CAT-3' || examType === 'IAT-3') {
+    if (index === 0 || index === 1) return ['Unit IV'];
+    if (index >= 2 && index <= 4) return ['Unit V'];
+    return ['Unit IV', 'Unit V'];
+  }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
     if (index === 0 || index === 1) return ['Unit II'];
     if (index >= 2 && index <= 4) return ['Unit III'];
@@ -148,6 +153,17 @@ export function getSuggestedUnitForPartASlot(examType, index, regulation) {
 export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
   const is2025 = is2025Regulation(regulation);
 
+  if (examType === 'CAT-3' || examType === 'IAT-3') {
+    if (is2025) {
+      if (index === 0 || index === 1) return ['Unit IV'];
+      if (index >= 2 && index <= 4) return ['Unit V'];
+      return ['Unit IV', 'Unit V'];
+    }
+    // 2021 Regulation CAT-3 (2 Either-Or pairs Q6 and Q7)
+    if (index === 0) return ['Unit IV'];
+    if (index === 1) return ['Unit V'];
+    return ['Unit IV', 'Unit V'];
+  }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
     if (is2025) {
       if (index === 0 || index === 1) return ['Unit II'];
@@ -186,6 +202,21 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
   const is2021CAT = isCATExam(examType, regulation) && !is2025Regulation(regulation);
   const is2025 = is2025Regulation(regulation);
 
+  if (examType === 'CAT-3' || examType === 'IAT-3') {
+    if (is2021CAT) {
+      if (subKey === 'a') return ['Unit IV'];
+      if (subKey === 'b') return ['Unit V'];
+      return ['Unit IV', 'Unit V'];
+    }
+    if (is2025) {
+      if (index === 0) return ['Unit IV'];
+      if (index === 1 || index === 2) return ['Unit V'];
+      return ['Unit IV', 'Unit V'];
+    }
+    if (subKey === 'a') return ['Unit IV'];
+    if (subKey === 'b') return ['Unit V'];
+    return ['Unit IV', 'Unit V'];
+  }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
     if (is2021CAT) {
       if (subKey === 'a') return ['Unit II'];
@@ -237,12 +268,16 @@ export function getPartCQuestionNo(examType, index = 0, regulation) {
 function createDefaultSetData(config) {
   const rules = getRegulationRules(config.regulation);
   const isCAT = isCATExam(config.exam_type, config.regulation);
+  const catExamName = config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3'
+    ? 'CONTINUOUS ASSESSMENT TEST - III'
+    : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I');
+
   return {
     config: {
       ...config,
       regulation: config.regulation || rules.regulation,
       exam_type: config.exam_type || rules.defaultExamType,
-      exam_name: config.exam_name || (isCAT ? (config.exam_type === 'CAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I') : rules.defaultExamName),
+      exam_name: config.exam_name || (isCAT ? catExamName : rules.defaultExamName),
       max_marks: config.max_marks || (isCAT ? 50 : rules.defaultMaxMarks),
       time: config.time || (isCAT ? '90 Minutes' : rules.defaultTime)
     },
@@ -303,6 +338,8 @@ export function useSetsManager(initialSets = null, initialSetId = 'SET-I') {
         nextConfig.time = counts.defaultTime;
         nextConfig.exam_name = nextConfig.exam_type === 'MODEL EXAMINATION' 
           ? 'MODEL EXAMINATION' 
+          : (nextConfig.exam_type === 'CAT-3' || nextConfig.exam_type === 'IAT-3')
+          ? 'CONTINUOUS ASSESSMENT TEST - III'
           : (nextConfig.exam_type === 'CAT-1' || nextConfig.exam_type === 'IAT-1')
           ? 'CONTINUOUS ASSESSMENT TEST - I' 
           : 'CONTINUOUS ASSESSMENT TEST - II';

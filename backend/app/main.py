@@ -76,6 +76,14 @@ CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat.docx")
 if not os.path.exists(CAT_2021_TEMPLATE_PATH):
     CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2021.docx")
 
+CAT_2021_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "QPGEN CAT3 - QP Pattern.docx")
+if not os.path.exists(CAT_2021_CAT3_TEMPLATE_PATH):
+    CAT_2021_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_3.docx")
+
+CAT_2025_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2025_cat3.docx")
+if not os.path.exists(CAT_2025_CAT3_TEMPLATE_PATH):
+    CAT_2025_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_3_2025.docx")
+
 MODEL_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "MODEL QUESTION.docx")
 PARENT_MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "MODEL  QUESTION.docx"))
 
@@ -477,12 +485,19 @@ async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTa
     reg_val = (payload.config.regulation or "").upper()
     
     is_2025 = "2025" in reg_val
-    is_cat = exam_type in ["CAT-1", "CAT-2", "IAT-1", "IAT-2"] or is_2025
+    is_cat3 = exam_type in ["CAT-3", "IAT-3"]
+    is_cat = exam_type in ["CAT-1", "CAT-2", "CAT-3", "IAT-1", "IAT-2", "IAT-3"] or is_2025
 
     if is_2025:
-        template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+        if is_cat3 and os.path.exists(CAT_2025_CAT3_TEMPLATE_PATH):
+            template_to_use = CAT_2025_CAT3_TEMPLATE_PATH
+        else:
+            template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
     elif is_cat:
-        template_to_use = CAT_2021_TEMPLATE_PATH if os.path.exists(CAT_2021_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH
+        if is_cat3 and os.path.exists(CAT_2021_CAT3_TEMPLATE_PATH):
+            template_to_use = CAT_2021_CAT3_TEMPLATE_PATH
+        else:
+            template_to_use = CAT_2021_TEMPLATE_PATH if os.path.exists(CAT_2021_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH
     else:
         template_to_use = MODEL_TEMPLATE_PATH if os.path.exists(MODEL_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
 

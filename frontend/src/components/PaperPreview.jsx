@@ -38,14 +38,17 @@ export default function PaperPreview({
 
   const isCAT1 = config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1';
   const isCAT2 = config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2';
+  const isCAT3 = config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3';
   const isCAT = isCATExam(config.exam_type, config.regulation);
   const is2025 = is2025Regulation(config.regulation);
   const is2021CAT = isCAT && !is2025;
 
-  const tosUnits = isCAT1 
-    ? ['Unit I', 'Unit II'] 
+  const tosUnits = isCAT3
+    ? ['Unit IV', 'Unit V']
     : isCAT2 
     ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
+    : isCAT1 
+    ? ['Unit I', 'Unit II'] 
     : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
 
   const filteredKlTotalsCount = React.useMemo(() => {
@@ -242,7 +245,7 @@ export default function PaperPreview({
                     onBlur={(e) => setConfig(prev => ({ ...prev, exam_name: e.target.innerText }))}
                     style={{ fontSize: '0.95rem', fontWeight: 'bold', margin: '0.2rem 0 0.1rem 0' }}
                   >
-                    {config.exam_name || (isCAT2 ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I')}
+                    {config.exam_name || (isCAT3 ? 'CONTINUOUS ASSESSMENT TEST - III' : (isCAT2 ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I'))}
                   </h4>
                   <div style={{ fontSize: '0.85rem', fontWeight: 'normal', display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
                     <span>

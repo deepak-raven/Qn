@@ -224,7 +224,13 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if config.institution_name:
         replace_text_runs(doc, "NAME OF THE INSTITUTION:", config.institution_name.upper())
 
-    exam_title = config.exam_name or ("CONTINUOUS ASSESSMENT TEST - II" if config.exam_type in ["CAT-2", "IAT-2"] else "CONTINUOUS ASSESSMENT TEST - I")
+    if config.exam_type in ["CAT-3", "IAT-3"]:
+        default_exam_title = "CONTINUOUS ASSESSMENT TEST - III"
+    elif config.exam_type in ["CAT-2", "IAT-2"]:
+        default_exam_title = "CONTINUOUS ASSESSMENT TEST - II"
+    else:
+        default_exam_title = "CONTINUOUS ASSESSMENT TEST - I"
+    exam_title = config.exam_name or default_exam_title
     replace_exam_title_placeholder(doc, exam_title)
     
     if config.set:
@@ -405,9 +411,13 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
 
     # 4. Table of Specifications (TOS) for CAT
+    is_cat3 = config.exam_type in ["CAT-3", "IAT-3"]
     is_cat2 = config.exam_type in ["CAT-2", "IAT-2"]
     is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
-    if is_cat2 and not is_2025:
+    if is_cat3:
+        target_units = ["Unit IV", "Unit V"]
+        unit_labels = ["IV", "V"]
+    elif is_cat2 and not is_2025:
         target_units = ["Unit II", "Unit III"]
         unit_labels = ["II", "III"]
     elif is_cat2:
