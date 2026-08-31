@@ -40,16 +40,16 @@ class Question(BaseModel):
 
 class PaperConfig(BaseModel):
     institution_name: str = "JAYA EDUCATIONAL TRUST"
-    exam_type: str = "MODEL EXAMINATION"
-    exam_name: str = "MODEL EXAMINATION"
+    exam_type: str = "CAT-3"
+    exam_name: str = "CONTINUOUS ASSESSMENT TEST - III"
     regulation: str = "2021-Regulation"
     semester: str = "ODD SEMESTER-2025-26"
     subject_code: str = "OCS353"
     subject_name: str = "Data Science fundamentals"
     degree_branch_sem: str = "BE/BTECH/ CIVIL/AERO/MECH/EEE/TEXT/VII"
-    time: str = "3 Hours"
-    max_marks: int = 100
-    set: str = "SET-III"
+    time: str = "90 Minutes"
+    max_marks: int = 50
+    set: str = "SET-I"
     date: str = ""
 
     model_config = ConfigDict(populate_by_name=True)

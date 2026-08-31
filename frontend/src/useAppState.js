@@ -298,8 +298,8 @@ export function useAppState() {
         subject_name: subName,
         regulation: targetReg,
         semester: semesterTypeStr,
-        exam_type: 'CAT-2',
-        exam_name: 'CONTINUOUS ASSESSMENT TEST - II',
+        exam_type: 'CAT-3',
+        exam_name: 'CONTINUOUS ASSESSMENT TEST - III',
         time: '90 Minutes',
         max_marks: 50,
         degree_branch_sem: degreeSem

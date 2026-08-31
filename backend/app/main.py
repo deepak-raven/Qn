@@ -91,8 +91,8 @@ if not os.path.exists(MODEL_TEMPLATE_PATH) and os.path.exists(PARENT_MODEL_PATH)
     shutil.copy(PARENT_MODEL_PATH, MODEL_TEMPLATE_PATH)
     logger.info(f"Copied template file from parent directory to: {MODEL_TEMPLATE_PATH}")
 
-TEMPLATE_PATH = MODEL_TEMPLATE_PATH
-CAT_TEMPLATE_PATH = CAT_2021_TEMPLATE_PATH
+TEMPLATE_PATH = CAT_2021_CAT3_TEMPLATE_PATH
+CAT_TEMPLATE_PATH = CAT_2021_CAT3_TEMPLATE_PATH
 
 
 def sanitize_filename(name: str) -> str:

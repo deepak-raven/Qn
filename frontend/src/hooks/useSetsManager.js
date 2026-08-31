@@ -2,8 +2,8 @@ import { useState } from 'react';
 
 export const DEFAULT_CONFIG = {
   institution_name: 'Jaya Engineering College',
-  exam_type: 'CAT-2', // 'MODEL EXAMINATION' | 'CAT-1' | 'CAT-2'
-  exam_name: 'CONTINUOUS ASSESSMENT TEST - II',
+  exam_type: 'CAT-3', // 'MODEL EXAMINATION' | 'CAT-1' | 'CAT-2' | 'CAT-3'
+  exam_name: 'CONTINUOUS ASSESSMENT TEST - III',
   regulation: '',
   semester: '',
   subject_code: '',
@@ -56,8 +56,8 @@ export const REGULATION_2021_RULES = {
   regulation: '2021-REGULATION',
   code: '2021',
   name: 'Regulation 2021',
-  defaultExamType: 'CAT-2',
-  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - II',
+  defaultExamType: 'CAT-3',
+  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - III',
   defaultTime: '90 Minutes',
   defaultMaxMarks: 50,
   partA: {
@@ -83,8 +83,8 @@ export const REGULATION_2025_RULES = {
   regulation: '2025-REGULATION',
   code: '2025',
   name: 'Regulation 2025',
-  defaultExamType: 'CAT-2',
-  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - II',
+  defaultExamType: 'CAT-3',
+  defaultExamName: 'CONTINUOUS ASSESSMENT TEST - III',
   defaultTime: '90 Minutes',
   defaultMaxMarks: 50,
   partA: {
@@ -133,7 +133,8 @@ function getSlotCounts(examType, regulation) {
 export function getSuggestedUnitForPartASlot(examType, index, regulation) {
   if (examType === 'CAT-3' || examType === 'IAT-3') {
     if (index === 0 || index === 1) return ['Unit IV'];
-    if (index >= 2 && index <= 4) return ['Unit V'];
+    if (index === 2) return ['Unit IV', 'Unit V'];
+    if (index >= 3 && index <= 4) return ['Unit V'];
     return ['Unit IV', 'Unit V'];
   }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
@@ -156,7 +157,8 @@ export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
   if (examType === 'CAT-3' || examType === 'IAT-3') {
     if (is2025) {
       if (index === 0 || index === 1) return ['Unit IV'];
-      if (index >= 2 && index <= 4) return ['Unit V'];
+      if (index === 2) return ['Unit IV', 'Unit V'];
+      if (index >= 3 && index <= 4) return ['Unit V'];
       return ['Unit IV', 'Unit V'];
     }
     // 2021 Regulation CAT-3 (2 Either-Or pairs Q6 and Q7)
@@ -210,7 +212,12 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
     }
     if (is2025) {
       if (index === 0) return ['Unit IV'];
-      if (index === 1 || index === 2) return ['Unit V'];
+      if (index === 1) {
+        if (subKey === 'a') return ['Unit IV'];
+        if (subKey === 'b') return ['Unit V'];
+        return ['Unit IV', 'Unit V'];
+      }
+      if (index === 2) return ['Unit V'];
       return ['Unit IV', 'Unit V'];
     }
     if (subKey === 'a') return ['Unit IV'];
