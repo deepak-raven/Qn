@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSetsManager, DEFAULT_CONFIG, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getExpectedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from './hooks/useSetsManager';
+import { useSetsManager, DEFAULT_CONFIG, sanitizeLoadedConfig, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getExpectedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from './hooks/useSetsManager';
 import { useTOSCalculator, normalizeUnit } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
 
@@ -332,7 +332,7 @@ export function useAppState() {
           const updatedSets = { ...savedForSub.sets };
           Object.keys(updatedSets).forEach(setId => {
             const is2025 = subReg.includes('2025');
-            const currentCfg = updatedSets[setId].config || {};
+            const currentCfg = sanitizeLoadedConfig(updatedSets[setId].config || {});
             const wasStale2025Cat = !is2025 && currentCfg.exam_type === 'CAT-1' && (currentCfg.max_marks === 50 || currentCfg.time === '90 Minutes');
             const finalExamType = wasStale2025Cat ? 'MODEL EXAMINATION' : (currentCfg.exam_type || (is2025 ? 'CAT-1' : 'MODEL EXAMINATION'));
 
@@ -342,6 +342,7 @@ export function useAppState() {
               selectedPartC: (!is2025 && Array.isArray(updatedSets[setId].selectedPartC)) ? { a: null, b: null } : updatedSets[setId].selectedPartC,
               config: {
                 ...currentCfg,
+                institution_name: currentCfg.institution_name || 'NAME OF THE INSTITUTION:',
                 subject_code: code,
                 subject_name: subName || currentCfg.subject_name || code,
                 regulation: subReg,

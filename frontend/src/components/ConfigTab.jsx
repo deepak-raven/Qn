@@ -150,15 +150,27 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
           </div>
         </div>
 
-        <div className="form-group">
-          <label className="form-label">Exam Date</label>
-          <input 
-            type="text" 
-            className="form-input"
-            value={config.date}
-            onChange={e => setConfig({ ...config, date: e.target.value })}
-            placeholder="e.g. 03-07-2026"
-          />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div className="form-group">
+            <label className="form-label">Exam Date</label>
+            <input 
+              type="text" 
+              className="form-input"
+              value={config.date || ''}
+              onChange={e => setConfig({ ...config, date: e.target.value })}
+              placeholder="e.g. 03-07-2026"
+            />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Exam Session</label>
+            <input 
+              type="text" 
+              className="form-input"
+              value={config.session || ''}
+              onChange={e => setConfig({ ...config, session: e.target.value })}
+              placeholder="e.g. FN or AN"
+            />
+          </div>
         </div>
 
         <button className="btn btn-primary" onClick={() => setActiveTab('questions')} style={{ alignSelf: 'flex-end', marginTop: '1rem' }}>

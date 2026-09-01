@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 export const DEFAULT_CONFIG = {
-  institution_name: 'Jaya Engineering College',
+  institution_name: 'NAME OF THE INSTITUTION:',
   exam_type: 'CAT-3', // 'MODEL EXAMINATION' | 'CAT-1' | 'CAT-2' | 'CAT-3'
   exam_name: 'CONTINUOUS ASSESSMENT TEST - III',
   regulation: '',
@@ -12,7 +12,8 @@ export const DEFAULT_CONFIG = {
   time: '90 Minutes',
   max_marks: 50,
   set: 'SET-I',
-  date: ''
+  date: '',
+  session: ''
 };
 
 export function cleanDegreeBranch(degInput) {
@@ -272,21 +273,42 @@ export function getPartCQuestionNo(examType, index = 0, regulation) {
   return 16 + index;
 }
 
+export function sanitizeLoadedConfig(config) {
+  if (!config) return config;
+  const legacyNames = ['JAYA ENGINEERING COLLEGE', 'JAYA EDUCATIONAL TRUST', 'ENTER INSTITUTION NAME'];
+  const inst = (config.institution_name || '').trim().toUpperCase();
+  let updated = { ...config };
+  if (!config.institution_name || legacyNames.includes(inst)) {
+    updated.institution_name = 'NAME OF THE INSTITUTION:';
+  }
+  if (updated.session && (updated.session.includes('_') || updated.session.trim() === '')) {
+    updated.session = '';
+  }
+  if (updated.date && (updated.date.includes('_') || updated.date.trim() === '')) {
+    updated.date = '';
+  }
+  if (!updated.semester || /^[IVX\s/]+$/i.test(updated.semester.trim())) {
+    updated.semester = 'ODD SEMESTER 2026-27';
+  }
+  return updated;
+}
+
 function createDefaultSetData(config) {
-  const rules = getRegulationRules(config.regulation);
-  const isCAT = isCATExam(config.exam_type, config.regulation);
-  const catExamName = config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3'
+  const sanitizedConfig = sanitizeLoadedConfig(config);
+  const rules = getRegulationRules(sanitizedConfig.regulation);
+  const isCAT = isCATExam(sanitizedConfig.exam_type, sanitizedConfig.regulation);
+  const catExamName = sanitizedConfig.exam_type === 'CAT-3' || sanitizedConfig.exam_type === 'IAT-3'
     ? 'CONTINUOUS ASSESSMENT TEST - III'
-    : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I');
+    : (sanitizedConfig.exam_type === 'CAT-2' || sanitizedConfig.exam_type === 'IAT-2' ? 'CONTINUOUS ASSESSMENT TEST - II' : 'CONTINUOUS ASSESSMENT TEST - I');
 
   return {
     config: {
-      ...config,
-      regulation: config.regulation || rules.regulation,
-      exam_type: config.exam_type || rules.defaultExamType,
-      exam_name: config.exam_name || (isCAT ? catExamName : rules.defaultExamName),
-      max_marks: config.max_marks || (isCAT ? 50 : rules.defaultMaxMarks),
-      time: config.time || (isCAT ? '90 Minutes' : rules.defaultTime)
+      ...sanitizedConfig,
+      regulation: sanitizedConfig.regulation || rules.regulation,
+      exam_type: sanitizedConfig.exam_type || rules.defaultExamType,
+      exam_name: sanitizedConfig.exam_name || (isCAT ? catExamName : rules.defaultExamName),
+      max_marks: sanitizedConfig.max_marks || (isCAT ? 50 : rules.defaultMaxMarks),
+      time: sanitizedConfig.time || (isCAT ? '90 Minutes' : rules.defaultTime)
     },
     selectedPartA: Array(isCAT ? 5 : 10).fill(null),
     selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
@@ -297,7 +319,14 @@ function createDefaultSetData(config) {
 export function useSetsManager(initialSets = null, initialSetId = 'SET-I') {
   const [sets, setSets] = useState(() => {
     if (initialSets && typeof initialSets === 'object' && Object.keys(initialSets).length > 0) {
-      return initialSets;
+      const sanitized = {};
+      Object.entries(initialSets).forEach(([setId, setData]) => {
+        sanitized[setId] = {
+          ...setData,
+          config: sanitizeLoadedConfig(setData?.config || DEFAULT_CONFIG)
+        };
+      });
+      return sanitized;
     }
     return {
       'SET-I': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-I' })

@@ -39,7 +39,7 @@ class Question(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 class PaperConfig(BaseModel):
-    institution_name: str = "JAYA EDUCATIONAL TRUST"
+    institution_name: str = "NAME OF THE INSTITUTION:"
     exam_type: str = "CAT-3"
     exam_name: str = "CONTINUOUS ASSESSMENT TEST - III"
     regulation: str = "2021-Regulation"
@@ -51,6 +51,7 @@ class PaperConfig(BaseModel):
     max_marks: int = 50
     set: str = "SET-I"
     date: str = ""
+    session: str = ""
 
     model_config = ConfigDict(populate_by_name=True)
 

@@ -1,12 +1,42 @@
 import os
 import re
+import copy
 import logging
 import docx
+import docx.oxml
+import docx.oxml.ns
+from docx.table import _Cell
 from docx.shared import Pt
-from typing import List, Dict, Any
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+from typing import List, Dict, Any, Optional
 from app.models import PaperConfig, Question
 
 logger = logging.getLogger("app.generator")
+
+def get_row_cell(table, row_idx: int, tc_idx: int) -> Optional[_Cell]:
+    if row_idx >= len(table.rows):
+        return None
+    row = table.rows[row_idx]
+    tc_list = row._tr.xpath('./w:tc')
+    if tc_idx < len(tc_list):
+        return _Cell(tc_list[tc_idx], table)
+    return None
+
+def set_cell_border_edge(cell, edge: str, val: str = 'single', sz: str = '4', space: str = '0', color: str = 'auto'):
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcBorders = tcPr.find(docx.oxml.ns.qn('w:tcBorders'))
+    if tcBorders is None:
+        tcBorders = parse_xml(f'<w:tcBorders {nsdecls("w")}/>')
+        tcPr.append(tcBorders)
+    
+    for child in list(tcBorders):
+        if child.tag.endswith(edge) or child.tag.endswith(f":{edge}") or child.tag == edge:
+            tcBorders.remove(child)
+    
+    b_elem = parse_xml(f'<w:{edge} {nsdecls("w")} w:val="{val}" w:sz="{sz}" w:space="{space}" w:color="{color}"/>')
+    tcBorders.append(b_elem)
 
 def normalize_unit(unit_str: str) -> str:
     if not unit_str:
@@ -219,10 +249,23 @@ def remove_table_rows(table, start_row_idx: int):
         tr = table.rows[row_idx]._tr
         tr.getparent().remove(tr)
 
+LEGACY_INSTITUTION_NAMES = {
+    "NAME OF THE INSTITUTION:",
+    "NAME OF THE INSTITUTION",
+    "NAME OF THE INSTUTION:",
+    "NAME OF THE INSTUTION",
+    "JAYA ENGINEERING COLLEGE",
+    "JAYA EDUCATIONAL TRUST",
+    ""
+}
+
 def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
     # 1. Metadata Replacements
-    if config.institution_name:
-        replace_text_runs(doc, "NAME OF THE INSTITUTION:", config.institution_name.upper())
+    inst_name = (config.institution_name or "").strip()
+    if inst_name and not inst_name.upper().startswith("NAME OF THE INSTITUTION") and inst_name.upper() not in LEGACY_INSTITUTION_NAMES:
+        replace_text_runs(doc, "NAME OF THE INSTITUTION:\t", inst_name.upper())
+        replace_text_runs(doc, "NAME OF THE INSTITUTION :", inst_name.upper())
+        replace_text_runs(doc, "NAME OF THE INSTITUTION:", inst_name.upper())
 
     if config.exam_type in ["CAT-3", "IAT-3"]:
         default_exam_title = "CONTINUOUS ASSESSMENT TEST - III"
@@ -236,23 +279,151 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if config.set:
         replace_set_placeholder(doc, config.set)
         
+    reg_str = ""
     if config.regulation:
         reg_str = f"({config.regulation}-REGULATION)" if "REGULATION" not in config.regulation.upper() else config.regulation
         replace_text_runs(doc, "2021-REGULATION", reg_str)
-        replace_text_runs(doc, "(2025-REGULATION)", reg_str)
-        
-    if config.semester:
-        replace_text_runs(doc, "ODD SEMESTER 2026-27", config.semester)
-        replace_text_runs(doc, "EVEN SEMESTER 2026-27", config.semester)
-        
-    # Table 1: Date
-    if len(doc.tables) > 1 and len(doc.tables[1].rows) > 1 and len(doc.tables[1].rows[1].cells) > 3:
-        if config.date:
-            set_cell_text_preserve_style(doc.tables[1].rows[1].cells[3], f"DATE: {config.date}")
+    # Dynamically locate CAT Header Table and Course Details Table
+    t_header = None
+    t_course = None
+    for t in doc.tables:
+        txt = " ".join(c.text.strip() for row in t.rows for c in row.cells).upper()
+        if ("SUB. CODE" in txt or "DEGREE / BRANCH" in txt or "DEGREE/BRANCH" in txt) and t_course is None:
+            t_course = t
+        elif ("NAME OF THE INSTITUTION" in txt or "CONTINUOUS ASSESSMENT TEST" in txt or "DATE/\nSESSION" in txt or "DATE / SESSION" in txt or "PAGES" in txt or "COPIES" in txt) and t_header is None:
+            t_header = t
 
-    # Table 2: Course & Exam Info
-    if len(doc.tables) > 2:
-        t2 = doc.tables[2]
+    # Fallback to index-based if not found dynamically
+    if t_header is None:
+        for t in doc.tables[:2]:
+            if len(t.rows) >= 4:
+                t_header = t
+                break
+    if t_course is None and len(doc.tables) > 1:
+        for t in doc.tables[1:3]:
+            if len(t.rows) in [3, 4] and len(t.rows[0].cells) <= 3:
+                t_course = t
+                break
+
+    # Table 1: Header / Date & Session Table
+    if t_header and len(t_header.rows) >= 4:
+        # Check whether this template has 5 rows (CAT-3 format with Date & Session) or 4 rows (CAT-2 format)
+        if len(t_header.rows) >= 5:
+            # Row 1: Title & DATE/SESSION & Date value
+            tcs1 = t_header.rows[1]._tr.xpath('./w:tc')
+            if len(tcs1) >= 3:
+                c_title = _Cell(tcs1[0], t_header)
+                c_title.text = ""
+                p = c_title.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r = p.add_run(exam_title)
+                r.bold = True
+                r.underline = True
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+                
+                c_date = _Cell(tcs1[2], t_header)
+                c_date.text = ""
+                date_clean = (config.date or "").replace("_", "").strip()
+                if date_clean:
+                    p = c_date.paragraphs[0]
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    r = p.add_run(date_clean)
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(12)
+
+            # Row 2: Session value
+            tcs2 = t_header.rows[2]._tr.xpath('./w:tc')
+            if len(tcs2) >= 3:
+                c_sess = _Cell(tcs2[2], t_header)
+                c_sess.text = ""
+                sess_clean = (config.session or "").replace("_", "").strip()
+                if sess_clean:
+                    p = c_sess.paragraphs[0]
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    r = p.add_run(sess_clean)
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(12)
+
+            # Row 3: Regulation & PAGES
+            tcs3 = t_header.rows[3]._tr.xpath('./w:tc')
+            if len(tcs3) >= 3:
+                c_reg = _Cell(tcs3[0], t_header)
+                c_reg.text = ""
+                p = c_reg.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                reg_text = reg_str if reg_str else "(2021-REGULATION)"
+                if not reg_text.startswith("("):
+                    reg_text = f"({reg_text})"
+                r = p.add_run(reg_text)
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+            # Row 4: Semester & COPIES
+            tcs4 = t_header.rows[4]._tr.xpath('./w:tc')
+            if len(tcs4) >= 3:
+                c_sem = _Cell(tcs4[0], t_header)
+                c_sem.text = ""
+                p = c_sem.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                sem_text = config.semester.strip() if (config.semester and not re.match(r'^[IVX\s/]+$', config.semester.strip(), re.I)) else "ODD SEMESTER 2026-27"
+                r = p.add_run(sem_text)
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+        elif len(t_header.rows) == 4:
+            # 4-row layout (CAT-2)
+            # Row 1: Title & DATE & Date value
+            tcs1 = t_header.rows[1]._tr.xpath('./w:tc')
+            if len(tcs1) >= 3:
+                c_title = _Cell(tcs1[0], t_header)
+                c_title.text = ""
+                p = c_title.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r = p.add_run(exam_title)
+                r.bold = True
+                r.underline = True
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+                c_date = _Cell(tcs1[2], t_header)
+                c_date.text = ""
+                date_clean = (config.date or "").replace("_", "").strip()
+                if date_clean:
+                    p = c_date.paragraphs[0]
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    r = p.add_run(date_clean)
+                    r.font.name = "Times New Roman"
+                    r.font.size = Pt(12)
+
+            # Row 2: Regulation & PAGES
+            tcs2 = t_header.rows[2]._tr.xpath('./w:tc')
+            if len(tcs2) >= 3:
+                c_reg = _Cell(tcs2[0], t_header)
+                c_reg.text = ""
+                p = c_reg.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                reg_text = reg_str if reg_str else "(2021-REGULATION)"
+                if not reg_text.startswith("("):
+                    reg_text = f"({reg_text})"
+                r = p.add_run(reg_text)
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+            # Row 3: Semester & COPIES
+            tcs3 = t_header.rows[3]._tr.xpath('./w:tc')
+            if len(tcs3) >= 3:
+                c_sem = _Cell(tcs3[0], t_header)
+                c_sem.text = ""
+                p = c_sem.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                sem_text = config.semester.strip() if (config.semester and not re.match(r'^[IVX\s/]+$', config.semester.strip(), re.I)) else "ODD SEMESTER 2026-27"
+                r = p.add_run(sem_text)
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(14)
+
+    # Table 2: Course & Exam Info Box
+    if t_course:
         sub_code = (config.subject_code or "").strip()
         sub_name = (config.subject_name or "").strip()
         if sub_code and sub_name:
@@ -264,49 +435,59 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         else:
             sub_val = ""
 
-        if len(t2.rows) > 0 and len(t2.rows[0].cells) > 0:
-            set_cell_bold_label_value(t2.rows[0].cells[0], "Sub. Code / Sub. Name  :", sub_val)
-            if len(t2.rows[0].cells) > 1:
-                set_cell_bold_label_value(t2.rows[0].cells[1], "Sub. Code / Sub. Name  :", sub_val)
+        if len(t_course.rows) > 0 and len(t_course.rows[0].cells) > 0:
+            set_cell_bold_label_value(t_course.rows[0].cells[0], "Sub. Code / Sub. Name  :", sub_val)
+            if len(t_course.rows[0].cells) > 1:
+                set_cell_bold_label_value(t_course.rows[0].cells[1], "Sub. Code / Sub. Name  :", sub_val)
             
         deg_branch = clean_degree_branch(config.degree_branch_sem)
-        if len(t2.rows) > 1 and len(t2.rows[1].cells) > 0:
-            set_cell_bold_label_value(t2.rows[1].cells[0], "Degree / Branch:", deg_branch)
+        if len(t_course.rows) > 1 and len(t_course.rows[1].cells) > 0:
+            set_cell_bold_label_value(t_course.rows[1].cells[0], "Degree / Branch:", deg_branch)
             
         sem_val = format_year_sem(config.degree_branch_sem, config.semester)
-        if len(t2.rows) > 1 and len(t2.rows[1].cells) > 1:
-            set_cell_bold_label_value(t2.rows[1].cells[1], "Year / Sem :", sem_val)
+        if len(t_course.rows) > 1 and len(t_course.rows[1].cells) > 1:
+            set_cell_bold_label_value(t_course.rows[1].cells[1], "Year / Semester:", sem_val)
             
         time_val = (config.time or "").strip() or "90 Minutes"
-        if len(t2.rows) > 2 and len(t2.rows[2].cells) > 0:
-            set_cell_bold_label_value(t2.rows[2].cells[0], "Time:", time_val)
+        if len(t_course.rows) > 2 and len(t_course.rows[2].cells) > 0:
+            set_cell_bold_label_value(t_course.rows[2].cells[0], "Time:", time_val)
             
         marks_val = str(config.max_marks) if config.max_marks else "50"
-        if len(t2.rows) > 2 and len(t2.rows[2].cells) > 1:
-            set_cell_bold_label_value(t2.rows[2].cells[1], "Maximum Marks:", marks_val)
+        if len(t_course.rows) > 2 and len(t_course.rows[2].cells) > 1:
+            set_cell_bold_label_value(t_course.rows[2].cells[1], "Maximum Marks:", marks_val)
 
     # 2. Part A (Table 3)
-    if len(doc.tables) > 3:
-        t3 = doc.tables[3]
+    # 2. Find Question Tables (Part A, Part B, Part C) dynamically
+    q_tables = []
+    for t in doc.tables:
+        if len(t.rows) > 0 and len(t.rows[0].cells) in [4, 5, 7]:
+            header = " ".join(c.text.strip() for c in t.rows[0].cells).upper()
+            if "Q.NO" in header and ("QUESTION" in header or "QUESTIONS" in header):
+                q_tables.append(t)
+
+    t_part_a = q_tables[0] if len(q_tables) > 0 else (doc.tables[3] if len(doc.tables) > 3 else None)
+    t_part_b = q_tables[1] if len(q_tables) > 1 else (doc.tables[4] if len(doc.tables) > 4 else None)
+    t_part_c = q_tables[2] if len(q_tables) > 2 else (doc.tables[5] if len(doc.tables) > 5 else None)
+
+    # 2. Part A
+    if t_part_a:
         for idx, q in enumerate(part_a[:5]):
             row_idx = 1 + idx
-            if row_idx < len(t3.rows):
-                if len(t3.rows[row_idx].cells) > 1:
-                    set_cell_text_preserve_style(t3.rows[row_idx].cells[1], get_q_field(q, "text"))
-                if len(t3.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t3.rows[row_idx].cells[2], get_q_field(q, "kl"))
-                if len(t3.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t3.rows[row_idx].cells[3], get_q_field(q, "co"))
+            if row_idx < len(t_part_a.rows):
+                if len(t_part_a.rows[row_idx].cells) > 1:
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"))
+                if len(t_part_a.rows[row_idx].cells) > 2:
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[2], get_q_field(q, "kl"))
+                if len(t_part_a.rows[row_idx].cells) > 3:
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[3], get_q_field(q, "co"))
 
     # 3. Part B & Part C based on template table structure
-    # Check Table 4 column count: 4 columns = 2025 short questions layout, 5 columns = 2021 Either-Or layout
-    t4 = doc.tables[4] if len(doc.tables) > 4 else None
     is_2025_cat_layout = False
-    if t4 and len(t4.rows) > 0 and len(t4.rows[0].cells) == 4:
+    if t_part_b and len(t_part_b.rows) > 0 and len(t_part_b.rows[0].cells) == 4:
         is_2025_cat_layout = True
 
-    if is_2025_cat_layout and t4:
-        # Table 4: Part B (Q6..Q10 short questions)
+    if is_2025_cat_layout and t_part_b:
+        # 2025 Regulation: Part B (Q6..Q10 short questions)
         flat_b = []
         for item in part_b:
             if isinstance(item, list):
@@ -316,17 +497,16 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
         for idx, q in enumerate(flat_b[:5]):
             row_idx = 1 + idx
-            if row_idx < len(t4.rows):
-                if len(t4.rows[row_idx].cells) > 1:
-                    set_cell_text_preserve_style(t4.rows[row_idx].cells[1], get_q_field(q, "text"))
-                if len(t4.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t4.rows[row_idx].cells[2], get_q_field(q, "kl"))
-                if len(t4.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t4.rows[row_idx].cells[3], get_q_field(q, "co"))
+            if row_idx < len(t_part_b.rows):
+                if len(t_part_b.rows[row_idx].cells) > 1:
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"))
+                if len(t_part_b.rows[row_idx].cells) > 2:
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[2], get_q_field(q, "kl"))
+                if len(t_part_b.rows[row_idx].cells) > 3:
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[3], get_q_field(q, "co"))
 
-        # Table 5: Part C (Q11a/11b, Q12a/12b, Q13a/13b)
-        if len(doc.tables) > 5:
-            t5 = doc.tables[5]
+        # 2025 Regulation: Part C (Q11a/11b, Q12a/12b, Q13a/13b)
+        if t_part_c:
             flat_c = []
             for item in part_c:
                 if isinstance(item, list):
@@ -338,8 +518,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             for idx, q in enumerate(flat_c[:6]):
                 if idx < len(row_indices):
                     r_idx = row_indices[idx]
-                    if r_idx < len(t5.rows):
-                        r = t5.rows[r_idx]
+                    if r_idx < len(t_part_c.rows):
+                        r = t_part_c.rows[r_idx]
                         unique_cells = []
                         for cell in r.cells:
                             if not any(uc._tc == cell._tc for uc in unique_cells):
@@ -360,31 +540,31 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                                 set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"))
 
     else:
-        # 2021 CAT layout (Either-Or pairs in Table 4 and Table 5)
-        if t4:
+        # 2021 Regulation: Part B (Either-Or pairs Q6a/b, Q7a/b)
+        if t_part_b:
+            pair_rows = [(1, 3), (4, 6)]
             for idx, pair in enumerate(part_b[:2]):
-                row_a_idx = 1 + idx * 3
-                row_b_idx = 3 + idx * 3
-                if isinstance(pair, (list, tuple)):
-                    if row_a_idx < len(t4.rows) and len(pair) > 0 and pair[0]:
+                if idx < len(pair_rows) and isinstance(pair, (list, tuple)):
+                    row_a_idx, row_b_idx = pair_rows[idx]
+                    if row_a_idx < len(t_part_b.rows) and len(pair) > 0 and pair[0]:
                         q_a = pair[0]
-                        if len(t4.rows[row_a_idx].cells) > 2:
-                            set_cell_text_preserve_style(t4.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
-                        if len(t4.rows[row_a_idx].cells) > 3:
-                            set_cell_text_preserve_style(t4.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"))
-                        if len(t4.rows[row_a_idx].cells) > 4:
-                            set_cell_text_preserve_style(t4.rows[row_a_idx].cells[4], get_q_field(q_a, "co"))
-                    if row_b_idx < len(t4.rows) and len(pair) > 1 and pair[1]:
+                        if len(t_part_b.rows[row_a_idx].cells) > 2:
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
+                        if len(t_part_b.rows[row_a_idx].cells) > 3:
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"))
+                        if len(t_part_b.rows[row_a_idx].cells) > 4:
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_field(q_a, "co"))
+                    if row_b_idx < len(t_part_b.rows) and len(pair) > 1 and pair[1]:
                         q_b = pair[1]
-                        if len(t4.rows[row_b_idx].cells) > 2:
-                            set_cell_text_preserve_style(t4.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
-                        if len(t4.rows[row_b_idx].cells) > 3:
-                            set_cell_text_preserve_style(t4.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"))
-                        if len(t4.rows[row_b_idx].cells) > 4:
-                            set_cell_text_preserve_style(t4.rows[row_b_idx].cells[4], get_q_field(q_b, "co"))
+                        if len(t_part_b.rows[row_b_idx].cells) > 2:
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
+                        if len(t_part_b.rows[row_b_idx].cells) > 3:
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"))
+                        if len(t_part_b.rows[row_b_idx].cells) > 4:
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_field(q_b, "co"))
 
-        if len(doc.tables) > 5:
-            t5 = doc.tables[5]
+        # 2021 Regulation: Part C (Either-Or pair Q8a/b in Table Part C)
+        if t_part_c:
             flat_c = []
             for item in part_c:
                 if isinstance(item, (list, tuple)):
@@ -392,22 +572,22 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 elif item:
                     flat_c.append(item)
 
-            if len(flat_c) >= 1 and len(t5.rows) > 1:
+            if len(flat_c) >= 1 and len(t_part_c.rows) > 1:
                 q_a = flat_c[0]
-                if len(t5.rows[1].cells) > 2:
-                    set_cell_text_preserve_style(t5.rows[1].cells[2], get_q_field(q_a, "text"))
-                if len(t5.rows[1].cells) > 3:
-                    set_cell_text_preserve_style(t5.rows[1].cells[3], get_q_field(q_a, "kl"))
-                if len(t5.rows[1].cells) > 4:
-                    set_cell_text_preserve_style(t5.rows[1].cells[4], get_q_field(q_a, "co"))
-            if len(flat_c) >= 2 and len(t5.rows) > 3:
+                if len(t_part_c.rows[1].cells) > 2:
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"))
+                if len(t_part_c.rows[1].cells) > 3:
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_field(q_a, "kl"))
+                if len(t_part_c.rows[1].cells) > 4:
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_field(q_a, "co"))
+            if len(flat_c) >= 2 and len(t_part_c.rows) > 3:
                 q_b = flat_c[1]
-                if len(t5.rows[3].cells) > 2:
-                    set_cell_text_preserve_style(t5.rows[3].cells[2], get_q_field(q_b, "text"))
-                if len(t5.rows[3].cells) > 3:
-                    set_cell_text_preserve_style(t5.rows[3].cells[3], get_q_field(q_b, "kl"))
-                if len(t5.rows[3].cells) > 4:
-                    set_cell_text_preserve_style(t5.rows[3].cells[4], get_q_field(q_b, "co"))
+                if len(t_part_c.rows[3].cells) > 2:
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"))
+                if len(t_part_c.rows[3].cells) > 3:
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_field(q_b, "kl"))
+                if len(t_part_c.rows[3].cells) > 4:
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_field(q_b, "co"))
 
 
     # 4. Table of Specifications (TOS) for CAT
@@ -472,16 +652,32 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         tos_counts[u_idx][kl_idx] += 1
         tos_marks[u_idx][kl_idx] += section_mark
 
-    # Table 6 (Question-wise TOS) - Index 6 for 9-table, Index 5 or 6 depending on total
-    t6_idx = 6 if len(doc.tables) >= 9 else (6 if len(doc.tables) > 6 else -1)
-    if t6_idx >= 0 and t6_idx < len(doc.tables):
-        t6 = doc.tables[t6_idx]
+    # Locate TOS tables dynamically by checking table content
+    t6 = None  # Question-wise TOS
+    t7 = None  # Marks-wise TOS
+    for t in doc.tables:
+        if len(t.rows) > 0 and len(t.rows[0].cells) >= 8:
+            header_text = " ".join(c.text for row in t.rows[:2] for c in row.cells).upper()
+            if "SYLLABUS" in header_text or "NO. OF QUESTIONS" in header_text or "MARKS" in header_text:
+                if t6 is None:
+                    t6 = t
+                elif t7 is None:
+                    t7 = t
+
+    # Fallback to index-based if not found
+    if t6 is None and len(doc.tables) > 6:
+        t6 = doc.tables[6]
+    if t7 is None and len(doc.tables) > 7:
+        t7 = doc.tables[7]
+
+    # Table 6 (Question-wise TOS)
+    if t6 is not None and len(t6.rows) >= 4:
         unit_row_start = 2 if len(t6.rows) == 5 else (3 if len(t6.rows) > 5 else 2)
         total_row_idx = len(t6.rows) - 1
 
         for u_idx in range(2):
             row_idx = unit_row_start + u_idx
-            if row_idx < total_row_idx:
+            if row_idx < total_row_idx and len(t6.rows[row_idx].cells) >= 8:
                 set_cell_text_preserve_style(t6.rows[row_idx].cells[0], unit_labels[u_idx])
                 row_sum = 0
                 for k_idx in range(6):
@@ -491,7 +687,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 set_cell_text_preserve_style(t6.rows[row_idx].cells[7], str(row_sum))
 
         # Total row in Table 6
-        if total_row_idx < len(t6.rows):
+        if total_row_idx < len(t6.rows) and len(t6.rows[total_row_idx].cells) >= 8:
             set_cell_text_preserve_style(t6.rows[total_row_idx].cells[0], "Total")
             for k_idx in range(6):
                 col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(2))
@@ -499,16 +695,14 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             grand_total = sum(sum(r) for r in tos_counts)
             set_cell_text_preserve_style(t6.rows[total_row_idx].cells[7], str(grand_total))
 
-    # Table 7 (Marks-wise TOS) - Index 7 for 9-table, Index 7 or 6
-    t7_idx = 7 if len(doc.tables) >= 9 else (7 if len(doc.tables) > 7 else -1)
-    if t7_idx >= 0 and t7_idx < len(doc.tables):
-        t7 = doc.tables[t7_idx]
+    # Table 7 (Marks-wise TOS)
+    if t7 is not None and len(t7.rows) >= 4:
         unit_row_start = 2 if len(t7.rows) == 5 else (3 if len(t7.rows) > 5 else 2)
         total_row_idx = len(t7.rows) - 1
 
         for u_idx in range(2):
             row_idx = unit_row_start + u_idx
-            if row_idx < total_row_idx:
+            if row_idx < total_row_idx and len(t7.rows[row_idx].cells) >= 8:
                 set_cell_text_preserve_style(t7.rows[row_idx].cells[0], unit_labels[u_idx])
                 row_sum = 0
                 for k_idx in range(6):
@@ -518,7 +712,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 set_cell_text_preserve_style(t7.rows[row_idx].cells[7], str(row_sum))
 
         # Total row in Table 7
-        if total_row_idx < len(t7.rows):
+        if total_row_idx < len(t7.rows) and len(t7.rows[total_row_idx].cells) >= 8:
             set_cell_text_preserve_style(t7.rows[total_row_idx].cells[0], "Total")
             for k_idx in range(6):
                 col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(2))
@@ -529,6 +723,10 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
     # 1. Replace metadata placeholders
+    if config.institution_name and config.institution_name.strip().upper() not in LEGACY_INSTITUTION_NAMES:
+        replace_text_runs(doc, "NAME OF THE INSTITUTION :", config.institution_name.upper())
+        replace_text_runs(doc, "NAME OF THE INSTITUTION:", config.institution_name.upper())
+
     sub_code = (config.subject_code or "").strip()
     sub_name = (config.subject_name or "").strip()
     deg_branch = (config.degree_branch_sem or "").strip()
