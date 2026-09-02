@@ -78,7 +78,7 @@ def get_q_field(q, field: str, default: str = "") -> str:
         val = getattr(q, field, None)
     return str(val) if val is not None else default
 
-def set_cell_text_preserve_style(cell, text: str):
+def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAGRAPH] = None):
     """
     Clears the text in a cell while preserving its original cell borders and styles.
     Overwrites the text of the first run in the first paragraph, and removes other runs.
@@ -86,6 +86,8 @@ def set_cell_text_preserve_style(cell, text: str):
     if len(cell.paragraphs) == 0:
         cell.add_paragraph()
     p = cell.paragraphs[0]
+    if align is not None:
+        p.alignment = align
     
     if len(p.runs) > 0:
         first_run = p.runs[0]
@@ -477,9 +479,9 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 if len(t_part_a.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"))
                 if len(t_part_a.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[2], get_q_field(q, "kl"))
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_a.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[3], get_q_field(q, "co"))
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # 3. Part B & Part C based on template table structure
     is_2025_cat_layout = False
@@ -501,9 +503,9 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 if len(t_part_b.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"))
                 if len(t_part_b.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[2], get_q_field(q, "kl"))
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_b.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[3], get_q_field(q, "co"))
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # 2025 Regulation: Part C (Q11a/11b, Q12a/12b, Q13a/13b)
         if t_part_c:
@@ -526,8 +528,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                                 unique_cells.append(cell)
                         if len(unique_cells) >= 5:
                             set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"))
-                            set_cell_text_preserve_style(unique_cells[3], get_q_field(q, "kl"))
-                            set_cell_text_preserve_style(unique_cells[4], get_q_field(q, "co"))
+                            set_cell_text_preserve_style(unique_cells[3], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(unique_cells[4], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
                         else:
                             n_cells = len(r.cells)
                             if n_cells >= 4:
@@ -535,9 +537,9 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                             col_kl = n_cells - 2 if n_cells >= 6 else 2
                             col_co = n_cells - 1 if n_cells >= 6 else 3
                             if col_kl < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_kl], get_q_field(q, "kl"))
+                                set_cell_text_preserve_style(r.cells[col_kl], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                             if col_co < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"))
+                                set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     else:
         # 2021 Regulation: Part B (Either-Or pairs Q6a/b, Q7a/b)
@@ -551,17 +553,17 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                         if len(t_part_b.rows[row_a_idx].cells) > 2:
                             set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
                         if len(t_part_b.rows[row_a_idx].cells) > 3:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"))
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                         if len(t_part_b.rows[row_a_idx].cells) > 4:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_field(q_a, "co"))
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
                     if row_b_idx < len(t_part_b.rows) and len(pair) > 1 and pair[1]:
                         q_b = pair[1]
                         if len(t_part_b.rows[row_b_idx].cells) > 2:
                             set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
                         if len(t_part_b.rows[row_b_idx].cells) > 3:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"))
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                         if len(t_part_b.rows[row_b_idx].cells) > 4:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_field(q_b, "co"))
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # 2021 Regulation: Part C (Either-Or pair Q8a/b in Table Part C)
         if t_part_c:
@@ -577,18 +579,28 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 if len(t_part_c.rows[1].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"))
                 if len(t_part_c.rows[1].cells) > 3:
-                    set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_field(q_a, "kl"))
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[1].cells) > 4:
-                    set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_field(q_a, "co"))
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
             if len(flat_c) >= 2 and len(t_part_c.rows) > 3:
                 q_b = flat_c[1]
                 if len(t_part_c.rows[3].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"))
                 if len(t_part_c.rows[3].cells) > 3:
-                    set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_field(q_b, "kl"))
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[3].cells) > 4:
-                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_field(q_b, "co"))
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
+    # Ensure all Question table KL and CO column cells are centered
+    for t in q_tables:
+        if len(t.rows) > 0:
+            for col_idx, c in enumerate(t.rows[0].cells):
+                col_name = c.text.strip().upper()
+                if "CO" in col_name or "KL" in col_name:
+                    for row in t.rows[1:]:
+                        if col_idx < len(row.cells):
+                            for p in row.cells[col_idx].paragraphs:
+                                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     # 4. Table of Specifications (TOS) for CAT
     is_cat3 = config.exam_type in ["CAT-3", "IAT-3"]
@@ -678,22 +690,22 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         for u_idx in range(2):
             row_idx = unit_row_start + u_idx
             if row_idx < total_row_idx and len(t6.rows[row_idx].cells) >= 8:
-                set_cell_text_preserve_style(t6.rows[row_idx].cells[0], unit_labels[u_idx])
+                set_cell_text_preserve_style(t6.rows[row_idx].cells[0], unit_labels[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
                 row_sum = 0
                 for k_idx in range(6):
                     val = tos_counts[u_idx][k_idx]
-                    set_cell_text_preserve_style(t6.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "")
+                    set_cell_text_preserve_style(t6.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "", align=WD_ALIGN_PARAGRAPH.CENTER)
                     row_sum += val
-                set_cell_text_preserve_style(t6.rows[row_idx].cells[7], str(row_sum))
+                set_cell_text_preserve_style(t6.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # Total row in Table 6
         if total_row_idx < len(t6.rows) and len(t6.rows[total_row_idx].cells) >= 8:
-            set_cell_text_preserve_style(t6.rows[total_row_idx].cells[0], "Total")
+            set_cell_text_preserve_style(t6.rows[total_row_idx].cells[0], "Total", align=WD_ALIGN_PARAGRAPH.CENTER)
             for k_idx in range(6):
                 col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(2))
-                set_cell_text_preserve_style(t6.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
+                set_cell_text_preserve_style(t6.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0", align=WD_ALIGN_PARAGRAPH.CENTER)
             grand_total = sum(sum(r) for r in tos_counts)
-            set_cell_text_preserve_style(t6.rows[total_row_idx].cells[7], str(grand_total))
+            set_cell_text_preserve_style(t6.rows[total_row_idx].cells[7], str(grand_total), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # Table 7 (Marks-wise TOS)
     if t7 is not None and len(t7.rows) >= 4:
@@ -703,22 +715,30 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         for u_idx in range(2):
             row_idx = unit_row_start + u_idx
             if row_idx < total_row_idx and len(t7.rows[row_idx].cells) >= 8:
-                set_cell_text_preserve_style(t7.rows[row_idx].cells[0], unit_labels[u_idx])
+                set_cell_text_preserve_style(t7.rows[row_idx].cells[0], unit_labels[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
                 row_sum = 0
                 for k_idx in range(6):
                     val = tos_marks[u_idx][k_idx]
-                    set_cell_text_preserve_style(t7.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "")
+                    set_cell_text_preserve_style(t7.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "", align=WD_ALIGN_PARAGRAPH.CENTER)
                     row_sum += val
-                set_cell_text_preserve_style(t7.rows[row_idx].cells[7], str(row_sum))
+                set_cell_text_preserve_style(t7.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # Total row in Table 7
         if total_row_idx < len(t7.rows) and len(t7.rows[total_row_idx].cells) >= 8:
-            set_cell_text_preserve_style(t7.rows[total_row_idx].cells[0], "Total")
+            set_cell_text_preserve_style(t7.rows[total_row_idx].cells[0], "Total", align=WD_ALIGN_PARAGRAPH.CENTER)
             for k_idx in range(6):
                 col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(2))
-                set_cell_text_preserve_style(t7.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
+                set_cell_text_preserve_style(t7.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0", align=WD_ALIGN_PARAGRAPH.CENTER)
             grand_total = sum(sum(r) for r in tos_marks)
-            set_cell_text_preserve_style(t7.rows[total_row_idx].cells[7], str(grand_total))
+            set_cell_text_preserve_style(t7.rows[total_row_idx].cells[7], str(grand_total), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Center all cells in TOS tables (SYLLABUS, Unit header, unit labels, counts/marks, Total)
+    for t_tos in [t6, t7]:
+        if t_tos is not None:
+            for row in t_tos.rows:
+                for cell in row.cells:
+                    for p in cell.paragraphs:
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
@@ -775,8 +795,8 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         row_idx = 1 + idx
         if row_idx < len(t1.rows):
             set_cell_text_preserve_style(t1.rows[row_idx].cells[1], get_q_field(q, "text"))
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_field(q, "kl"))
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_field(q, "co"))
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # If Part A has fewer questions (e.g. 5 for CAT-1/CAT-2), trim extra rows
     if len(part_a) < 10 and len(t1.rows) > (1 + len(part_a)):
@@ -791,14 +811,14 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         if row_a_idx < len(t2.rows) and len(pair) > 0:
             q_a = pair[0]
             set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"))
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_field(q_a, "co"))
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
             
         if row_b_idx < len(t2.rows) and len(pair) > 1:
             q_b = pair[1]
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"))
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_field(q_b, "co"))
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # If Part B has fewer pairs (e.g. 2 for CAT-1/CAT-2), trim extra rows
     if len(part_b) < 5 and len(t2.rows) > (1 + len(part_b) * 3):
@@ -808,12 +828,23 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     t3 = doc.tables[3]
     if len(part_c) >= 2:
         set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(part_c[0], "text"))
-        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_field(part_c[0], "kl"))
-        set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_field(part_c[0], "co"))
+        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_field(part_c[0], "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+        set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_field(part_c[0], "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
         
         set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(part_c[1], "text"))
-        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_field(part_c[1], "kl"))
-        set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_field(part_c[1], "co"))
+        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_field(part_c[1], "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+        set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_field(part_c[1], "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Ensure all Question table KL and CO column cells are centered for model paper
+    for t in [t1, t2, t3]:
+        if len(t.rows) > 0:
+            for col_idx, c in enumerate(t.rows[0].cells):
+                col_name = c.text.strip().upper()
+                if "CO" in col_name or "KL" in col_name:
+                    for row in t.rows[1:]:
+                        if col_idx < len(row.cells):
+                            for p in row.cells[col_idx].paragraphs:
+                                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     # 5. Compute Table of Specifications (TOS)
     units_map = {"Unit I": 0, "Unit II": 1, "Unit III": 2, "Unit IV": 3, "Unit V": 4}
@@ -860,39 +891,56 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
 
     # 6. Populate Table 4 (Question-Wise TOS)
     t4 = doc.tables[4]
+    unit_labels_model = ["I", "II", "III", "IV", "V"]
     for u_idx in range(5):
         row_idx = 2 + u_idx
-        row_sum = 0
-        for k_idx in range(6):
-            val = tos_counts[u_idx][k_idx]
-            val_str = str(val) if val > 0 else ""
-            set_cell_text_preserve_style(t4.rows[row_idx].cells[1 + k_idx], val_str)
-            row_sum += val
-        set_cell_text_preserve_style(t4.rows[row_idx].cells[7], str(row_sum))
+        if row_idx < len(t4.rows):
+            set_cell_text_preserve_style(t4.rows[row_idx].cells[0], unit_labels_model[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
+            row_sum = 0
+            for k_idx in range(6):
+                val = tos_counts[u_idx][k_idx]
+                val_str = str(val) if val > 0 else ""
+                set_cell_text_preserve_style(t4.rows[row_idx].cells[1 + k_idx], val_str, align=WD_ALIGN_PARAGRAPH.CENTER)
+                row_sum += val
+            set_cell_text_preserve_style(t4.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
         
-    for k_idx in range(6):
-        col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(5))
-        set_cell_text_preserve_style(t4.rows[7].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
-    grand_total_t4 = sum(sum(row) for row in tos_counts)
-    set_cell_text_preserve_style(t4.rows[7].cells[7], str(grand_total_t4))
+    if len(t4.rows) > 7:
+        set_cell_text_preserve_style(t4.rows[7].cells[0], "Total", align=WD_ALIGN_PARAGRAPH.CENTER)
+        for k_idx in range(6):
+            col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(5))
+            set_cell_text_preserve_style(t4.rows[7].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0", align=WD_ALIGN_PARAGRAPH.CENTER)
+        grand_total_t4 = sum(sum(row) for row in tos_counts)
+        set_cell_text_preserve_style(t4.rows[7].cells[7], str(grand_total_t4), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # 7. Populate Table 5 (Marks-Wise TOS)
     t5 = doc.tables[5]
     for u_idx in range(5):
         row_idx = 2 + u_idx
-        row_sum = 0
-        for k_idx in range(6):
-            val = tos_marks[u_idx][k_idx]
-            val_str = str(val) if val > 0 else ""
-            set_cell_text_preserve_style(t5.rows[row_idx].cells[1 + k_idx], val_str)
-            row_sum += val
-        set_cell_text_preserve_style(t5.rows[row_idx].cells[7], str(row_sum))
+        if row_idx < len(t5.rows):
+            set_cell_text_preserve_style(t5.rows[row_idx].cells[0], unit_labels_model[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
+            row_sum = 0
+            for k_idx in range(6):
+                val = tos_marks[u_idx][k_idx]
+                val_str = str(val) if val > 0 else ""
+                set_cell_text_preserve_style(t5.rows[row_idx].cells[1 + k_idx], val_str, align=WD_ALIGN_PARAGRAPH.CENTER)
+                row_sum += val
+            set_cell_text_preserve_style(t5.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
         
-    for k_idx in range(6):
-        col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(5))
-        set_cell_text_preserve_style(t5.rows[7].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0")
-    grand_total_t5 = sum(sum(row) for row in tos_marks)
-    set_cell_text_preserve_style(t5.rows[7].cells[7], str(grand_total_t5))
+    if len(t5.rows) > 7:
+        set_cell_text_preserve_style(t5.rows[7].cells[0], "Total", align=WD_ALIGN_PARAGRAPH.CENTER)
+        for k_idx in range(6):
+            col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(5))
+            set_cell_text_preserve_style(t5.rows[7].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0", align=WD_ALIGN_PARAGRAPH.CENTER)
+        grand_total_t5 = sum(sum(row) for row in tos_marks)
+        set_cell_text_preserve_style(t5.rows[7].cells[7], str(grand_total_t5), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Ensure all cells in TOS tables are centered (including SYLLABUS, Unit, and header rows)
+    for t_tos in [t4, t5]:
+        if t_tos is not None:
+            for row in t_tos.rows:
+                for cell in row.cells:
+                    for p in cell.paragraphs:
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
 def generate_question_paper(
