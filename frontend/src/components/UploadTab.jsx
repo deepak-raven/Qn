@@ -303,48 +303,36 @@ export default function UploadTab({
   return (
     <div className="dashboard-grid">
       <div className="glass-panel card-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* Question Bank Template Banner - Always Visible at Top */}
-        <div style={{
-          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0.03) 100%)',
-          border: '1px solid rgba(37, 99, 235, 0.25)',
-          borderRadius: '8px',
-          padding: '0.9rem 1.1rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '1rem',
-          flexWrap: 'wrap'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ background: 'var(--primary, #2563eb)', color: '#fff', padding: '0.45rem', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileText size={20} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                Question Bank Word Template (.docx)
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Download the standardized blank Word template formatted with 5 units, Bloom's levels & Course Outcomes to distribute to faculties.
-              </div>
-            </div>
+        {/* Clean Header Bar with Download QB Template Button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem', marginBottom: '0.25rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Upload Question Bank</h3>
+            <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>Import syllabus question banks in Word (.docx) or PDF format</p>
           </div>
           <a
             href={`${API_BASE}/download-qb-template`}
             download="Question_Bank_Template.docx"
-            className="btn btn-primary"
+            className="btn"
             style={{
               fontSize: '0.82rem',
-              padding: '0.5rem 0.95rem',
+              padding: '0.45rem 0.85rem',
               display: 'inline-flex',
               alignItems: 'center',
               gap: '0.45rem',
               textDecoration: 'none',
               borderRadius: '6px',
-              whiteSpace: 'nowrap',
-              fontWeight: 600
+              background: '#f8fafc',
+              border: '1px solid #cbd5e1',
+              color: '#1e293b',
+              fontWeight: 600,
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+              transition: 'all 0.15s ease'
             }}
+            onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+            onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+            title="Download blank Question Bank template (.docx)"
           >
-            <Download size={15} /> Download Blank Template (.docx)
+            <Download size={15} /> Download QB Template
           </a>
         </div>
 
