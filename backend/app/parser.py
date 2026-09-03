@@ -46,38 +46,39 @@ def parse_part_marks_from_text(text: str):
         line_clean = re.sub(r'\s+', ' ', line.lower()).strip()
         if len(line_clean) <= 150:
             # Check Part A / 1 or 2 Marks
-            if (re.search(r'\b(one|1)\s*marks?\b', line_clean) or 
-                re.search(r'\b(two|2)\s*marks?\b', line_clean) or 
+            if (re.search(r'\b(?:one|1)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:two|2)\s*marks?\b', line_clean) or 
                 re.search(r'\bpart\s*[-–:]?\s*a\b', line_clean)):
-                m_val = 1 if ('one' in line_clean or '1' in line_clean) else 2
+                m_val = 1 if (re.search(r'\b(?:one|1)\s*marks?\b', line_clean)) else 2
                 return 'A', m_val
 
             # Check Part B / 3, 13, 16 Marks
-            if (re.search(r'\b(three|3)\s*marks?\b', line_clean) or 
-                re.search(r'\b(thirteen|13)\s*marks?\b', line_clean) or 
-                re.search(r'\b(sixteen|16)\s*marks?\b', line_clean) or 
+            if (re.search(r'\b(?:three|3)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:thirteen|13)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean) or 
                 re.search(r'\bpart\s*[-–:]?\s*b\b', line_clean)):
-                if 'three' in line_clean or '3' in line_clean:
+                if re.search(r'\b(?:three|3)\s*marks?\b', line_clean):
                     m_val = 3
-                elif 'sixteen' in line_clean or '16' in line_clean:
+                elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
                     m_val = 16
                 else:
                     m_val = 13
                 return 'B', m_val
 
             # Check Part C / 10, 12, 14, 15, 16 Marks
-            if (re.search(r'\b(ten|10)\s*marks?\b', line_clean) or 
-                re.search(r'\b(twelve|12)\s*marks?\b', line_clean) or 
-                re.search(r'\b(fourteen|14)\s*marks?\b', line_clean) or 
-                re.search(r'\b(fifteen|15)\s*marks?\b', line_clean) or 
+            if (re.search(r'\b(?:ten|10)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:fifteen|15)\s*marks?\b', line_clean) or 
+                re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean) or 
                 re.search(r'\bpart\s*[-–:]?\s*c\b', line_clean)):
-                if 'ten' in line_clean or '10' in line_clean:
+                if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
                     m_val = 10
-                elif 'twelve' in line_clean or '12' in line_clean:
+                elif re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
                     m_val = 12
-                elif 'fourteen' in line_clean or '14' in line_clean:
+                elif re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean):
                     m_val = 14
-                elif 'sixteen' in line_clean or '16' in line_clean:
+                elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
                     m_val = 16
                 else:
                     m_val = 15
@@ -89,49 +90,61 @@ def infer_co_from_unit(unit_str: Optional[str]) -> str:
     if not unit_str:
         return "CO1"
     u = unit_str.upper()
-    if "I" in u and "III" not in u and "II" not in u and "IV" not in u and "VIII" not in u and "VII" not in u:
-        return "CO1"
-    if "II" in u and "III" not in u and "VII" not in u and "VIII" not in u:
-        return "CO2"
-    if "III" in u and "VIII" not in u:
-        return "CO3"
-    if "IV" in u:
-        return "CO4"
-    if "V" in u:
+    
+    if re.search(r'\bV\b|\b5\b', u) and not re.search(r'\bIV\b|\bVI\b|\bVII\b|\bVIII\b', u):
         return "CO5"
-    if "1" in u: return "CO1"
-    if "2" in u: return "CO2"
-    if "3" in u: return "CO3"
-    if "4" in u: return "CO4"
-    if "5" in u: return "CO5"
+    if re.search(r'\bIV\b|\b4\b', u):
+        return "CO4"
+    if re.search(r'\bIII\b|\b3\b', u):
+        return "CO3"
+    if re.search(r'\bII\b|\b2\b', u):
+        return "CO2"
+    if re.search(r'\bI\b|\b1\b', u):
+        return "CO1"
+        
+    m = re.search(r'\b([1-5])\b', u)
+    if m:
+        return f"CO{m.group(1)}"
     return "CO1"
 
 
 def infer_bloom_from_text(question_text: str, part: str = 'A') -> str:
     if not question_text:
-        return "K1" if part == 'A' else "K2"
+        return ""
     q_low = question_text.lower().strip()
     
-    # Bloom Level 1 - Remember
-    if re.search(r'\b(define|state|list|name|what is|what are|mention|recall|identify|give the term|write down|who|when|where|label|tabulate)\b', q_low):
-        return "K1"
-    # Bloom Level 2 - Understand
-    if re.search(r'\b(explain|describe|discuss|differentiate|distinguish|compare|classify|illustrate|summarize|outline|contrast|why|interpret|paraphrase|indicate)\b', q_low):
-        return "K2"
-    # Bloom Level 3 - Apply
-    if re.search(r'\b(apply|calculate|solve|demonstrate|construct|implement|compute|determine|show how|use|execute|modify|show that|find)\b', q_low):
-        return "K3"
-    # Bloom Level 4 - Analyze
-    if re.search(r'\b(analyze|analyse|examine|categorize|breakdown|differentiate between|investigate|inspect|test|probe)\b', q_low):
-        return "K4"
-    # Bloom Level 5 - Evaluate
-    if re.search(r'\b(evaluate|assess|justify|criticize|judge|defend|prioritize|rate|appraise|recommend)\b', q_low):
-        return "K5"
-    # Bloom Level 6 - Create
-    if re.search(r'\b(design|formulate|develop|create|compose|plan|propose|synthesize|generate|devise)\b', q_low):
-        return "K6"
+    # Check leading question starter verb first (e.g., 'Explain the...', 'Define the...')
+    first_word_match = re.match(r'^(?:[0-9]+[\.\)\-]?\s*)?([a-z]+)', q_low)
+    if first_word_match:
+        fw = first_word_match.group(1)
+        if fw in ['define', 'state', 'list', 'tell', 'recite', 'recall', 'identify', 'label', 'tabulate', 'quote', 'name', 'mention']:
+            return 'K1'
+        if fw in ['explain', 'describe', 'discuss', 'differentiate', 'distinguish', 'compare', 'summarize', 'interpret', 'paraphrase', 'contrast']:
+            return 'K2'
+        if fw in ['calculate', 'solve', 'apply', 'predict', 'demonstrate', 'determine', 'compute', 'execute', 'implement', 'construct']:
+            return 'K3'
+        if fw in ['analyze', 'analyse', 'categorize', 'investigate', 'inspect', 'probe']:
+            return 'K4'
+        if fw in ['evaluate', 'assess', 'justify', 'defend', 'recommend', 'convince', 'judge', 'prioritize', 'rate', 'appraise', 'conclude']:
+            return 'K5'
+        if fw in ['design', 'formulate', 'build', 'invent', 'create', 'compose', 'generate', 'derive', 'develop', 'integrate', 'plan', 'propose', 'synthesize', 'devise']:
+            return 'K6'
+
+    # Fallback to general keyword scanning
+    if re.search(r'\b(design|formulate|build|invent|create|compose|generate|derive|develop|integrate|plan|propose|synthesize|devise)\b', q_low):
+        return 'K6'
+    if re.search(r'\b(evaluate|assess|justify|defend|recommend|convince|judge|prioritize|rate|appraise|conclude)\b', q_low):
+        return 'K5'
+    if re.search(r'\b(analyze|analyse|categorize|break down|breakdown|investigate|inspect|probe)\b', q_low):
+        return 'K4'
+    if re.search(r'\b(calculate|solve|apply|demonstrate|determine|compute|execute|implement|construct)\b', q_low):
+        return 'K3'
+    if re.search(r'\b(explain|describe|discuss|differentiate|distinguish|compare|summarize|interpret|paraphrase|contrast|why|indicate)\b', q_low):
+        return 'K2'
+    if re.search(r'\b(define|state|list|tell|recite|recall|identify|label|tabulate|quote|name|what is|what are|who|when|where|mention)\b', q_low):
+        return 'K1'
         
-    return "K1" if part == 'A' else "K2"
+    return ""
 
 
 def extract_inline_metadata(raw_text: str) -> tuple:
@@ -191,9 +204,10 @@ def extract_inline_metadata(raw_text: str) -> tuple:
             marks = val
             text = text[:marks_match.start()]
             
-    # Clean multiple spaces and trailing punctuation artifacts
+    # Clean multiple spaces, trailing punctuation artifacts, and leading question numbering (e.g. "1. ", "Q1) ")
     clean_text = re.sub(r'\s+', ' ', text).strip()
     clean_text = re.sub(r'\s*[\(\[\{]\s*[\)\]\}]\s*$', '', clean_text).strip()
+    clean_text = re.sub(r'^(?:Q\.?\s*)?(?:\(?\d+[a-zA-Z]?\)?[.\-\)]\s*|\(?\d+\)\s*|\([a-zA-Z]\)\s*)', '', clean_text).strip()
     return clean_text, kl, co, marks
 
 
@@ -217,16 +231,17 @@ def classify_table_columns(rows_data: List[List[str]]) -> Dict[str, int]:
     marks_idx = -1
 
     # 1. Header Name Inspection
-    for idx, c_text in enumerate(header_row):
-        if re.match(r'^(s|sl|q|item)[\.\s]*no[\.]?$', c_text) or c_text in ['sno', 'qno', 'no', '#']:
+    for idx, raw_c_text in enumerate(header_row):
+        c_text = re.sub(r'\s+', '', raw_c_text.lower())
+        if re.match(r'^(s|sl|q|item)[\.\s]*no[\.]?$', raw_c_text) or c_text in ['sno', 'qno', 'no', '#', 's.no.', 's.no', 'sl.no', 'slno']:
             sno_idx = idx
-        elif any(w in c_text for w in ['question', 'description', 'particulars', 'item description', 'q.text']):
+        elif any(w in c_text for w in ['question', 'description', 'particulars', 'itemdescription', 'q.text']):
             q_idx = idx
-        elif any(w in c_text for w in ['knowledge', 'bloom', 'kl', 'k.l', 'level', 'bt level', 'bt']):
+        elif any(w in c_text for w in ['knowledge', 'bloom', 'kl', 'k.l', 'klevel', 'level', 'btlevel', 'bt']):
             kl_idx = idx
-        elif any(w in c_text for w in ['course outcome', 'outcome', 'co', 'c.o']):
+        elif any(w in c_text for w in ['courseoutcome', 'outcome', 'co', 'c.o']):
             co_idx = idx
-        elif any(w in c_text for w in ['marks', 'mark', 'max mark']):
+        elif any(w in c_text for w in ['marks', 'mark', 'maxmark']):
             marks_idx = idx
 
     # 2. Content-Aware Inspection across data rows
@@ -279,8 +294,17 @@ def classify_table_columns(rows_data: List[List[str]]) -> Dict[str, int]:
             if col_sno_scores[best_sno_col] > 0 and best_sno_col not in [q_idx, kl_idx, co_idx]:
                 sno_idx = best_sno_col
 
-    # Final safe fallbacks
-    if q_idx == -1:
+    # Final safe fallbacks for standard 3-col or 4-col tables
+    if num_cols == 3:
+        if sno_idx == -1: sno_idx = 0
+        if q_idx == -1 or q_idx == 0: q_idx = 1
+        if kl_idx == -1: kl_idx = 2
+    elif num_cols == 4:
+        if sno_idx == -1: sno_idx = 0
+        if q_idx == -1 or q_idx == 0: q_idx = 1
+        if kl_idx == -1: kl_idx = 2
+        if co_idx == -1: co_idx = 3
+    elif q_idx == -1:
         q_idx = 1 if num_cols > 1 else 0
 
     return {
@@ -290,6 +314,7 @@ def classify_table_columns(rows_data: List[List[str]]) -> Dict[str, int]:
         "sno_idx": sno_idx,
         "marks_idx": marks_idx
     }
+
 
 
 def clean_pdf_cell_text(text: str) -> str:
@@ -350,6 +375,27 @@ def is_question_starter_line(text: str) -> bool:
     return False
 
 
+def extract_cell_images(cell, doc) -> Optional[str]:
+    """Extracts embedded diagram/figure image from a Word cell as base64 string."""
+    try:
+        import base64
+        for el in cell._tc.iter():
+            tag = el.tag.split('}')[-1]
+            if tag == 'blip':
+                for attr_k, attr_v in el.attrib.items():
+                    if attr_k.endswith('embed') and attr_v in doc.part.related_parts:
+                        blob = doc.part.related_parts[attr_v].blob
+                        return base64.b64encode(blob).decode('utf-8')
+            elif tag == 'imagedata':
+                for attr_k, attr_v in el.attrib.items():
+                    if attr_k.endswith('id') and attr_v in doc.part.related_parts:
+                        blob = doc.part.related_parts[attr_v].blob
+                        return base64.b64encode(blob).decode('utf-8')
+    except Exception as e:
+        logger.debug(f"Could not extract diagram from cell: {e}")
+    return None
+
+
 def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str) -> List[Dict[str, Any]]:
     doc = docx.Document(io.BytesIO(file_bytes))
     questions: List[Dict[str, Any]] = []
@@ -398,6 +444,13 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
             if not raw_rows:
                 continue
 
+            # Check if table is a metadata table (Department / Subject Code etc.) or Guidelines/Instructions
+            table_full_text = " ".join([" ".join(r) for r in raw_rows]).lower()
+            if any(k in table_full_text for k in ['department:', 'subject code:', 'staff in-charge:', 'staff in charge:']) and not any(k in table_full_text for k in ['s.no', 'q.no', 'k1', 'k2', 'two marks', 'thirteen marks']):
+                continue
+            if 'faculty instructions' in table_full_text or 'guidelines for question bank' in table_full_text:
+                continue
+
             # Check if Row 0 or table header is a unit/part title banner
             first_row_str = " ".join([c for c in raw_rows[0] if c])
             u_r0 = parse_unit_from_text(first_row_str)
@@ -443,20 +496,35 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                 if not raw_q_text or raw_q_text.lower().startswith("question") or raw_q_text.lower() in ["s.no", "q.no", "description"]:
                     continue
 
+                # Skip template placeholders (e.g. "[Enter question text here...]" or "[Type question...]")
+                if raw_q_text.startswith("[") and raw_q_text.endswith("]") and "question" in raw_q_text.lower():
+                    continue
+
                 # Extract KL / CO / Marks from dedicated columns
-                raw_kl = cells[kl_idx].strip() if (kl_idx >= 0 and len(cells) > kl_idx) else ""
-                raw_co = cells[co_idx].strip() if (co_idx >= 0 and len(cells) > co_idx) else ""
+                raw_kl = cells[kl_idx].strip() if (kl_idx >= 0 and len(cells) > kl_idx and kl_idx != q_idx) else ""
+                raw_co = cells[co_idx].strip() if (co_idx >= 0 and len(cells) > co_idx and co_idx != q_idx) else ""
+                
+                if raw_kl and not re.match(r'^(?:K|KL|BT)?[1-6]$|^(?:REMEMBER|UNDERSTAND|APPLY|ANALYZE|EVALUATE|CREATE)$', raw_kl.upper()):
+                    raw_kl = ""
+                if raw_co and not re.match(r'^(?:CO|C)?[1-6]$', raw_co.upper()):
+                    raw_co = ""
+
                 row_marks = current_marks
                 if marks_idx >= 0 and len(cells) > marks_idx and cells[marks_idx].isdigit():
                     row_marks = int(cells[marks_idx])
 
                 # Extract inline metadata if present in question text
                 clean_q_text, in_kl, in_co, in_marks = extract_inline_metadata(raw_q_text)
-                final_kl = raw_kl or in_kl or ""
+                final_kl = raw_kl or in_kl or infer_bloom_from_text(clean_q_text, current_part)
                 final_co = raw_co or in_co or infer_co_from_unit(current_unit)
                 final_marks = in_marks or row_marks or current_marks
 
-                if len(clean_q_text) >= 5:
+                # Extract image/diagram from question cell if present
+                img_data = None
+                if len(table.rows[row_idx].cells) > q_idx:
+                    img_data = extract_cell_images(table.rows[row_idx].cells[q_idx], doc)
+
+                if len(clean_q_text) >= 5 or img_data:
                     questions.append({
                         "subject_code": subject_code,
                         "semester": semester,
@@ -465,15 +533,17 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                         "part": current_part,
                         "marks": final_marks,
                         "kl": final_kl,
-                        "co": final_co
+                        "co": final_co,
+                        "image_data": img_data
                     })
 
-    # Strategy 2: If 0 questions were parsed from tables, run Paragraph-Based Extraction (for tableless Word files like UNIT III.docx)
-    if not questions:
-        logger.info("0 questions found in tables. Activating paragraph-based DOCX question extractor...")
+    # Strategy 2: If the document has 0 tables, run Paragraph-Based Extraction (for tableless Word files like UNIT III.docx)
+    if not questions and len(doc.tables) == 0:
+        logger.info("0 tables in DOCX. Activating paragraph-based question extractor...")
         current_unit = "Unit I"
         current_part = "A"
         current_marks = 2
+        in_instructions = False
 
         # Check document top for unit
         for p in doc.paragraphs[:10]:
@@ -487,6 +557,14 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
             if not text:
                 continue
 
+            text_low = text.lower()
+            if any(h in text_low for h in ['instructions & guidelines', 'instructions for faculty', 'guidelines for faculty', 'guidelines for question bank', 'faculty instructions']):
+                in_instructions = True
+                continue
+
+            if in_instructions:
+                continue
+
             u = parse_unit_from_text(text)
             if u:
                 current_unit = u
@@ -498,13 +576,17 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                 current_marks = p_marks
                 continue
 
-            # Ignore header/title like "UNIT III: DISTRIBUTED MUTEX" or short titles
-            if parse_unit_from_text(text) or parse_part_marks_from_text(text)[0]:
+            # Ignore institutional headers, metadata lines, guidelines, signatures, or placeholders
+            if any(h in text_low for h in ['department', 'question bank', 'academic year', 'staff in-charge', 'staff in charge', 'hod / principal', 'hod/principal', 'college', 'institute', 'institution', 'university', 'subject code', 'subject name', 'year/ sem', 'year / sem', 'year/sem', 'regulation']):
+                continue
+            if text.startswith('[') and text.endswith(']'):
+                continue
+            if text_low.endswith(':'):
                 continue
 
-            if is_question_starter_line(text) or not questions:
+            if is_question_starter_line(text) or (len(text) > 10 and not any(k in text_low for k in ['subject code', 'subject name', 'year / semester', 'regulation:'])):
                 clean_q, in_kl, in_co, in_m = extract_inline_metadata(text)
-                final_kl = in_kl or ""
+                final_kl = in_kl or infer_bloom_from_text(clean_q, current_part)
                 final_co = in_co or infer_co_from_unit(current_unit)
                 final_m = in_m or current_marks
 
@@ -715,10 +797,11 @@ def extract_text_from_docx(file_bytes: bytes) -> str:
             full_text.append(p.text.strip())
             
     if doc.tables:
-        for row in doc.tables[0].rows[:10]:
-            row_text = " | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()])
-            if row_text:
-                full_text.append(row_text)
+        for t in doc.tables[:3]:
+            for row in t.rows:
+                row_text = " | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()])
+                if row_text:
+                    full_text.append(row_text)
                 
     return "\n".join(full_text)
 
@@ -772,7 +855,7 @@ def parse_text_metadata(text: str) -> dict:
         "regulation": None
     }
     
-    match_both = re.search(r'(?:Sub\.[ \t]*Code/Sub\.[ \t]*Name|Sub[ \t]*Code[ \t]*/[ \t]*Sub[ \t]*Name)[ \t]*:[ \t]*([A-Za-z0-9\-]+)[ \t]*/[ \t]*([^\n\r]+)', text, re.IGNORECASE)
+    match_both = re.search(r'(?:Sub\.[ \t]*Code/Sub\.[ \t]*Name|Sub[ \t]*Code[ \t]*/[ \t]*Sub[ \t]*Name)[ \t]*:[ \t]*([A-Za-z0-9\-]+)[ \t]*/[ \t]*([^\n\r|]+)', text, re.IGNORECASE)
     if match_both:
         metadata["subject_code"] = match_both.group(1).strip()
         metadata["subject_name"] = match_both.group(2).strip()
@@ -781,16 +864,17 @@ def parse_text_metadata(text: str) -> dict:
         if match_code:
             metadata["subject_code"] = match_code.group(1).strip()
             
-        match_name = re.search(r'Subject[ \t]*:[ \t]*([^:\n\r\t]+)', text, re.IGNORECASE)
+        match_name = re.search(r'(?:Subject[ \t]*Name|Subject)[ \t]*:[ \t]*([^:\n\r\t|]+)', text, re.IGNORECASE)
         if match_name:
             name_val = match_name.group(1).strip()
-            name_val = re.split(r'\s{2,}', name_val)[0]
-            metadata["subject_name"] = name_val.strip()
+            name_val = re.split(r'[\s\t]{2,}|\n|\r|\|', name_val)[0]
+            if not name_val.startswith("____"):
+                metadata["subject_name"] = name_val.strip()
 
-    match_deg_br = re.search(r'(?:Degree[ \t]*/[ \t]*Branch)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+    match_deg_br = re.search(r'(?:Degree[ \t]*/[ \t]*Branch)[ \t]*:[ \t]*([^\n\r\t|]+)', text, re.IGNORECASE)
     if match_deg_br:
         val = match_deg_br.group(1).strip()
-        val = re.split(r'\s{2,}', val)[0]
+        val = re.split(r'[\s\t]{2,}|\n|\r|\|', val)[0]
         parts = [p.strip() for p in val.split('/') if p.strip()]
         if len(parts) >= 2:
             metadata["degree"] = parts[0]
@@ -803,9 +887,10 @@ def parse_text_metadata(text: str) -> dict:
             else:
                 metadata["branch"] = parts[0]
     else:
-        match_deg_br_sem = re.search(r'(?:Degree[ \t]*/[ \t]*Branch[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+        match_deg_br_sem = re.search(r'(?:Degree[ \t]*/[ \t]*Branch[ \t]*/[ \t]*Sem)[ \t]*:[ \t]*([^\n\r\t|]+)', text, re.IGNORECASE)
         if match_deg_br_sem:
             val = match_deg_br_sem.group(1).strip()
+            val = re.split(r'[\s\t]{2,}|\n|\r|\|', val)[0]
             parts = [p.strip() for p in val.split('/') if p.strip()]
             if len(parts) >= 2:
                 metadata["degree"] = parts[0]
@@ -814,8 +899,8 @@ def parse_text_metadata(text: str) -> dict:
             if len(parts) >= 3:
                 metadata["semester"] = parts[2]
         else:
-            match_deg = re.search(r'Degree[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
-            match_br = re.search(r'Branch[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+            match_deg = re.search(r'Degree[ \t]*:[ \t]*([^\n\r\t|]+)', text, re.IGNORECASE)
+            match_br = re.search(r'Branch[ \t]*:[ \t]*([^\n\r\t|]+)', text, re.IGNORECASE)
             if match_deg:
                 metadata["degree"] = match_deg.group(1).strip().split()[0]
             if match_br:
@@ -823,10 +908,10 @@ def parse_text_metadata(text: str) -> dict:
             if metadata["degree"] or metadata["branch"]:
                 metadata["degree_branch"] = f"{metadata.get('degree') or 'B.E'}/{metadata.get('branch') or 'CSE'}"
 
-    match_yr_sem = re.search(r'(?:Year[ \t]*/[ \t]*Sem|Year[ \t]*/[ \t]*Semester)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+    match_yr_sem = re.search(r'(?:Year[ \t]*/[ \t]*Sem|Year[ \t]*/[ \t]*Semester)[ \t]*:[ \t]*([^\n\r\t|]+)', text, re.IGNORECASE)
     if match_yr_sem:
         val = match_yr_sem.group(1).strip()
-        val = re.split(r'\s{2,}', val)[0]
+        val = re.split(r'[\s\t]{2,}|\n|\r|\|', val)[0]
         parts = [p.strip() for p in val.split('/') if p.strip()]
         if len(parts) >= 2:
             metadata["year"] = parts[0]
@@ -835,10 +920,10 @@ def parse_text_metadata(text: str) -> dict:
             metadata["semester"] = parts[0]
 
     if not metadata["semester"]:
-        match_sem_line = re.search(r'(?:Sem|Semester)[ \t]*:[ \t]*([^\n\r\t]+)', text, re.IGNORECASE)
+        match_sem_line = re.search(r'(?:Sem|Semester)[ \t]*:[ \t]*([^\n\r\t|]+)', text, re.IGNORECASE)
         if match_sem_line:
             sem_str = match_sem_line.group(1).strip()
-            sem_str = re.split(r'\s{2,}', sem_str)[0]
+            sem_str = re.split(r'[\s\t]{2,}|\n|\r|\|', sem_str)[0]
             if "/" in sem_str:
                 sem_str = sem_str.split("/")[-1].strip()
             metadata["semester"] = sem_str

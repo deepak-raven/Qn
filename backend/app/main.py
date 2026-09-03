@@ -93,6 +93,13 @@ if not os.path.exists(MODEL_TEMPLATE_PATH) and os.path.exists(PARENT_MODEL_PATH)
 
 TEMPLATE_PATH = CAT_2021_CAT3_TEMPLATE_PATH
 CAT_TEMPLATE_PATH = CAT_2021_CAT3_TEMPLATE_PATH
+QB_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "Question_Bank_Template.docx")
+if not os.path.exists(QB_TEMPLATE_PATH):
+    try:
+        from app.create_template import build_question_bank_template
+        build_question_bank_template(QB_TEMPLATE_PATH)
+    except Exception as _e:
+        logger.warning(f"Could not auto-generate QB template on startup: {_e}")
 
 
 def sanitize_filename(name: str) -> str:
@@ -251,6 +258,22 @@ async def create_new_subject(subject: Subject):
     except Exception as e:
         logger.error(f"Error creating subject: {e}")
         raise HTTPException(status_code=500, detail="Failed to create subject in database.")
+
+@app.get("/api/download-qb-template")
+async def download_question_bank_template():
+    try:
+        if not os.path.exists(QB_TEMPLATE_PATH):
+            from app.create_template import build_question_bank_template
+            build_question_bank_template(QB_TEMPLATE_PATH)
+            
+        return FileResponse(
+            path=QB_TEMPLATE_PATH,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            filename="Question_Bank_Template.docx"
+        )
+    except Exception as e:
+        logger.error(f"Error serving question bank template: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to download Question Bank template.")
 
 @app.post("/api/upload-docx")
 async def upload_question_bank(

@@ -32,8 +32,9 @@ class Question(BaseModel):
     unit: Optional[str] = "Unit I"
     part: Optional[str] = "A"
     marks: Optional[int] = 2
-    kl: Optional[str] = "K1"
+    kl: Optional[str] = ""
     co: Optional[str] = "CO1"
+    image_data: Optional[str] = Field(None, description="Base64 encoded image data if question includes a diagram")
     uploaded_by: Optional[str] = Field(None, description="Email address of the staff member who uploaded this question")
 
     model_config = ConfigDict(populate_by_name=True)

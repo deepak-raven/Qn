@@ -13,7 +13,7 @@ export function normalizeUnit(unitStr) {
 }
 
 export function normalizeKL(klStr) {
-  if (!klStr) return 'K1';
+  if (!klStr) return null;
   const k = String(klStr).trim().toUpperCase();
   if (k.includes('K1') || k.includes('REMEMBER')) return 'K1';
   if (k.includes('K2') || k.includes('UNDERSTAND')) return 'K2';
@@ -26,7 +26,7 @@ export function normalizeKL(klStr) {
   if (digits && parseInt(digits[0]) >= 1 && parseInt(digits[0]) <= 6) {
     return `K${digits[0]}`;
   }
-  return 'K1';
+  return null;
 }
 
 export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, config) {
@@ -68,7 +68,7 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
       const klKey = normalizeKL(q.kl);
       const marksVal = defaultMarks !== undefined ? defaultMarks : 0;
       
-      if (tosCounts[unitKey] && tosCounts[unitKey][klKey] !== undefined) {
+      if (klKey && tosCounts[unitKey] && tosCounts[unitKey][klKey] !== undefined) {
         tosCounts[unitKey][klKey] += 1;
         tosMarks[unitKey][klKey] += marksVal;
       }

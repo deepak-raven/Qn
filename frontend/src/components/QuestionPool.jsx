@@ -152,10 +152,24 @@ export default function QuestionPool({
                 </div>
                 <div className="pool-item-content">
                   <p className="pool-item-text">{q.text}</p>
+                  {q.image_data && (
+                    <div style={{ marginTop: '4px', marginBottom: '4px' }}>
+                      <img
+                        src={q.image_data.startsWith('data:') ? q.image_data : `data:image/png;base64,${q.image_data}`}
+                        alt="Question Diagram"
+                        style={{ maxHeight: '75px', maxWidth: '100%', borderRadius: '4px', border: '1px solid #cbd5e1', objectFit: 'contain' }}
+                      />
+                    </div>
+                  )}
                   <div className="pool-item-tags">
                     <span className="tag tag-unit">{q.unit}</span>
                     <span className="tag tag-kl">{q.kl}</span>
                     <span className="tag tag-co">{q.co}</span>
+                    {q.image_data && (
+                      <span className="tag" style={{ background: '#e0f2fe', color: '#0369a1', borderColor: '#bae6fd', fontWeight: 600 }}>
+                        📷 Diagram
+                      </span>
+                    )}
                     {assigned && (
                       <span className="tag tag-unit" style={{ background: 'var(--success-light)', color: 'var(--success)', borderColor: 'var(--success)' }}>
                         Added

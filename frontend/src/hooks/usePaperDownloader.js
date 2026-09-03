@@ -62,6 +62,48 @@ export function usePaperDownloader() {
       }
     }
 
+    // Check for missing KL in chosen questions
+    const missingKlQuestions = [];
+    selectedPartA.slice(0, reqPartA).forEach((q, idx) => {
+      if (q && (!q.kl || String(q.kl).trim() === '')) {
+        missingKlQuestions.push(`Part A Q${idx + 1}`);
+      }
+    });
+
+    if (is2025) {
+      selectedPartB.slice(0, 5).forEach((slot, idx) => {
+        const item = (slot?.a || slot?.b || (slot?.text ? slot : null));
+        if (item && (!item.kl || String(item.kl).trim() === '')) {
+          missingKlQuestions.push(`Part B Q${6 + idx}`);
+        }
+      });
+      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC];
+      partCPairs.forEach((pair, idx) => {
+        if (pair?.a && (!pair.a.kl || String(pair.a.kl).trim() === '')) missingKlQuestions.push(`Part C Q${11 + idx}(a)`);
+        if (pair?.b && (!pair.b.kl || String(pair.b.kl).trim() === '')) missingKlQuestions.push(`Part C Q${11 + idx}(b)`);
+      });
+    } else {
+      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
+      for (let i = 0; i < reqPartBCount; i++) {
+        const qNo = getPartBQuestionNo(config.exam_type, i, config.regulation);
+        if (selectedPartB[i]?.a && (!selectedPartB[i].a.kl || String(selectedPartB[i].a.kl).trim() === '')) missingKlQuestions.push(`Part B Q${qNo}(a)`);
+        if (selectedPartB[i]?.b && (!selectedPartB[i].b.kl || String(selectedPartB[i].b.kl).trim() === '')) missingKlQuestions.push(`Part B Q${qNo}(b)`);
+      }
+      const singlePartC = Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC;
+      const qNoC = getPartCQuestionNo(config.exam_type, 0, config.regulation);
+      if (singlePartC?.a && (!singlePartC.a.kl || String(singlePartC.a.kl).trim() === '')) missingKlQuestions.push(`Part C Q${qNoC}(a)`);
+      if (singlePartC?.b && (!singlePartC.b.kl || String(singlePartC.b.kl).trim() === '')) missingKlQuestions.push(`Part C Q${qNoC}(b)`);
+    }
+
+    if (missingKlQuestions.length > 0) {
+      const proceed = window.confirm(
+        `⚠️ Warning: Knowledge Level (KL) is missing for:\n• ${missingKlQuestions.join('\n• ')}\n\nTable of Specifications (ToS) cannot be calculated accurately without KL.\n\nClick 'OK' to Generate Anyway, or 'Cancel' to edit KL in the Preview.`
+      );
+      if (!proceed) {
+        return;
+      }
+    }
+
     setDownloading(true);
     try {
       const reqPartBCount = (isCAT && !is2025) ? 2 : 5;

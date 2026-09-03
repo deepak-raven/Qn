@@ -1,12 +1,14 @@
 import os
+import io
 import re
 import copy
 import logging
+import base64
 import docx
 import docx.oxml
 import docx.oxml.ns
 from docx.table import _Cell
-from docx.shared import Pt
+from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
 from docx.oxml.ns import nsdecls
@@ -78,10 +80,11 @@ def get_q_field(q, field: str, default: str = "") -> str:
         val = getattr(q, field, None)
     return str(val) if val is not None else default
 
-def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAGRAPH] = None):
+def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAGRAPH] = None, image_data: Optional[str] = None):
     """
     Clears the text in a cell while preserving its original cell borders and styles.
     Overwrites the text of the first run in the first paragraph, and removes other runs.
+    If image_data is provided, embeds the diagram/figure directly into the cell.
     """
     if len(cell.paragraphs) == 0:
         cell.add_paragraph()
@@ -98,6 +101,21 @@ def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAG
         run = p.add_run(text)
         run.font.name = "Times New Roman"
         run.font.size = Pt(12)
+
+    if image_data:
+        try:
+            import base64
+            raw_b64 = image_data.split(",")[-1] if "," in image_data else image_data
+            img_bytes = base64.b64decode(raw_b64)
+            p_img = cell.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(4)
+            p_img.paragraph_format.space_after = Pt(2)
+            run_img = p_img.add_run()
+            run_img.add_picture(io.BytesIO(img_bytes), width=Inches(2.5))
+        except Exception as img_err:
+            logger.warning(f"Could not insert diagram into question cell: {img_err}")
+
 
 def clean_degree_branch(deg_input: str) -> str:
     if not deg_input:
@@ -477,7 +495,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             row_idx = 1 + idx
             if row_idx < len(t_part_a.rows):
                 if len(t_part_a.rows[row_idx].cells) > 1:
-                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"))
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                 if len(t_part_a.rows[row_idx].cells) > 2:
                     set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_a.rows[row_idx].cells) > 3:
@@ -501,7 +519,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             row_idx = 1 + idx
             if row_idx < len(t_part_b.rows):
                 if len(t_part_b.rows[row_idx].cells) > 1:
-                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"))
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                 if len(t_part_b.rows[row_idx].cells) > 2:
                     set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_b.rows[row_idx].cells) > 3:
@@ -527,13 +545,13 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                             if not any(uc._tc == cell._tc for uc in unique_cells):
                                 unique_cells.append(cell)
                         if len(unique_cells) >= 5:
-                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"))
+                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                             set_cell_text_preserve_style(unique_cells[3], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                             set_cell_text_preserve_style(unique_cells[4], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
                         else:
                             n_cells = len(r.cells)
                             if n_cells >= 4:
-                                set_cell_text_preserve_style(r.cells[3], get_q_field(q, "text"))
+                                set_cell_text_preserve_style(r.cells[3], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                             col_kl = n_cells - 2 if n_cells >= 6 else 2
                             col_co = n_cells - 1 if n_cells >= 6 else 3
                             if col_kl < n_cells:
@@ -551,7 +569,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                     if row_a_idx < len(t_part_b.rows) and len(pair) > 0 and pair[0]:
                         q_a = pair[0]
                         if len(t_part_b.rows[row_a_idx].cells) > 2:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                         if len(t_part_b.rows[row_a_idx].cells) > 3:
                             set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                         if len(t_part_b.rows[row_a_idx].cells) > 4:
@@ -559,7 +577,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                     if row_b_idx < len(t_part_b.rows) and len(pair) > 1 and pair[1]:
                         q_b = pair[1]
                         if len(t_part_b.rows[row_b_idx].cells) > 2:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                         if len(t_part_b.rows[row_b_idx].cells) > 3:
                             set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                         if len(t_part_b.rows[row_b_idx].cells) > 4:
@@ -577,7 +595,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             if len(flat_c) >= 1 and len(t_part_c.rows) > 1:
                 q_a = flat_c[0]
                 if len(t_part_c.rows[1].cells) > 2:
-                    set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"))
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                 if len(t_part_c.rows[1].cells) > 3:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[1].cells) > 4:
@@ -585,7 +603,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             if len(flat_c) >= 2 and len(t_part_c.rows) > 3:
                 q_b = flat_c[1]
                 if len(t_part_c.rows[3].cells) > 2:
-                    set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"))
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                 if len(t_part_c.rows[3].cells) > 3:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[3].cells) > 4:

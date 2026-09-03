@@ -20,6 +20,7 @@ export default function PaperPreview({
   handleClearSlot,
   handleClearAllQuestions,
   updateQuestionText,
+  updateQuestionField,
   setActiveTabSub,
   setFilterUnit,
   tosCounts,
@@ -78,6 +79,45 @@ export default function PaperPreview({
   const filteredGrandTotalMark = React.useMemo(() => {
     return tosUnits.reduce((acc, u) => acc + (unitTotalsMark[u] || 0), 0);
   }, [tosUnits, unitTotalsMark]);
+
+  const missingKlList = React.useMemo(() => {
+    const list = [];
+    const reqPartA = (is2025 || isCAT) ? 5 : 10;
+    selectedPartA.slice(0, reqPartA).forEach((q, idx) => {
+      if (q && (!q.kl || String(q.kl).trim() === '')) list.push(`Part A Q${idx + 1}`);
+    });
+    if (is2025) {
+      selectedPartB.slice(0, 5).forEach((slot, idx) => {
+        const item = (slot?.a || slot?.b || (slot?.text ? slot : null));
+        if (item && (!item.kl || String(item.kl).trim() === '')) list.push(`Part B Q${6 + idx}`);
+      });
+      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC];
+      partCPairs.forEach((pair, idx) => {
+        if (pair?.a && (!pair.a.kl || String(pair.a.kl).trim() === '')) list.push(`Part C Q${11 + idx}(a)`);
+        if (pair?.b && (!pair.b.kl || String(pair.b.kl).trim() === '')) list.push(`Part C Q${11 + idx}(b)`);
+      });
+    } else {
+      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
+      for (let i = 0; i < reqPartBCount; i++) {
+        const qNo = getPartBQuestionNo(config.exam_type, i, config.regulation);
+        if (selectedPartB[i]?.a && (!selectedPartB[i].a.kl || String(selectedPartB[i].a.kl).trim() === '')) list.push(`Part B Q${qNo}(a)`);
+        if (selectedPartB[i]?.b && (!selectedPartB[i].b.kl || String(selectedPartB[i].b.kl).trim() === '')) list.push(`Part B Q${qNo}(b)`);
+      }
+      const singlePartC = Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC;
+      const qNoC = getPartCQuestionNo(config.exam_type, 0, config.regulation);
+      if (singlePartC?.a && (!singlePartC.a.kl || String(singlePartC.a.kl).trim() === '')) list.push(`Part C Q${qNoC}(a)`);
+      if (singlePartC?.b && (!singlePartC.b.kl || String(singlePartC.b.kl).trim() === '')) list.push(`Part C Q${qNoC}(b)`);
+    }
+    return list;
+  }, [selectedPartA, selectedPartB, selectedPartC, is2025, isCAT, config]);
+
+  const onUpdateField = (part, idx, key, field, val) => {
+    if (updateQuestionField) {
+      updateQuestionField(part, idx, key, field, val);
+    } else if (field === 'text' && updateQuestionText) {
+      updateQuestionText(part, idx, key, val);
+    }
+  };
 
   return (
     <div style={{ 
@@ -557,18 +597,29 @@ export default function PaperPreview({
                       <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                         <GripVertical size={13} />
                       </span>
-                      <span 
-                        contentEditable 
-                        suppressContentEditableWarning
-                        onBlur={(e) => {
-                          const val = e.target.innerText.trim();
-                          if (val !== '') {
-                            updateQuestionText('A', idx, null, val);
-                          }
-                        }}
-                      >
-                        {item.text}
-                      </span>
+                      <div>
+                        <span 
+                          contentEditable 
+                          suppressContentEditableWarning
+                          onBlur={(e) => {
+                            const val = e.target.innerText.trim();
+                            if (val !== '') {
+                              updateQuestionText('A', idx, null, val);
+                            }
+                          }}
+                        >
+                          {item.text}
+                        </span>
+                        {item.image_data && (
+                          <div style={{ marginTop: '0.35rem' }}>
+                            <img
+                              src={item.image_data.startsWith('data:') ? item.image_data : `data:image/png;base64,${item.image_data}`}
+                              alt="Question Diagram"
+                              style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }}
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <span 
@@ -582,8 +633,41 @@ export default function PaperPreview({
                     </span>
                   )}
                 </td>
-                <td className="center">{item ? item.co : ''}</td>
-                <td className="center">{item ? item.kl : ''}</td>
+                <td className="center">
+                  {item ? (
+                    <span
+                      contentEditable
+                      suppressContentEditableWarning
+                      onBlur={(e) => onUpdateField('A', idx, null, 'co', e.target.innerText.trim().toUpperCase())}
+                      style={{ padding: '2px 4px', borderRadius: '3px', cursor: 'text' }}
+                      title="Click to edit Course Outcome (e.g. CO1)"
+                    >
+                      {item.co || ''}
+                    </span>
+                  ) : ''}
+                </td>
+                <td className="center">
+                  {item ? (
+                    <span
+                      contentEditable
+                      suppressContentEditableWarning
+                      onBlur={(e) => onUpdateField('A', idx, null, 'kl', e.target.innerText.trim().toUpperCase())}
+                      style={{
+                        padding: '2px 5px',
+                        borderRadius: '4px',
+                        cursor: 'text',
+                        border: !item.kl ? '1px dashed #f59e0b' : 'none',
+                        background: !item.kl ? '#fef3c7' : 'transparent',
+                        color: !item.kl ? '#b45309' : 'inherit',
+                        fontWeight: !item.kl ? '600' : 'normal',
+                        fontSize: !item.kl ? '0.76rem' : 'inherit'
+                      }}
+                      title={!item.kl ? "Click to enter Bloom's Level (e.g. K1, K2)" : "Click to edit Bloom's Level"}
+                    >
+                      {item.kl || '[Set KL]'}
+                    </span>
+                  ) : ''}
+                </td>
                 <td className="center">
                   {item && (
                     <button 
@@ -642,18 +726,29 @@ export default function PaperPreview({
                           <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                             <GripVertical size={13} />
                           </span>
-                          <span 
-                            contentEditable 
-                            suppressContentEditableWarning
-                            onBlur={(e) => {
-                              const val = e.target.innerText.trim();
-                              if (val !== '') {
-                                updateQuestionText('B', idx, 'a', val);
-                              }
-                            }}
-                          >
-                            {item.text}
-                          </span>
+                          <div>
+                            <span 
+                              contentEditable 
+                              suppressContentEditableWarning
+                              onBlur={(e) => {
+                                const val = e.target.innerText.trim();
+                                if (val !== '') {
+                                  updateQuestionText('B', idx, 'a', val);
+                                }
+                              }}
+                            >
+                              {item.text}
+                            </span>
+                            {item.image_data && (
+                              <div style={{ marginTop: '0.35rem' }}>
+                                <img
+                                  src={item.image_data.startsWith('data:') ? item.image_data : `data:image/png;base64,${item.image_data}`}
+                                  alt="Question Diagram"
+                                  style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span 
@@ -667,8 +762,41 @@ export default function PaperPreview({
                         </span>
                       )}
                     </td>
-                    <td className="center">{item ? item.co : ''}</td>
-                    <td className="center">{item ? item.kl : ''}</td>
+                    <td className="center">
+                      {item ? (
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onUpdateField('B', idx, 'a', 'co', e.target.innerText.trim().toUpperCase())}
+                          style={{ padding: '2px 4px', borderRadius: '3px', cursor: 'text' }}
+                          title="Click to edit Course Outcome (e.g. CO2)"
+                        >
+                          {item.co || ''}
+                        </span>
+                      ) : ''}
+                    </td>
+                    <td className="center">
+                      {item ? (
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onUpdateField('B', idx, 'a', 'kl', e.target.innerText.trim().toUpperCase())}
+                          style={{
+                            padding: '2px 5px',
+                            borderRadius: '4px',
+                            cursor: 'text',
+                            border: !item.kl ? '1px dashed #f59e0b' : 'none',
+                            background: !item.kl ? '#fef3c7' : 'transparent',
+                            color: !item.kl ? '#b45309' : 'inherit',
+                            fontWeight: !item.kl ? '600' : 'normal',
+                            fontSize: !item.kl ? '0.76rem' : 'inherit'
+                          }}
+                          title={!item.kl ? "Click to enter Bloom's Level (e.g. K2, K3)" : "Click to edit Bloom's Level"}
+                        >
+                          {item.kl || '[Set KL]'}
+                        </span>
+                      ) : ''}
+                    </td>
                     <td className="center">
                       {item && (
                         <button 
@@ -723,18 +851,29 @@ export default function PaperPreview({
                             <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                               <GripVertical size={13} />
                             </span>
-                            <span 
-                              contentEditable 
-                              suppressContentEditableWarning
-                              onBlur={(e) => {
-                                const val = e.target.innerText.trim();
-                                if (val !== '') {
-                                  updateQuestionText('B', idx, 'a', val);
-                                }
-                              }}
-                            >
-                              {slot.a.text}
-                            </span>
+                            <div>
+                              <span 
+                                contentEditable 
+                                suppressContentEditableWarning
+                                onBlur={(e) => {
+                                  const val = e.target.innerText.trim();
+                                  if (val !== '') {
+                                    updateQuestionText('B', idx, 'a', val);
+                                  }
+                                }}
+                              >
+                                {slot.a.text}
+                              </span>
+                              {slot.a.image_data && (
+                                <div style={{ marginTop: '0.35rem' }}>
+                                  <img
+                                    src={slot.a.image_data.startsWith('data:') ? slot.a.image_data : `data:image/png;base64,${slot.a.image_data}`}
+                                    alt="Question Diagram"
+                                    style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span 
@@ -748,8 +887,41 @@ export default function PaperPreview({
                           </span>
                         )}
                       </td>
-                      <td className="center">{slot?.a ? slot.a.co : ''}</td>
-                      <td className="center">{slot?.a ? slot.a.kl : ''}</td>
+                      <td className="center">
+                        {slot?.a ? (
+                          <span
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={(e) => onUpdateField('B', idx, 'a', 'co', e.target.innerText.trim().toUpperCase())}
+                            style={{ padding: '2px 4px', borderRadius: '3px', cursor: 'text' }}
+                            title="Click to edit Course Outcome (e.g. CO2)"
+                          >
+                            {slot.a.co || ''}
+                          </span>
+                        ) : ''}
+                      </td>
+                      <td className="center">
+                        {slot?.a ? (
+                          <span
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={(e) => onUpdateField('B', idx, 'a', 'kl', e.target.innerText.trim().toUpperCase())}
+                            style={{
+                              padding: '2px 5px',
+                              borderRadius: '4px',
+                              cursor: 'text',
+                              border: !slot.a.kl ? '1px dashed #f59e0b' : 'none',
+                              background: !slot.a.kl ? '#fef3c7' : 'transparent',
+                              color: !slot.a.kl ? '#b45309' : 'inherit',
+                              fontWeight: !slot.a.kl ? '600' : 'normal',
+                              fontSize: !slot.a.kl ? '0.76rem' : 'inherit'
+                            }}
+                            title={!slot.a.kl ? "Click to enter Bloom's Level (e.g. K2, K3)" : "Click to edit Bloom's Level"}
+                          >
+                            {slot.a.kl || '[Set KL]'}
+                          </span>
+                        ) : ''}
+                      </td>
                       <td className="center">
                         {slot?.a && (
                           <button 
@@ -791,18 +963,29 @@ export default function PaperPreview({
                             <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                               <GripVertical size={13} />
                             </span>
-                            <span 
-                              contentEditable 
-                              suppressContentEditableWarning
-                              onBlur={(e) => {
-                                const val = e.target.innerText.trim();
-                                if (val !== '') {
-                                  updateQuestionText('B', idx, 'b', val);
-                                }
-                              }}
-                            >
-                              {slot.b.text}
-                            </span>
+                            <div>
+                              <span 
+                                contentEditable 
+                                suppressContentEditableWarning
+                                onBlur={(e) => {
+                                  const val = e.target.innerText.trim();
+                                  if (val !== '') {
+                                    updateQuestionText('B', idx, 'b', val);
+                                  }
+                                }}
+                              >
+                                {slot.b.text}
+                              </span>
+                              {slot.b.image_data && (
+                                <div style={{ marginTop: '0.35rem' }}>
+                                  <img
+                                    src={slot.b.image_data.startsWith('data:') ? slot.b.image_data : `data:image/png;base64,${slot.b.image_data}`}
+                                    alt="Question Diagram"
+                                    style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }}
+                                  />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <span 
@@ -816,8 +999,41 @@ export default function PaperPreview({
                           </span>
                         )}
                       </td>
-                      <td className="center">{slot?.b ? slot.b.co : ''}</td>
-                      <td className="center">{slot?.b ? slot.b.kl : ''}</td>
+                      <td className="center">
+                        {slot?.b ? (
+                          <span
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={(e) => onUpdateField('B', idx, 'b', 'co', e.target.innerText.trim().toUpperCase())}
+                            style={{ padding: '2px 4px', borderRadius: '3px', cursor: 'text' }}
+                            title="Click to edit Course Outcome (e.g. CO2)"
+                          >
+                            {slot.b.co || ''}
+                          </span>
+                        ) : ''}
+                      </td>
+                      <td className="center">
+                        {slot?.b ? (
+                          <span
+                            contentEditable
+                            suppressContentEditableWarning
+                            onBlur={(e) => onUpdateField('B', idx, 'b', 'kl', e.target.innerText.trim().toUpperCase())}
+                            style={{
+                              padding: '2px 5px',
+                              borderRadius: '4px',
+                              cursor: 'text',
+                              border: !slot.b.kl ? '1px dashed #f59e0b' : 'none',
+                              background: !slot.b.kl ? '#fef3c7' : 'transparent',
+                              color: !slot.b.kl ? '#b45309' : 'inherit',
+                              fontWeight: !slot.b.kl ? '600' : 'normal',
+                              fontSize: !slot.b.kl ? '0.76rem' : 'inherit'
+                            }}
+                            title={!slot.b.kl ? "Click to enter Bloom's Level (e.g. K2, K3)" : "Click to edit Bloom's Level"}
+                          >
+                            {slot.b.kl || '[Set KL]'}
+                          </span>
+                        ) : ''}
+                      </td>
                       <td className="center">
                         {slot?.b && (
                           <button 
@@ -887,18 +1103,29 @@ export default function PaperPreview({
                           <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                             <GripVertical size={13} />
                           </span>
-                          <span 
-                            contentEditable 
-                            suppressContentEditableWarning
-                            onBlur={(e) => {
-                              const val = e.target.innerText.trim();
-                              if (val !== '') {
-                                updateQuestionText('C', pairIdx, 'a', val);
-                              }
-                            }}
-                          >
-                            {slotA.text}
-                          </span>
+                          <div>
+                            <span 
+                              contentEditable 
+                              suppressContentEditableWarning
+                              onBlur={(e) => {
+                                const val = e.target.innerText.trim();
+                                if (val !== '') {
+                                  updateQuestionText('C', pairIdx, 'a', val);
+                                }
+                              }}
+                            >
+                              {slotA.text}
+                            </span>
+                            {slotA.image_data && (
+                              <div style={{ marginTop: '0.35rem' }}>
+                                <img
+                                  src={slotA.image_data.startsWith('data:') ? slotA.image_data : `data:image/png;base64,${slotA.image_data}`}
+                                  alt="Question Diagram"
+                                  style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span 
@@ -913,8 +1140,41 @@ export default function PaperPreview({
                         </span>
                       )}
                     </td>
-                    <td className="center">{slotA ? slotA.co : ''}</td>
-                    <td className="center">{slotA ? slotA.kl : ''}</td>
+                    <td className="center">
+                      {slotA ? (
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onUpdateField('C', pairIdx, 'a', 'co', e.target.innerText.trim().toUpperCase())}
+                          style={{ padding: '2px 4px', borderRadius: '3px', cursor: 'text' }}
+                          title="Click to edit Course Outcome (e.g. CO3)"
+                        >
+                          {slotA.co || ''}
+                        </span>
+                      ) : ''}
+                    </td>
+                    <td className="center">
+                      {slotA ? (
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onUpdateField('C', pairIdx, 'a', 'kl', e.target.innerText.trim().toUpperCase())}
+                          style={{
+                            padding: '2px 5px',
+                            borderRadius: '4px',
+                            cursor: 'text',
+                            border: !slotA.kl ? '1px dashed #f59e0b' : 'none',
+                            background: !slotA.kl ? '#fef3c7' : 'transparent',
+                            color: !slotA.kl ? '#b45309' : 'inherit',
+                            fontWeight: !slotA.kl ? '600' : 'normal',
+                            fontSize: !slotA.kl ? '0.76rem' : 'inherit'
+                          }}
+                          title={!slotA.kl ? "Click to enter Bloom's Level (e.g. K3, K4)" : "Click to edit Bloom's Level"}
+                        >
+                          {slotA.kl || '[Set KL]'}
+                        </span>
+                      ) : ''}
+                    </td>
                     <td className="center">
                       {slotA && (
                         <button 
@@ -956,18 +1216,29 @@ export default function PaperPreview({
                           <span style={{ color: '#8a8886', cursor: 'grab', display: 'inline-flex', alignItems: 'center', marginTop: '0.15rem' }}>
                             <GripVertical size={13} />
                           </span>
-                          <span 
-                            contentEditable 
-                            suppressContentEditableWarning
-                            onBlur={(e) => {
-                              const val = e.target.innerText.trim();
-                              if (val !== '') {
-                                updateQuestionText('C', pairIdx, 'b', val);
-                              }
-                            }}
-                          >
-                            {slotB.text}
-                          </span>
+                          <div>
+                            <span 
+                              contentEditable 
+                              suppressContentEditableWarning
+                              onBlur={(e) => {
+                                const val = e.target.innerText.trim();
+                                if (val !== '') {
+                                  updateQuestionText('C', pairIdx, 'b', val);
+                                }
+                              }}
+                            >
+                              {slotB.text}
+                            </span>
+                            {slotB.image_data && (
+                              <div style={{ marginTop: '0.35rem' }}>
+                                <img
+                                  src={slotB.image_data.startsWith('data:') ? slotB.image_data : `data:image/png;base64,${slotB.image_data}`}
+                                  alt="Question Diagram"
+                                  style={{ maxHeight: '140px', maxWidth: '100%', objectFit: 'contain', borderRadius: '4px', border: '1px solid #e2e8f0' }}
+                                />
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span 
@@ -982,8 +1253,41 @@ export default function PaperPreview({
                         </span>
                       )}
                     </td>
-                    <td className="center">{slotB ? slotB.co : ''}</td>
-                    <td className="center">{slotB ? slotB.kl : ''}</td>
+                    <td className="center">
+                      {slotB ? (
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onUpdateField('C', pairIdx, 'b', 'co', e.target.innerText.trim().toUpperCase())}
+                          style={{ padding: '2px 4px', borderRadius: '3px', cursor: 'text' }}
+                          title="Click to edit Course Outcome (e.g. CO3)"
+                        >
+                          {slotB.co || ''}
+                        </span>
+                      ) : ''}
+                    </td>
+                    <td className="center">
+                      {slotB ? (
+                        <span
+                          contentEditable
+                          suppressContentEditableWarning
+                          onBlur={(e) => onUpdateField('C', pairIdx, 'b', 'kl', e.target.innerText.trim().toUpperCase())}
+                          style={{
+                            padding: '2px 5px',
+                            borderRadius: '4px',
+                            cursor: 'text',
+                            border: !slotB.kl ? '1px dashed #f59e0b' : 'none',
+                            background: !slotB.kl ? '#fef3c7' : 'transparent',
+                            color: !slotB.kl ? '#b45309' : 'inherit',
+                            fontWeight: !slotB.kl ? '600' : 'normal',
+                            fontSize: !slotB.kl ? '0.76rem' : 'inherit'
+                          }}
+                          title={!slotB.kl ? "Click to enter Bloom's Level (e.g. K3, K4)" : "Click to edit Bloom's Level"}
+                        >
+                          {slotB.kl || '[Set KL]'}
+                        </span>
+                      ) : ''}
+                    </td>
                     <td className="center">
                       {slotB && (
                         <button 
@@ -1103,6 +1407,29 @@ export default function PaperPreview({
             </div>
           </div>
         </div>
+
+      {/* MISSING KL WARNING BANNER */}
+      {missingKlList.length > 0 && (
+        <div style={{
+          background: '#fffbeb',
+          border: '1px solid #fef3c7',
+          borderLeft: '4px solid #f59e0b',
+          borderRadius: '6px',
+          padding: '0.65rem 1rem',
+          fontSize: '0.84rem',
+          color: '#92400e',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.2rem'
+        }}>
+          <div>
+            <strong>⚠️ Missing Knowledge Level (KL):</strong> {missingKlList.length} question(s) ({missingKlList.slice(0, 4).join(', ')}{missingKlList.length > 4 ? ` +${missingKlList.length - 4} more` : ''}) do not have a Bloom level assigned.
+          </div>
+          <div style={{ fontSize: '0.78rem', color: '#b45309' }}>
+            Click directly on the <strong>KL</strong> cell in the preview tables below to enter <code>K1</code>–<code>K6</code>. The Table of Specifications (ToS) will calculate automatically.
+          </div>
+        </div>
+      )}
 
         {/* CAT Staff Signatures Footer */}
         {isCAT && (

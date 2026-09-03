@@ -563,23 +563,44 @@ export function useAppState() {
       });
     };
 
-    const updateQuestionText = (part, idx, key, newText) => {
+    const updateQuestionField = (part, idx, key, field, value) => {
       updateCurrentSet(set => {
         if (part === 'A') {
           const next = [...set.selectedPartA];
-          next[idx] = { ...next[idx], text: newText };
+          if (next[idx]) {
+            next[idx] = { ...next[idx], [field]: value };
+          }
           return { selectedPartA: next };
         } else if (part === 'B') {
           const next = [...set.selectedPartB];
-          next[idx] = { ...next[idx], [key]: { ...next[idx][key], text: newText } };
+          if (next[idx]) {
+            if (key) {
+              next[idx] = { ...next[idx], [key]: { ...next[idx][key], [field]: value } };
+            } else {
+              next[idx] = { ...next[idx], [field]: value };
+            }
+          }
           return { selectedPartB: next };
         } else if (part === 'C') {
-          const next = { ...set.selectedPartC };
-          next[key] = { ...next[key], text: newText };
-          return { selectedPartC: next };
+          const is2025 = is2025Regulation(set.config?.regulation);
+          if (is2025 && Array.isArray(set.selectedPartC)) {
+            const next = [...set.selectedPartC];
+            if (next[idx]) {
+              next[idx] = { ...next[idx], [key || 'a']: { ...next[idx][key || 'a'], [field]: value } };
+            }
+            return { selectedPartC: next };
+          } else {
+            const currentC = set.selectedPartC || { a: null, b: null };
+            const next = { ...currentC, [key || 'a']: { ...currentC[key || 'a'], [field]: value } };
+            return { selectedPartC: next };
+          }
         }
         return {};
       });
+    };
+
+    const updateQuestionText = (part, idx, key, newText) => {
+      updateQuestionField(part, idx, key, 'text', newText);
     };
 
     const handleDragStart = (e, q) => {
@@ -814,6 +835,7 @@ export function useAppState() {
       handleClearSlot,
       handleClearAllQuestions,
       updateQuestionText,
+      updateQuestionField,
       handleDragStart,
       handleDrop,
       isAssigned,
