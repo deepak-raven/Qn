@@ -5,6 +5,14 @@ from datetime import datetime, timezone
 import motor.motor_asyncio
 from bson import ObjectId
 
+# Configure DNS resolver to avoid local DNS timeout on mongodb+srv SRV lookups
+try:
+    import dns.resolver
+    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1', '8.8.4.4']
+except Exception:
+    pass
+
 from app.config import settings
 
 logger = logging.getLogger("app.database")
@@ -27,7 +35,7 @@ async def init_db():
         logger.info(f"Connecting to MongoDB at {settings.MONGODB_URI}...")
         client = motor.motor_asyncio.AsyncIOMotorClient(
             settings.MONGODB_URI,
-            serverSelectionTimeoutMS=5000
+            serverSelectionTimeoutMS=10000
         )
         db = client[settings.DATABASE_NAME]
         
