@@ -175,7 +175,7 @@ def format_year_sem(sem_input: str, alt_input: str = "", subject_code: str = "")
 
     # Infer semester from Anna University subject code (e.g. CS3551 -> sem 5 -> III / V)
     if subject_code:
-        digits = re.sub(r'\D', '', str(subject_code))
+        digits = re.sub(r'\D', '', subject_code)
         if len(digits) >= 3:
             sem_digit = int(digits[1])
             if 1 <= sem_digit <= 8:

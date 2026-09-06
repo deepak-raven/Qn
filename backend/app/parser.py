@@ -232,15 +232,16 @@ def classify_table_columns(rows_data: List[List[str]]) -> Dict[str, int]:
 
     # 1. Header Name Inspection
     for idx, raw_c_text in enumerate(header_row):
-        c_text = re.sub(r'\s+', '', raw_c_text.lower())
-        if re.match(r'^(s|sl|q|item)[\.\s]*no[\.]?$', raw_c_text) or c_text in ['sno', 'qno', 'no', '#', 's.no.', 's.no', 'sl.no', 'slno']:
+        c_text = re.sub(r'[^a-z0-9]', '', raw_c_text.lower())
+        if re.match(r'^(s|sl|q|item)[\.\s]*no[\.]?$', raw_c_text.strip().lower()) or c_text in ['sno', 'qno', 'no', '#', 'item', 'slno']:
             sno_idx = idx
-        elif any(w in c_text for w in ['question', 'description', 'particulars', 'itemdescription', 'q.text']):
+        elif any(w in c_text for w in ['question', 'description', 'particulars', 'itemdescription', 'qtext']):
             q_idx = idx
-        elif any(w in c_text for w in ['knowledge', 'bloom', 'kl', 'k.l', 'klevel', 'level', 'btlevel', 'bt']):
-            kl_idx = idx
-        elif any(w in c_text for w in ['courseoutcome', 'outcome', 'co', 'c.o']):
+        # Check CO before KL so that 'co level' isn't mistaken for 'level' / KL
+        elif any(w in c_text for w in ['courseoutcome', 'outcome', 'colevel']) or c_text.startswith('co') or c_text == 'co':
             co_idx = idx
+        elif any(w in c_text for w in ['knowledge', 'bloom', 'klevel', 'kl', 'btlevel', 'bt']) or (c_text.startswith('k') and 'level' in c_text) or c_text in ['kl', 'k', 'level']:
+            kl_idx = idx
         elif any(w in c_text for w in ['marks', 'mark', 'maxmark']):
             marks_idx = idx
 
@@ -504,10 +505,25 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                 raw_kl = cells[kl_idx].strip() if (kl_idx >= 0 and len(cells) > kl_idx and kl_idx != q_idx) else ""
                 raw_co = cells[co_idx].strip() if (co_idx >= 0 and len(cells) > co_idx and co_idx != q_idx) else ""
                 
-                if raw_kl and not re.match(r'^(?:K|KL|BT)?[1-6]$|^(?:REMEMBER|UNDERSTAND|APPLY|ANALYZE|EVALUATE|CREATE)$', raw_kl.upper()):
-                    raw_kl = ""
-                if raw_co and not re.match(r'^(?:CO|C)?[1-6]$', raw_co.upper()):
-                    raw_co = ""
+                if raw_kl:
+                    m_kl = re.search(r'\b(?:K|KL|BT)?\s*([1-6])\b', raw_kl.upper())
+                    if m_kl:
+                        raw_kl = f"K{m_kl.group(1)}"
+                    elif re.search(r'\bREMEMBER\b', raw_kl.upper()): raw_kl = "K1"
+                    elif re.search(r'\bUNDERSTAND\b', raw_kl.upper()): raw_kl = "K2"
+                    elif re.search(r'\bAPPLY\b', raw_kl.upper()): raw_kl = "K3"
+                    elif re.search(r'\bANALY', raw_kl.upper()): raw_kl = "K4"
+                    elif re.search(r'\bEVALUAT', raw_kl.upper()): raw_kl = "K5"
+                    elif re.search(r'\bCREAT', raw_kl.upper()): raw_kl = "K6"
+                    else:
+                        raw_kl = ""
+
+                if raw_co:
+                    m_co = re.search(r'\b(?:CO|C)?\s*([1-6])\b', raw_co.upper())
+                    if m_co:
+                        raw_co = f"CO{m_co.group(1)}"
+                    else:
+                        raw_co = ""
 
                 row_marks = current_marks
                 if marks_idx >= 0 and len(cells) > marks_idx and cells[marks_idx].isdigit():
