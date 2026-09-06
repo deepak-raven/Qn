@@ -836,6 +836,31 @@ h1, h2, h3, h4, h5, h6 {
   text-align: center;
 }
 
+.paper-table-input {
+  width: 44px;
+  text-align: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  padding: 2px 2px;
+  cursor: text;
+  box-sizing: border-box;
+}
+
+.paper-table-input:hover {
+  border-color: #d1d5db;
+}
+
+.paper-table-input:focus {
+  outline: 2px solid #3b82f6;
+  border-color: transparent;
+  background: #ffffff;
+}
+
 .paper-drop-zone-cell {
   border: 1.5px dashed var(--primary);
   background: #fbfcfd;

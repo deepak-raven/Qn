@@ -30,25 +30,51 @@ const ROMAN_YEAR_SEM = {
 };
 const ROMAN_MAP = { 8: 'VIII', 7: 'VII', 6: 'VI', 5: 'V', 4: 'IV', 3: 'III', 2: 'II', 1: 'I' };
 
-export function formatYearSem(semInput, altInput) {
+export function formatYearSem(semInput, altInput, subjectCode = '') {
   const text = `${semInput || ''} ${altInput || ''}`.trim().toUpperCase();
-  if (!text) return 'II / III';
 
   const match = text.match(/\b([I|V|X]+)\s*\/\s*([I|V|X]+)\b/i);
   if (match) {
     return `${match[1]} / ${match[2]}`;
   }
 
+  // Check explicit semester suffix in semInput e.g. "B.E/CSE / V" or "B.E/CSE/5"
+  const mSem = String(semInput || '').match(/\/([I|V|X]+|\d+)\s*$/i);
+  if (mSem) {
+    const sVal = mSem[1].toUpperCase();
+    for (let num = 8; num >= 1; num--) {
+      if (ROMAN_MAP[num] === sVal || String(num) === sVal) {
+        const [yearRom, semRom] = ROMAN_YEAR_SEM[num];
+        return `${yearRom} / ${semRom}`;
+      }
+    }
+  }
+
   for (let num = 8; num >= 1; num--) {
     const rom = ROMAN_MAP[num];
-    const regex = new RegExp(`\\b(${rom}|SEM\\s*${num}|${num})\\b`, 'i');
+    const regex = new RegExp(`\\b(${rom}|SEM\\s*${num}|SEM\\s*${rom})\\b`, 'i');
     if (regex.test(text)) {
       const [yearRom, semRom] = ROMAN_YEAR_SEM[num];
       return `${yearRom} / ${semRom}`;
     }
   }
 
-  return 'II / III';
+  // Infer semester from Anna University subject code (e.g. CS3551 -> sem 5 -> III / V)
+  if (subjectCode) {
+    const digits = String(subjectCode).replace(/\D/g, '');
+    if (digits.length >= 3) {
+      const semDigit = parseInt(digits.length === 4 ? digits[1] : digits[1], 10);
+      if (semDigit >= 1 && semDigit <= 8) {
+        const [yearRom, semRom] = ROMAN_YEAR_SEM[semDigit];
+        return `${yearRom} / ${semRom}`;
+      }
+    }
+  }
+
+  if (text.includes('EVEN')) {
+    return 'II / IV';
+  }
+  return 'III / V';
 }
 
 // --- SEPARATE REGULATION RULES (2021 REGULATION vs 2025 REGULATION) ---

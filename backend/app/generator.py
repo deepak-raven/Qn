@@ -80,6 +80,26 @@ def get_q_field(q, field: str, default: str = "") -> str:
         val = getattr(q, field, None)
     return str(val) if val is not None else default
 
+def get_q_co(q, default_unit: str = "Unit I") -> str:
+    co = get_q_field(q, "co").strip()
+    if co:
+        return co
+    u = normalize_unit(get_q_field(q, "unit", default_unit))
+    unit_co_map = {
+        "Unit I": "CO1",
+        "Unit II": "CO2",
+        "Unit III": "CO3",
+        "Unit IV": "CO4",
+        "Unit V": "CO5"
+    }
+    return unit_co_map.get(u, "CO1")
+
+def get_q_kl(q, default: str = "") -> str:
+    kl = get_q_field(q, "kl").strip()
+    if kl:
+        return normalize_kl(kl) or kl
+    return default
+
 def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAGRAPH] = None, image_data: Optional[str] = None):
     """
     Clears the text in a cell while preserving its original cell borders and styles.
@@ -131,22 +151,40 @@ ROMAN_YEAR_SEM = {
 }
 ROMAN_MAP = {8: "VIII", 7: "VII", 6: "VI", 5: "V", 4: "IV", 3: "III", 2: "II", 1: "I"}
 
-def format_year_sem(sem_input: str, alt_input: str = "") -> str:
+def format_year_sem(sem_input: str, alt_input: str = "", subject_code: str = "") -> str:
     text = f"{sem_input or ''} {alt_input or ''}".upper()
-    if not text.strip():
-        return "II / III"
 
     m = re.search(r'\b([I|V|X]+)\s*/\s*([I|V|X]+)\b', text)
     if m:
         return f"{m.group(1)} / {m.group(2)}"
 
+    # Check explicit semester suffix in sem_input e.g. "B.E/CSE / V" or "B.E/CSE/5"
+    m_sem = re.search(r'/\s*([I|V|X]+|\d)\b', sem_input or '', re.IGNORECASE)
+    if m_sem:
+        s_val = m_sem.group(1).upper()
+        for num in range(8, 0, -1):
+            if ROMAN_MAP[num] == s_val or str(num) == s_val:
+                year_rom, sem_rom = ROMAN_YEAR_SEM[num]
+                return f"{year_rom} / {sem_rom}"
+
     for num in range(8, 0, -1):
         rom = ROMAN_MAP[num]
-        if re.search(rf'\b({rom}|SEM\s*{num}|{num})\b', text):
+        if re.search(rf'\b({rom}|SEM\s*{num}|SEM\s*{rom})\b', text):
             year_rom, sem_rom = ROMAN_YEAR_SEM[num]
             return f"{year_rom} / {sem_rom}"
 
-    return " / "
+    # Infer semester from Anna University subject code (e.g. CS3551 -> sem 5 -> III / V)
+    if subject_code:
+        digits = re.sub(r'\D', '', str(subject_code))
+        if len(digits) >= 3:
+            sem_digit = int(digits[1])
+            if 1 <= sem_digit <= 8:
+                year_rom, sem_rom = ROMAN_YEAR_SEM[sem_digit]
+                return f"{year_rom} / {sem_rom}"
+
+    if "EVEN" in text:
+        return "II / IV"
+    return "III / V"
 
 def set_cell_bold_label_value(cell, label_bold: str, value_normal: str, font_size_pt: float = 11):
     if len(cell.paragraphs) == 0:
@@ -464,7 +502,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         if len(t_course.rows) > 1 and len(t_course.rows[1].cells) > 0:
             set_cell_bold_label_value(t_course.rows[1].cells[0], "Degree / Branch:", deg_branch)
             
-        sem_val = format_year_sem(config.degree_branch_sem, config.semester)
+        sem_val = format_year_sem(config.degree_branch_sem, config.semester, config.subject_code)
         if len(t_course.rows) > 1 and len(t_course.rows[1].cells) > 1:
             set_cell_bold_label_value(t_course.rows[1].cells[1], "Year / Semester:", sem_val)
             
@@ -489,23 +527,41 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     t_part_b = q_tables[1] if len(q_tables) > 1 else (doc.tables[4] if len(doc.tables) > 4 else None)
     t_part_c = q_tables[2] if len(q_tables) > 2 else (doc.tables[5] if len(doc.tables) > 5 else None)
 
+    # Determine CAT layout and target units dynamically
+    is_cat3 = config.exam_type in ["CAT-3", "IAT-3"]
+    is_cat2 = config.exam_type in ["CAT-2", "IAT-2"]
+    is_2025_cat_layout = False
+    if t_part_b and len(t_part_b.rows) > 0 and len(t_part_b.rows[0].cells) == 4:
+        is_2025_cat_layout = True
+    is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
+
+    if is_cat3:
+        target_units = ["Unit IV", "Unit V"]
+        unit_labels = ["IV", "V"]
+    elif is_cat2 and not is_2025:
+        target_units = ["Unit II", "Unit III"]
+        unit_labels = ["II", "III"]
+    elif is_cat2:
+        target_units = ["Unit III", "Unit IV"]
+        unit_labels = ["III", "IV"]
+    else:
+        target_units = ["Unit I", "Unit II"]
+        unit_labels = ["I", "II"]
+
     # 2. Part A
     if t_part_a:
         for idx, q in enumerate(part_a[:5]):
             row_idx = 1 + idx
+            default_u = target_units[0] if idx < 3 else target_units[1]
             if row_idx < len(t_part_a.rows):
                 if len(t_part_a.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                 if len(t_part_a.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[2], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_a.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[3], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # 3. Part B & Part C based on template table structure
-    is_2025_cat_layout = False
-    if t_part_b and len(t_part_b.rows) > 0 and len(t_part_b.rows[0].cells) == 4:
-        is_2025_cat_layout = True
-
     if is_2025_cat_layout and t_part_b:
         # 2025 Regulation: Part B (Q6..Q10 short questions)
         flat_b = []
@@ -517,13 +573,14 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
         for idx, q in enumerate(flat_b[:5]):
             row_idx = 1 + idx
+            default_u = target_units[0] if idx < 3 else target_units[1]
             if row_idx < len(t_part_b.rows):
                 if len(t_part_b.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                 if len(t_part_b.rows[row_idx].cells) > 2:
-                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[2], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_b.rows[row_idx].cells) > 3:
-                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[3], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # 2025 Regulation: Part C (Q11a/11b, Q12a/12b, Q13a/13b)
         if t_part_c:
@@ -544,10 +601,11 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                         for cell in r.cells:
                             if not any(uc._tc == cell._tc for uc in unique_cells):
                                 unique_cells.append(cell)
+                        default_u = target_units[0] if idx < 3 else target_units[1]
                         if len(unique_cells) >= 5:
                             set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
-                            set_cell_text_preserve_style(unique_cells[3], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
-                            set_cell_text_preserve_style(unique_cells[4], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(unique_cells[3], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(unique_cells[4], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
                         else:
                             n_cells = len(r.cells)
                             if n_cells >= 4:
@@ -555,9 +613,9 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                             col_kl = n_cells - 2 if n_cells >= 6 else 2
                             col_co = n_cells - 1 if n_cells >= 6 else 3
                             if col_kl < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_kl], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                                set_cell_text_preserve_style(r.cells[col_kl], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
                             if col_co < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_co], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                                set_cell_text_preserve_style(r.cells[col_co], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     else:
         # 2021 Regulation: Part B (Either-Or pairs Q6a/b, Q7a/b)
@@ -566,22 +624,23 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             for idx, pair in enumerate(part_b[:2]):
                 if idx < len(pair_rows) and isinstance(pair, (list, tuple)):
                     row_a_idx, row_b_idx = pair_rows[idx]
+                    pair_default_u = target_units[idx] if idx < len(target_units) else "Unit I"
                     if row_a_idx < len(t_part_b.rows) and len(pair) > 0 and pair[0]:
                         q_a = pair[0]
                         if len(t_part_b.rows[row_a_idx].cells) > 2:
                             set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                         if len(t_part_b.rows[row_a_idx].cells) > 3:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
                         if len(t_part_b.rows[row_a_idx].cells) > 4:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_co(q_a, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
                     if row_b_idx < len(t_part_b.rows) and len(pair) > 1 and pair[1]:
                         q_b = pair[1]
                         if len(t_part_b.rows[row_b_idx].cells) > 2:
                             set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                         if len(t_part_b.rows[row_b_idx].cells) > 3:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
                         if len(t_part_b.rows[row_b_idx].cells) > 4:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_co(q_b, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # 2021 Regulation: Part C (Either-Or pair Q8a/b in Table Part C)
         if t_part_c:
@@ -597,17 +656,17 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 if len(t_part_c.rows[1].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                 if len(t_part_c.rows[1].cells) > 3:
-                    set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[1].cells) > 4:
-                    set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_co(q_a, target_units[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
             if len(flat_c) >= 2 and len(t_part_c.rows) > 3:
                 q_b = flat_c[1]
                 if len(t_part_c.rows[3].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                 if len(t_part_c.rows[3].cells) > 3:
-                    set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[3].cells) > 4:
-                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_co(q_b, target_units[1]), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # Ensure all Question table KL and CO column cells are centered
     for t in q_tables:
@@ -621,22 +680,6 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     # 4. Table of Specifications (TOS) for CAT
-    is_cat3 = config.exam_type in ["CAT-3", "IAT-3"]
-    is_cat2 = config.exam_type in ["CAT-2", "IAT-2"]
-    is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
-    if is_cat3:
-        target_units = ["Unit IV", "Unit V"]
-        unit_labels = ["IV", "V"]
-    elif is_cat2 and not is_2025:
-        target_units = ["Unit II", "Unit III"]
-        unit_labels = ["II", "III"]
-    elif is_cat2:
-        target_units = ["Unit III", "Unit IV"]
-        unit_labels = ["III", "IV"]
-    else:
-        target_units = ["Unit I", "Unit II"]
-        unit_labels = ["I", "II"]
-
     kls_map = {"K1": 0, "K2": 1, "K3": 2, "K4": 3, "K5": 4, "K6": 5}
     tos_counts = [[0 for _ in range(6)] for _ in range(2)]
     tos_marks = [[0 for _ in range(6)] for _ in range(2)]
@@ -813,7 +856,7 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         row_idx = 1 + idx
         if row_idx < len(t1.rows):
             set_cell_text_preserve_style(t1.rows[row_idx].cells[1], get_q_field(q, "text"))
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_field(q, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
             set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # If Part A has fewer questions (e.g. 5 for CAT-1/CAT-2), trim extra rows
@@ -829,13 +872,13 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         if row_a_idx < len(t2.rows) and len(pair) > 0:
             q_a = pair[0]
             set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_field(q_a, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
             set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
             
         if row_b_idx < len(t2.rows) and len(pair) > 1:
             q_b = pair[1]
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_field(q_b, "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # If Part B has fewer pairs (e.g. 2 for CAT-1/CAT-2), trim extra rows
@@ -846,11 +889,11 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     t3 = doc.tables[3]
     if len(part_c) >= 2:
         set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(part_c[0], "text"))
-        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_field(part_c[0], "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_kl(part_c[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
         set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_field(part_c[0], "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
         
         set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(part_c[1], "text"))
-        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_field(part_c[1], "kl"), align=WD_ALIGN_PARAGRAPH.CENTER)
+        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_kl(part_c[1]), align=WD_ALIGN_PARAGRAPH.CENTER)
         set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_field(part_c[1], "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # Ensure all Question table KL and CO column cells are centered for model paper
