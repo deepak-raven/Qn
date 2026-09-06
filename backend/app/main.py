@@ -72,13 +72,19 @@ CAT_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2025.docx")
 if not os.path.exists(CAT_2025_TEMPLATE_PATH):
     CAT_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat 2025.docx")
 
-CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat.docx")
-if not os.path.exists(CAT_2021_TEMPLATE_PATH):
-    CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2021.docx")
+CAT_2021_CAT1_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "QPGEN CAT1 - QP Pattern.docx")
+if not os.path.exists(CAT_2021_CAT1_TEMPLATE_PATH):
+    CAT_2021_CAT1_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat.docx")
+
+CAT_2021_CAT2_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "QPGEN CAT2 - QP Pattern.docx")
+if not os.path.exists(CAT_2021_CAT2_TEMPLATE_PATH):
+    CAT_2021_CAT2_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat.docx")
 
 CAT_2021_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "QPGEN CAT3 - QP Pattern.docx")
 if not os.path.exists(CAT_2021_CAT3_TEMPLATE_PATH):
     CAT_2021_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_3.docx")
+
+CAT_2021_TEMPLATE_PATH = CAT_2021_CAT1_TEMPLATE_PATH
 
 CAT_2025_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2025_cat3.docx")
 if not os.path.exists(CAT_2025_CAT3_TEMPLATE_PATH):
@@ -509,20 +515,26 @@ async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTa
     
     is_2025 = "2025" in reg_val
     is_cat3 = exam_type in ["CAT-3", "IAT-3"]
+    is_cat2 = exam_type in ["CAT-2", "IAT-2"]
+    is_cat1 = exam_type in ["CAT-1", "IAT-1"]
     is_cat = exam_type in ["CAT-1", "CAT-2", "CAT-3", "IAT-1", "IAT-2", "IAT-3"] or is_2025
 
     if is_2025:
         if is_cat3 and os.path.exists(CAT_2025_CAT3_TEMPLATE_PATH):
             template_to_use = CAT_2025_CAT3_TEMPLATE_PATH
         else:
-            template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+            template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_CAT1_TEMPLATE_PATH
     elif is_cat:
         if is_cat3 and os.path.exists(CAT_2021_CAT3_TEMPLATE_PATH):
             template_to_use = CAT_2021_CAT3_TEMPLATE_PATH
+        elif is_cat2 and os.path.exists(CAT_2021_CAT2_TEMPLATE_PATH):
+            template_to_use = CAT_2021_CAT2_TEMPLATE_PATH
+        elif is_cat1 and os.path.exists(CAT_2021_CAT1_TEMPLATE_PATH):
+            template_to_use = CAT_2021_CAT1_TEMPLATE_PATH
         else:
-            template_to_use = CAT_2021_TEMPLATE_PATH if os.path.exists(CAT_2021_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH
+            template_to_use = CAT_2021_CAT1_TEMPLATE_PATH if os.path.exists(CAT_2021_CAT1_TEMPLATE_PATH) else (CAT_2021_CAT3_TEMPLATE_PATH if os.path.exists(CAT_2021_CAT3_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH)
     else:
-        template_to_use = MODEL_TEMPLATE_PATH if os.path.exists(MODEL_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+        template_to_use = MODEL_TEMPLATE_PATH if os.path.exists(MODEL_TEMPLATE_PATH) else CAT_2021_CAT3_TEMPLATE_PATH
 
     
     if not os.path.exists(template_to_use):
