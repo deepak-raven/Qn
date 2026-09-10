@@ -4,6 +4,7 @@ import { is2025Regulation } from './useSetsManager';
 export function normalizeUnit(unitStr) {
   if (!unitStr) return 'Unit I';
   const u = String(unitStr).trim().toUpperCase();
+  if (u.includes('VI') || u === 'UNIT 6' || u === '6') return 'Unit VI';
   if (u.includes('III') || u === 'UNIT 3' || u === '3') return 'Unit III';
   if (u.includes('II') || u === 'UNIT 2' || u === '2') return 'Unit II';
   if (u.includes('IV') || u === 'UNIT 4' || u === '4') return 'Unit IV';
@@ -36,16 +37,28 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
     const isCAT3 = config?.exam_type === 'CAT-3' || config?.exam_type === 'IAT-3';
     const isCAT = isCAT1 || isCAT2 || isCAT3;
     const is2025 = is2025Regulation(config?.regulation);
-    const is2021CAT = isCAT && !is2025;
-    const catTargetUnits = isCAT3
-      ? ['Unit IV', 'Unit V']
-      : isCAT2 
-      ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
-      : isCAT1
-      ? ['Unit I', 'Unit II']
-      : null;
+    const totalUnits = Number(config?.total_units) || 5;
 
-    const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+    let catTargetUnits = null;
+    if (isCAT3) {
+      if (is2025 && totalUnits === 4) {
+        catTargetUnits = ['Unit IV'];
+      } else if (is2025 && totalUnits === 6) {
+        catTargetUnits = ['Unit V', 'Unit VI'];
+      } else {
+        catTargetUnits = ['Unit IV', 'Unit V'];
+      }
+    } else if (isCAT2) {
+      if (is2025 && totalUnits === 6) {
+        catTargetUnits = ['Unit III', 'Unit IV'];
+      } else {
+        catTargetUnits = ['Unit II', 'Unit III'];
+      }
+    } else if (isCAT1) {
+      catTargetUnits = ['Unit I', 'Unit II'];
+    }
+
+    const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V', 'Unit VI'];
     const kls = ['K1', 'K2', 'K3', 'K4', 'K5', 'K6'];
 
     const tosCounts = {};

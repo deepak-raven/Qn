@@ -291,12 +291,14 @@ export function useAppState() {
       const freshPartA = Array(is2025 ? 5 : 10).fill(null);
       const freshPartB = Array(5).fill(null).map(() => ({ a: null, b: null }));
       const freshPartC = is2025 ? Array(3).fill(null).map(() => ({ a: null, b: null })) : { a: null, b: null };
+      const subUnits = sub?.total_units ? Number(sub.total_units) : 5;
       const freshConfig = {
         ...DEFAULT_CONFIG,
         set: 'SET-I',
         subject_code: code,
         subject_name: subName,
         regulation: targetReg,
+        total_units: subUnits,
         semester: semesterTypeStr,
         exam_type: 'CAT-3',
         exam_name: 'CONTINUOUS ASSESSMENT TEST - III',
@@ -439,7 +441,7 @@ export function useAppState() {
             let emptyIdx = -1;
 
             for (let i = 0; i < reqCount; i++) {
-              const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, i, config.regulation);
+              const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, i, config.regulation, config.total_units);
               const allowedNorm = expectedUnits.map(normalizeUnit);
               if (allowedNorm.includes(qUnitNorm)) {
                 if (!isFilled(set.selectedPartA[i])) {
@@ -449,7 +451,7 @@ export function useAppState() {
               }
             }
             if (emptyIdx === -1) {
-              const expectedUnitsForExam = getExpectedUnitForPartASlot(config.exam_type, 0, config.regulation);
+              const expectedUnitsForExam = getExpectedUnitForPartASlot(config.exam_type, 0, config.regulation, config.total_units);
               alert(`Cannot add Part A question (${q.unit}): Part A requires questions matching unit blueprint rules.`);
               return {};
             }
@@ -470,7 +472,7 @@ export function useAppState() {
             const reqPartBSlots = (isCAT && !is2025) ? 2 : 5;
 
             for (let i = 0; i < reqPartBSlots; i++) {
-              const expectedUnits = getExpectedUnitForPartBSlot(config.exam_type, i, config.regulation);
+              const expectedUnits = getExpectedUnitForPartBSlot(config.exam_type, i, config.regulation, config.total_units);
               const allowedNorm = expectedUnits.map(normalizeUnit);
               if (allowedNorm.includes(qUnitNorm)) {
                 const slot = partB[i];
@@ -514,8 +516,8 @@ export function useAppState() {
             const qUnitNorm = normalizeUnit(q.unit);
 
             for (let i = 0; i < next.length; i++) {
-              const expectedA = getExpectedUnitForPartCSlot(config.exam_type, i, 'a', config.regulation).map(normalizeUnit);
-              const expectedB = getExpectedUnitForPartCSlot(config.exam_type, i, 'b', config.regulation).map(normalizeUnit);
+              const expectedA = getExpectedUnitForPartCSlot(config.exam_type, i, 'a', config.regulation, config.total_units).map(normalizeUnit);
+              const expectedB = getExpectedUnitForPartCSlot(config.exam_type, i, 'b', config.regulation, config.total_units).map(normalizeUnit);
 
               if (!isFilled(next[i]?.a) && expectedA.includes(qUnitNorm)) {
                 next[i] = { ...next[i], a: q };
@@ -622,7 +624,7 @@ export function useAppState() {
         }
 
         if (part === 'A') {
-          const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, index, config.regulation);
+          const expectedUnits = getExpectedUnitForPartASlot(config.exam_type, index, config.regulation, config.total_units);
           const allowedNorm = expectedUnits.map(normalizeUnit);
           if (!allowedNorm.includes(normalizeUnit(q.unit))) {
             alert(`Only Part A questions from ${expectedUnits.join(' or ')} can be placed in Question ${index + 1}.`);
@@ -634,7 +636,7 @@ export function useAppState() {
             if (payload.type === 'preview_a' && payload.index !== undefined) {
               const temp = next[index];
               if (temp) {
-                const sourceExpectedUnits = getExpectedUnitForPartASlot(config.exam_type, payload.index, config.regulation);
+                const sourceExpectedUnits = getExpectedUnitForPartASlot(config.exam_type, payload.index, config.regulation, config.total_units);
                 const sourceAllowedNorm = sourceExpectedUnits.map(normalizeUnit);
                 if (!sourceAllowedNorm.includes(normalizeUnit(temp.unit))) {
                   alert(`Swap failed: Question ${index + 1} (${temp.unit}) cannot be placed in Question ${payload.index + 1} (${sourceExpectedUnits.join(' or ')} expected).`);
@@ -651,7 +653,7 @@ export function useAppState() {
             return { selectedPartA: next };
           });
         } else if (part === 'B') {
-          const expectedUnits = getExpectedUnitForPartBSlot(config.exam_type, index, config.regulation);
+          const expectedUnits = getExpectedUnitForPartBSlot(config.exam_type, index, config.regulation, config.total_units);
           const allowedNorm = expectedUnits.map(normalizeUnit);
           if (!allowedNorm.includes(normalizeUnit(q.unit))) {
             const qNo = getPartBQuestionNo(config.exam_type, index, config.regulation);
@@ -669,7 +671,7 @@ export function useAppState() {
               const sourceSubKey = payload.subKey;
               const temp = next[index] ? next[index][subKey] : null;
               if (temp) {
-                const sourceExpectedUnits = getExpectedUnitForPartBSlot(config.exam_type, sourceSlotIdx, config.regulation);
+                const sourceExpectedUnits = getExpectedUnitForPartBSlot(config.exam_type, sourceSlotIdx, config.regulation, config.total_units);
                 const sourceAllowedNorm = sourceExpectedUnits.map(normalizeUnit);
                 if (!sourceAllowedNorm.includes(normalizeUnit(temp.unit))) {
                   const sourceQNo = getPartBQuestionNo(config.exam_type, sourceSlotIdx, config.regulation);
@@ -696,7 +698,7 @@ export function useAppState() {
             return { selectedPartB: next };
           });
         } else if (part === 'C') {
-          const expectedUnits = getExpectedUnitForPartCSlot(config.exam_type, index, subKey, config.regulation);
+          const expectedUnits = getExpectedUnitForPartCSlot(config.exam_type, index, subKey, config.regulation, config.total_units);
           const allowedNorm = expectedUnits.map(normalizeUnit);
           if (!allowedNorm.includes(normalizeUnit(q.unit))) {
             const is2025 = is2025Regulation(config.regulation);
@@ -723,7 +725,7 @@ export function useAppState() {
             if (payload.type === 'preview_c') {
               const sourcePairIdx = payload.pairIdx !== undefined ? payload.pairIdx : 0;
               const sourceSubKey = payload.subKey;
-              const sourceExpectedUnits = getExpectedUnitForPartCSlot(config.exam_type, sourcePairIdx, sourceSubKey, config.regulation);
+              const sourceExpectedUnits = getExpectedUnitForPartCSlot(config.exam_type, sourcePairIdx, sourceSubKey, config.regulation, config.total_units);
               const sourceAllowedNorm = sourceExpectedUnits.map(normalizeUnit);
 
               if (isCArray) {

@@ -309,31 +309,59 @@ export default function UploadTab({
             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-main)' }}>Upload Question Bank</h3>
             <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>Import syllabus question banks in Word (.docx) or PDF format</p>
           </div>
-          <a
-            href={`${API_BASE}/download-qb-template`}
-            download="Question_Bank_Template.docx"
-            className="btn"
-            style={{
-              fontSize: '0.82rem',
-              padding: '0.45rem 0.85rem',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              textDecoration: 'none',
-              borderRadius: '6px',
-              background: '#f8fafc',
-              border: '1px solid #cbd5e1',
-              color: '#1e293b',
-              fontWeight: 600,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
-            onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-            title="Download blank Question Bank template (.docx)"
-          >
-            <Download size={15} /> Download QB Template
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 600 }}>Download Template:</span>
+            <a
+              href={`${API_BASE}/download-qb-template?regulation=2021`}
+              download="Question_Bank_Template_2021.docx"
+              className="btn"
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.35rem 0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                color: '#1e293b',
+                fontWeight: 600,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              title="Download blank Question Bank template for Regulation 2021 (.docx)"
+            >
+              <Download size={14} /> 2021
+            </a>
+            <a
+              href={`${API_BASE}/download-qb-template?regulation=2025`}
+              download="Question_Bank_Template_2025.docx"
+              className="btn"
+              style={{
+                fontSize: '0.8rem',
+                padding: '0.35rem 0.75rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                textDecoration: 'none',
+                borderRadius: '6px',
+                background: '#f8fafc',
+                border: '1px solid #cbd5e1',
+                color: '#1e293b',
+                fontWeight: 600,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              title="Download blank Question Bank template for Regulation 2025 (.docx)"
+            >
+              <Download size={14} /> 2025
+            </a>
+          </div>
         </div>
 
         <form onSubmit={handleUploadQuestionBank} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>

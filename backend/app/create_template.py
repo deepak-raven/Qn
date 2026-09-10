@@ -76,14 +76,15 @@ def build_question_bank_template(output_path: str):
     r_main.font.color.rgb = DARK_GRAY
 
     # --- 2. METADATA TABLE (Blank details for faculty to fill in) ---
-    meta_table = doc.add_table(rows=3, cols=2)
+    meta_table = doc.add_table(rows=4, cols=2)
     meta_table.alignment = WD_TABLE_ALIGNMENT.CENTER
     set_table_borders(meta_table, color=BORDER_COLOR, sz="6")
     
     meta_data = [
         ("Department: ________________________", "Subject Code: ________________________"),
         ("Year / Semester: ____________________", "Subject Name: ________________________"),
-        ("Regulation: 2021 / 2025              ", "Staff In-charge: ______________________"),
+        ("Regulation: 2021 / 2025              ", "No. of Units: 4 / 5 / 6               "),
+        ("Degree / Branch: ___________________", "Staff In-charge: ______________________"),
     ]
 
     for r_idx, (col1_text, col2_text) in enumerate(meta_data):

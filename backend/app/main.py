@@ -51,7 +51,7 @@ from app.parser import (
     extract_text_from_pdf,
     parse_text_metadata
 )
-from app.generator import generate_question_paper
+from app.generator import generate_question_paper, normalize_unit
 import hashlib
 
 # Configure Logging
@@ -69,18 +69,11 @@ os.makedirs(UPLOADED_QBS_DIR, exist_ok=True)
 os.makedirs(TEMPLATES_DIR, exist_ok=True)
 
 CAT_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2025.docx")
-if not os.path.exists(CAT_2025_TEMPLATE_PATH):
-    CAT_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat 2025.docx")
-
 CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2021.docx")
 if not os.path.exists(CAT_2021_TEMPLATE_PATH):
     CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat.docx")
 if not os.path.exists(CAT_2021_TEMPLATE_PATH):
     CAT_2021_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "QPGEN CAT3 - QP Pattern.docx")
-
-CAT_2025_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_2025_cat3.docx")
-if not os.path.exists(CAT_2025_CAT3_TEMPLATE_PATH):
-    CAT_2025_CAT3_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "cat_3_2025.docx")
 
 MODEL_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "MODEL QUESTION.docx")
 PARENT_MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "MODEL  QUESTION.docx"))
@@ -92,12 +85,6 @@ if not os.path.exists(MODEL_TEMPLATE_PATH) and os.path.exists(PARENT_MODEL_PATH)
 TEMPLATE_PATH = CAT_2021_TEMPLATE_PATH
 CAT_TEMPLATE_PATH = CAT_2021_TEMPLATE_PATH
 QB_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "Question_Bank_Template.docx")
-if not os.path.exists(QB_TEMPLATE_PATH):
-    try:
-        from app.create_template import build_question_bank_template
-        build_question_bank_template(QB_TEMPLATE_PATH)
-    except Exception as _e:
-        logger.warning(f"Could not auto-generate QB template on startup: {_e}")
 
 
 def sanitize_filename(name: str) -> str:
@@ -257,17 +244,21 @@ async def create_new_subject(subject: Subject):
         logger.error(f"Error creating subject: {e}")
         raise HTTPException(status_code=500, detail="Failed to create subject in database.")
 
+QB_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "Question_Bank_Template_2025.docx")
+
 @app.get("/api/download-qb-template")
-async def download_question_bank_template():
+async def download_question_bank_template(regulation: Optional[str] = "2021"):
     try:
-        if not os.path.exists(QB_TEMPLATE_PATH):
-            from app.create_template import build_question_bank_template
-            build_question_bank_template(QB_TEMPLATE_PATH)
+        template_file = QB_2025_TEMPLATE_PATH if regulation == "2025" and os.path.exists(QB_2025_TEMPLATE_PATH) else QB_TEMPLATE_PATH
+        download_name = "Question_Bank_Template_2025.docx" if regulation == "2025" else "Question_Bank_Template.docx"
+        
+        if not os.path.exists(template_file):
+            raise HTTPException(status_code=404, detail="Question Bank template file not found.")
             
         return FileResponse(
-            path=QB_TEMPLATE_PATH,
+            path=template_file,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            filename="Question_Bank_Template.docx"
+            filename=download_name
         )
     except Exception as e:
         logger.error(f"Error serving question bank template: {e}", exc_info=True)
@@ -283,6 +274,7 @@ async def upload_question_bank(
     degree: Optional[str] = Form(None),
     branch: Optional[str] = Form(None),
     year: Optional[str] = Form(None),
+    total_units: Optional[int] = Form(None),
     uploader_name: str = Form("System"),
     uploaded_by: str = Form(...)
 ):
@@ -316,21 +308,6 @@ async def upload_question_bank(
         final_branch = branch or "CSE"
         final_year = year
 
-        subject_data = {
-            "code": subject_code,
-            "name": subject_name,
-            "semester": semester,
-            "regulation": regulation,
-            "degree": final_degree,
-            "branch": final_branch,
-            "year": final_year,
-            "uploader_name": uploader_name,
-            "uploaded_by": uploaded_by,
-            "qb_filename": filename,
-            "file_size": len(file_bytes)
-        }
-        await add_subject(subject_data)
-        
         if ext == ".pdf":
             questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
         else:
@@ -341,6 +318,35 @@ async def upload_question_bank(
                 status_code=400, 
                 detail="No questions could be parsed from the uploaded document. Please check the document table structure."
             )
+
+        if total_units is not None:
+            final_total_units = total_units
+        else:
+            u_set = {normalize_unit(q.get("unit", "")) for q in questions if q.get("unit")}
+            if "Unit VI" in u_set:
+                final_total_units = 6
+            elif "Unit V" in u_set:
+                final_total_units = 5
+            elif "Unit IV" in u_set:
+                final_total_units = 4
+            else:
+                final_total_units = 5
+
+        subject_data = {
+            "code": subject_code,
+            "name": subject_name,
+            "semester": semester,
+            "regulation": regulation,
+            "degree": final_degree,
+            "branch": final_branch,
+            "year": final_year,
+            "total_units": final_total_units,
+            "uploader_name": uploader_name,
+            "uploaded_by": uploaded_by,
+            "qb_filename": filename,
+            "file_size": len(file_bytes)
+        }
+        await add_subject(subject_data)
             
         # Inject uploaded_by into questions
         for q in questions:
@@ -369,6 +375,7 @@ async def upload_question_bank_stream(
     degree: Optional[str] = Form(None),
     branch: Optional[str] = Form(None),
     year: Optional[str] = Form(None),
+    total_units: Optional[int] = Form(None),
     uploader_name: str = Form("System"),
     uploaded_by: str = Form(...)
 ):
@@ -408,6 +415,31 @@ async def upload_question_bank_stream(
             final_branch = branch or "CSE"
             final_year = year
 
+            yield f"data: {json.dumps({'progress': 50, 'step': 'Parsing questions from document...'})}\n\n"
+            await asyncio.sleep(0.1)
+
+            if ext == ".pdf":
+                questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
+            else:
+                questions = await anyio.to_thread.run_sync(parse_question_bank_docx, file_bytes, subject_code, semester)
+                
+            if not questions:
+                yield f"data: {json.dumps({'error': 'No questions could be extracted. Please ensure the Word document has tables with Part A, Part B, or Part C headers.'})}\n\n"
+                return
+
+            if total_units is not None:
+                final_total_units = total_units
+            else:
+                u_set = {normalize_unit(q.get("unit", "")) for q in questions if q.get("unit")}
+                if "Unit VI" in u_set:
+                    final_total_units = 6
+                elif "Unit V" in u_set:
+                    final_total_units = 5
+                elif "Unit IV" in u_set:
+                    final_total_units = 4
+                else:
+                    final_total_units = 5
+
             subject_data = {
                 "code": subject_code,
                 "name": subject_name,
@@ -416,6 +448,7 @@ async def upload_question_bank_stream(
                 "degree": final_degree,
                 "branch": final_branch,
                 "year": final_year,
+                "total_units": final_total_units,
                 "uploader_name": uploader_name,
                 "uploaded_by": uploaded_by,
                 "qb_filename": filename,
@@ -423,20 +456,9 @@ async def upload_question_bank_stream(
             }
             await add_subject(subject_data)
 
-            yield f"data: {json.dumps({'progress': 50, 'step': 'Extracting tables & DOCX structure...'})}\n\n"
-            await asyncio.sleep(0.15)
-
-            if ext == ".pdf":
-                questions = await anyio.to_thread.run_sync(parse_question_bank_pdf, file_bytes, subject_code, semester)
-            else:
-                questions = await anyio.to_thread.run_sync(parse_question_bank_docx, file_bytes, subject_code, semester)
-
             yield f"data: {json.dumps({'progress': 85, 'step': f'Parsed {len(questions) if questions else 0} questions from tables.'})}\n\n"
             await asyncio.sleep(0.15)
 
-            if not questions:
-                yield f"data: {json.dumps({'error': 'No questions could be parsed from the uploaded document.'})}\n\n"
-                return
 
             for q in questions:
                 q["uploaded_by"] = uploaded_by
@@ -510,10 +532,8 @@ async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTa
     is_cat = exam_type in ["CAT-1", "CAT-2", "CAT-3", "IAT-1", "IAT-2", "IAT-3"] or is_2025
 
     if is_2025:
-        if is_cat3 and os.path.exists(CAT_2025_CAT3_TEMPLATE_PATH):
-            template_to_use = CAT_2025_CAT3_TEMPLATE_PATH
-        else:
-            template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+        # Single template dynamically used for all 2025 CAT exams (CAT-1, CAT-2, CAT-3)
+        template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
     elif is_cat:
         # Single template dynamically used for all 2021 CAT exams (CAT-1, CAT-2, CAT-3)
         template_to_use = CAT_2021_TEMPLATE_PATH if os.path.exists(CAT_2021_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH

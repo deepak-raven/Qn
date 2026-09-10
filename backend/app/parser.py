@@ -20,7 +20,7 @@ def parse_unit_from_text(text: str) -> Optional[str]:
     for line in text.split('\n'):
         line_clean = re.sub(r'\s+', ' ', line.upper()).strip()
         # Match UNIT I, UNIT-1, UNIT: 01, MODULE 1, CHAPTER 1, etc.
-        m = re.search(r'\b(?:UNIT|MODULE|CHAPTER|TOPIC)\s*[-–:]?\s*([IVX\d]+|\bONE\b|\bTWO\b|\bTHREE\b|\bFOUR\b|\bFIVE\b)\b', line_clean)
+        m = re.search(r'\b(?:UNIT|MODULE|CHAPTER|TOPIC)\s*[-–:]?\s*([IVX\d]+|\bONE\b|\bTWO\b|\bTHREE\b|\bFOUR\b|\bFIVE\b|\bSIX\b)\b', line_clean)
         if m:
             u = m.group(1).strip()
             mapping = {
@@ -29,12 +29,13 @@ def parse_unit_from_text(text: str) -> Optional[str]:
                 'III': 'Unit III', '3': 'Unit III', '03': 'Unit III', 'THREE': 'Unit III',
                 'IV': 'Unit IV', '4': 'Unit IV', '04': 'Unit IV', 'FOUR': 'Unit IV',
                 'V': 'Unit V', '5': 'Unit V', '05': 'Unit V', 'FIVE': 'Unit V',
+                'VI': 'Unit VI', '6': 'Unit VI', '06': 'Unit VI', 'SIX': 'Unit VI',
             }
             if u in mapping:
                 return mapping[u]
             if u.isdigit():
                 num = int(u)
-                roman_map = {1: 'Unit I', 2: 'Unit II', 3: 'Unit III', 4: 'Unit IV', 5: 'Unit V'}
+                roman_map = {1: 'Unit I', 2: 'Unit II', 3: 'Unit III', 4: 'Unit IV', 5: 'Unit V', 6: 'Unit VI'}
                 return roman_map.get(num, f"Unit {num}")
     return None
 
@@ -45,44 +46,58 @@ def parse_part_marks_from_text(text: str):
     for line in text.split('\n'):
         line_clean = re.sub(r'\s+', ' ', line.lower()).strip()
         if len(line_clean) <= 150:
-            # Check Part A / 1 or 2 Marks
-            if (re.search(r'\b(?:one|1)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:two|2)\s*marks?\b', line_clean) or 
-                re.search(r'\bpart\s*[-–:]?\s*a\b', line_clean)):
-                m_val = 1 if (re.search(r'\b(?:one|1)\s*marks?\b', line_clean)) else 2
-                return 'A', m_val
-
-            # Check Part B / 3, 13, 16 Marks
-            if (re.search(r'\b(?:three|3)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:thirteen|13)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean) or 
-                re.search(r'\bpart\s*[-–:]?\s*b\b', line_clean)):
+            # 1. Check PART A with explicit marks
+            if re.search(r'\bpart\s*[-–:]?\s*a\b', line_clean):
                 if re.search(r'\b(?:three|3)\s*marks?\b', line_clean):
-                    m_val = 3
-                elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
-                    m_val = 16
+                    # In 2025 Regulation, the second section is "PART A (3 marks)" which maps to Part B slot
+                    return 'B', 3
+                elif re.search(r'\b(?:one|1)\s*marks?\b', line_clean):
+                    return 'A', 1
                 else:
-                    m_val = 13
-                return 'B', m_val
+                    return 'A', 2
 
-            # Check Part C / 10, 12, 14, 15, 16 Marks
-            if (re.search(r'\b(?:ten|10)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:fifteen|15)\s*marks?\b', line_clean) or 
-                re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean) or 
-                re.search(r'\bpart\s*[-–:]?\s*c\b', line_clean)):
+            # 2. Check PART B with explicit marks
+            if re.search(r'\bpart\s*[-–:]?\s*b\b', line_clean):
                 if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
-                    m_val = 10
-                elif re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
-                    m_val = 12
-                elif re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean):
-                    m_val = 14
+                    # In 2025 Regulation, the third section is "PART B (10 marks)" which maps to Part C slot
+                    return 'C', 10
+                elif re.search(r'\b(?:three|3)\s*marks?\b', line_clean):
+                    return 'B', 3
                 elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
-                    m_val = 16
+                    return 'B', 16
                 else:
-                    m_val = 15
-                return 'C', m_val
+                    return 'B', 13
+
+            # 3. Check PART C with explicit marks
+            if re.search(r'\bpart\s*[-–:]?\s*c\b', line_clean):
+                if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
+                    return 'C', 10
+                elif re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
+                    return 'C', 12
+                elif re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean):
+                    return 'C', 14
+                elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
+                    return 'C', 16
+                else:
+                    return 'C', 15
+
+            # 4. Fallback if "PART" keyword is absent but explicit marks are present
+            if re.search(r'\b(?:one|1)\s*marks?\b', line_clean):
+                return 'A', 1
+            if re.search(r'\b(?:two|2)\s*marks?\b', line_clean):
+                return 'A', 2
+            if re.search(r'\b(?:three|3)\s*marks?\b', line_clean):
+                return 'B', 3
+            if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
+                return 'C', 10
+            if re.search(r'\b(?:thirteen|13)\s*marks?\b', line_clean):
+                return 'B', 13
+            if re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean):
+                return 'C', 14
+            if re.search(r'\b(?:fifteen|15)\s*marks?\b', line_clean):
+                return 'C', 15
+            if re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
+                return 'B', 16
     return None, None
 
 
@@ -91,6 +106,8 @@ def infer_co_from_unit(unit_str: Optional[str]) -> str:
         return "CO1"
     u = unit_str.upper()
     
+    if re.search(r'\bVI\b|\b6\b', u) and not re.search(r'\bVII\b|\bVIII\b', u):
+        return "CO6"
     if re.search(r'\bV\b|\b5\b', u) and not re.search(r'\bIV\b|\bVI\b|\bVII\b|\bVIII\b', u):
         return "CO5"
     if re.search(r'\bIV\b|\b4\b', u):
@@ -102,7 +119,7 @@ def infer_co_from_unit(unit_str: Optional[str]) -> str:
     if re.search(r'\bI\b|\b1\b', u):
         return "CO1"
         
-    m = re.search(r'\b([1-5])\b', u)
+    m = re.search(r'\b([1-6])\b', u)
     if m:
         return f"CO{m.group(1)}"
     return "CO1"
@@ -494,7 +511,7 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
                     continue
 
                 raw_q_text = cells[q_idx].strip()
-                if not raw_q_text or raw_q_text.lower().startswith("question") or raw_q_text.lower() in ["s.no", "q.no", "description"]:
+                if not raw_q_text or raw_q_text.lower() in ["question", "questions", "question text", "question description", "questions / description", "s.no", "q.no", "description"]:
                     continue
 
                 # Skip template placeholders (e.g. "[Enter question text here...]" or "[Type question...]")
@@ -808,7 +825,7 @@ def parse_question_bank_pdf(file_bytes: bytes, subject_code: str, semester: str)
 def extract_text_from_docx(file_bytes: bytes) -> str:
     doc = docx.Document(io.BytesIO(file_bytes))
     full_text = []
-    for p in doc.paragraphs[:30]:
+    for p in doc.paragraphs:
         if p.text.strip():
             full_text.append(p.text.strip())
             
@@ -859,7 +876,7 @@ def derive_year_from_semester(sem_val: Optional[str]) -> str:
 
 
 def parse_text_metadata(text: str) -> dict:
-    metadata = {
+    metadata: Dict[str, Any] = {
         "subject_code": None,
         "subject_name": None,
         "semester": None,
@@ -868,7 +885,8 @@ def parse_text_metadata(text: str) -> dict:
         "branch": None,
         "degree_branch": None,
         "degree_branch_sem": None,
-        "regulation": None
+        "regulation": None,
+        "total_units": 5
     }
     
     match_both = re.search(r'(?:Sub\.[ \t]*Code/Sub\.[ \t]*Name|Sub[ \t]*Code[ \t]*/[ \t]*Sub[ \t]*Name)[ \t]*:[ \t]*([A-Za-z0-9\-]+)[ \t]*/[ \t]*([^\n\r|]+)', text, re.IGNORECASE)
@@ -983,5 +1001,24 @@ def parse_text_metadata(text: str) -> dict:
                 match_reg_word = re.search(r'Regulation[ \t]*(\d{4})', text, re.IGNORECASE)
                 if match_reg_word:
                     metadata["regulation"] = match_reg_word.group(1).strip()
+
+    # Header area is strictly before the first Unit section
+    unit1_match = re.search(r'\b(?:UNIT|MODULE|CHAPTER)\s*[-–:]?\s*(?:I|1|01|ONE)\b', text, re.IGNORECASE)
+    header_area = text[:unit1_match.start()] if unit1_match else text[:1500]
+
+    match_units = re.search(r'(?:No\.?\s*of\s*Units|Total\s*Units)\s*[:=-]?\s*([456])\b', header_area, re.IGNORECASE)
+    if match_units:
+        metadata["total_units"] = int(match_units.group(1))
+    else:
+        # Fallback: scan document body before instructions for the highest unit section present
+        inst_match = re.search(r'\b(?:Instructions|Faculty Instructions)\b', text, re.IGNORECASE)
+        body_text = text[:inst_match.start()] if inst_match else text
+
+        if re.search(r'\b(?:UNIT|MODULE|CHAPTER)\s*[-–:]?\s*(?:VI|6|06|SIX)\b', body_text, re.IGNORECASE):
+            metadata["total_units"] = 6
+        elif re.search(r'\b(?:UNIT|MODULE|CHAPTER)\s*[-–:]?\s*(?:V|5|05|FIVE)\b', body_text, re.IGNORECASE):
+            metadata["total_units"] = 5
+        elif re.search(r'\b(?:UNIT|MODULE|CHAPTER)\s*[-–:]?\s*(?:IV|4|04|FOUR)\b', body_text, re.IGNORECASE):
+            metadata["total_units"] = 4
 
     return metadata

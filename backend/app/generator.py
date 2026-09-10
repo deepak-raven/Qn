@@ -44,6 +44,8 @@ def normalize_unit(unit_str: str) -> str:
     if not unit_str:
         return "Unit I"
     u = unit_str.strip().upper()
+    if "VI" in u or u == "UNIT 6" or u == "6":
+        return "Unit VI"
     if "III" in u or u == "UNIT 3" or u == "3":
         return "Unit III"
     if "II" in u or u == "UNIT 2" or u == "2":
@@ -325,22 +327,39 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         replace_text_runs(doc, "NAME OF THE INSTITUTION :", inst_name.upper())
         replace_text_runs(doc, "NAME OF THE INSTITUTION:", inst_name.upper())
 
-    if config.exam_type in ["CAT-3", "IAT-3"]:
+    is_cat3 = config.exam_type in ["CAT-3", "IAT-3"]
+    is_cat2 = config.exam_type in ["CAT-2", "IAT-2"]
+    if is_cat3:
         default_exam_title = "CONTINUOUS ASSESSMENT TEST - III"
-    elif config.exam_type in ["CAT-2", "IAT-2"]:
+    elif is_cat2:
         default_exam_title = "CONTINUOUS ASSESSMENT TEST - II"
     else:
         default_exam_title = "CONTINUOUS ASSESSMENT TEST - I"
-    exam_title = config.exam_name or default_exam_title
+
+    cat_titles = [
+        "CONTINUOUS ASSESSMENT TEST - I",
+        "CONTINUOUS ASSESSMENT TEST - II",
+        "CONTINUOUS ASSESSMENT TEST - III",
+        "CONTINUOUS ASSESSMENT TEST- I",
+        "CONTINUOUS ASSESSMENT TEST- II",
+        "CONTINUOUS ASSESSMENT TEST- III",
+        "CAT-1", "CAT-2", "CAT-3", "IAT-1", "IAT-2", "IAT-3"
+    ]
+    if not config.exam_name or config.exam_name.strip() in cat_titles:
+        exam_title = default_exam_title
+    else:
+        exam_title = config.exam_name
     replace_exam_title_placeholder(doc, exam_title)
     
     if config.set:
         replace_set_placeholder(doc, config.set)
         
+    is_2025 = bool(config.regulation and "2025" in config.regulation)
     reg_str = ""
     if config.regulation:
         reg_str = f"({config.regulation}-REGULATION)" if "REGULATION" not in config.regulation.upper() else config.regulation
         replace_text_runs(doc, "2021-REGULATION", reg_str)
+        replace_text_runs(doc, "2025-REGULATION", reg_str)
     # Dynamically locate CAT Header Table and Course Details Table
     t_header = None
     t_course = None
@@ -410,7 +429,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 c_reg.text = ""
                 p = c_reg.paragraphs[0]
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                reg_text = reg_str if reg_str else "(2021-REGULATION)"
+                reg_text = reg_str if reg_str else ("(2025-REGULATION)" if is_2025 else "(2021-REGULATION)")
                 if not reg_text.startswith("("):
                     reg_text = f"({reg_text})"
                 r = p.add_run(reg_text)
@@ -461,7 +480,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 c_reg.text = ""
                 p = c_reg.paragraphs[0]
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                reg_text = reg_str if reg_str else "(2021-REGULATION)"
+                reg_text = reg_str if reg_str else ("(2025-REGULATION)" if is_2025 else "(2021-REGULATION)")
                 if not reg_text.startswith("("):
                     reg_text = f"({reg_text})"
                 r = p.add_run(reg_text)
@@ -484,6 +503,9 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if t_course:
         sub_code = (config.subject_code or "").strip()
         sub_name = (config.subject_name or "").strip()
+        # Clean any accidental unit suffixes from subject name
+        sub_name = re.sub(r'\s*-\s*\d+\s*units?\b', '', sub_name, flags=re.IGNORECASE).strip()
+
         if sub_code and sub_name:
             sub_val = f"{sub_code} – {sub_name}"
         elif sub_code:
@@ -507,6 +529,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             set_cell_bold_label_value(t_course.rows[1].cells[1], "Year / Semester:", sem_val)
             
         time_val = (config.time or "").strip() or "90 Minutes"
+        if is_2025 and ("hour" in time_val.lower() or not time_val):
+            time_val = "90 Minutes"
         if len(t_course.rows) > 2 and len(t_course.rows[2].cells) > 0:
             set_cell_bold_label_value(t_course.rows[2].cells[0], "Time:", time_val)
             
@@ -533,26 +557,88 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     is_2025_cat_layout = False
     if t_part_b and len(t_part_b.rows) > 0 and len(t_part_b.rows[0].cells) == 4:
         is_2025_cat_layout = True
-    is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
+    is_2025 = ("2025" in config.regulation) if config.regulation else is_2025_cat_layout
 
-    if is_cat3:
-        target_units = ["Unit IV", "Unit V"]
-        unit_labels = ["IV", "V"]
-    elif is_cat2 and not is_2025:
-        target_units = ["Unit II", "Unit III"]
-        unit_labels = ["II", "III"]
-    elif is_cat2:
-        target_units = ["Unit III", "Unit IV"]
-        unit_labels = ["III", "IV"]
+    if is_2025:
+        for p in doc.paragraphs:
+            p_txt = p.text.upper()
+            if "PART" in p_txt or "MARKS" in p_txt:
+                if ("1" in p_txt and "5" in p_txt) and ("3" not in p_txt and "10" not in p_txt and "15" not in p_txt and "30" not in p_txt):
+                    p.text = "PART – A (5 x 1 = 5 Marks)"
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for r in p.runs:
+                        r.font.name = "Times New Roman"
+                        r.font.size = Pt(13)
+                        r.bold = True
+                elif ("3" in p_txt and "15" in p_txt) or ("5 X 3" in p_txt):
+                    p.text = "PART – A (5 x 3 = 15 Marks)"
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for r in p.runs:
+                        r.font.name = "Times New Roman"
+                        r.font.size = Pt(13)
+                        r.bold = True
+                elif ("10" in p_txt and "30" in p_txt) or ("3 X 10" in p_txt) or (re.search(r'\bPART\s*[\u2013\u2014\-–]?\s*[BC]\b', p_txt) and ("MARK" in p_txt or "=" in p_txt)):
+                    p.text = "PART – B (3 x 10 = 30 Marks)"
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for r in p.runs:
+                        r.font.name = "Times New Roman"
+                        r.font.size = Pt(13)
+                        r.bold = True
+
+    total_units = getattr(config, "total_units", 5) or 5
+    if isinstance(total_units, str) and total_units.isdigit():
+        total_units = int(total_units)
+    elif not isinstance(total_units, int):
+        total_units = 5
+
+    if is_2025:
+        if total_units == 4:
+            if is_cat3:
+                target_units = ["Unit IV"]
+                unit_labels = ["IV"]
+            elif is_cat2:
+                target_units = ["Unit II", "Unit III"]
+                unit_labels = ["II", "III"]
+            else:
+                target_units = ["Unit I", "Unit II"]
+                unit_labels = ["I", "II"]
+        elif total_units == 6:
+            if is_cat3:
+                target_units = ["Unit V", "Unit VI"]
+                unit_labels = ["V", "VI"]
+            elif is_cat2:
+                target_units = ["Unit III", "Unit IV"]
+                unit_labels = ["III", "IV"]
+            else:
+                target_units = ["Unit I", "Unit II"]
+                unit_labels = ["I", "II"]
+        else:
+            # 5 units (standard)
+            if is_cat3:
+                target_units = ["Unit IV", "Unit V"]
+                unit_labels = ["IV", "V"]
+            elif is_cat2:
+                target_units = ["Unit II", "Unit III"]
+                unit_labels = ["II", "III"]
+            else:
+                target_units = ["Unit I", "Unit II"]
+                unit_labels = ["I", "II"]
     else:
-        target_units = ["Unit I", "Unit II"]
-        unit_labels = ["I", "II"]
+        if is_cat3:
+            target_units = ["Unit IV", "Unit V"]
+            unit_labels = ["IV", "V"]
+        elif is_cat2:
+            target_units = ["Unit II", "Unit III"]
+            unit_labels = ["II", "III"]
+        else:
+            target_units = ["Unit I", "Unit II"]
+            unit_labels = ["I", "II"]
 
     # 2. Part A
     if t_part_a:
         for idx, q in enumerate(part_a[:5]):
             row_idx = 1 + idx
-            default_u = target_units[0] if idx < 3 else target_units[1]
+            default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
             if row_idx < len(t_part_a.rows):
                 if len(t_part_a.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
@@ -573,7 +659,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
         for idx, q in enumerate(flat_b[:5]):
             row_idx = 1 + idx
-            default_u = target_units[0] if idx < 3 else target_units[1]
+            default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
             if row_idx < len(t_part_b.rows):
                 if len(t_part_b.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
@@ -601,7 +687,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                         for cell in r.cells:
                             if not any(uc._tc == cell._tc for uc in unique_cells):
                                 unique_cells.append(cell)
-                        default_u = target_units[0] if idx < 3 else target_units[1]
+                        default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
                         if len(unique_cells) >= 5:
                             set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                             set_cell_text_preserve_style(unique_cells[3], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
@@ -681,10 +767,11 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
     # 4. Table of Specifications (TOS) for CAT
     kls_map = {"K1": 0, "K2": 1, "K3": 2, "K4": 3, "K5": 4, "K6": 5}
-    tos_counts = [[0 for _ in range(6)] for _ in range(2)]
-    tos_marks = [[0 for _ in range(6)] for _ in range(2)]
+    num_target_units = len(target_units)
+    tos_counts = [[0 for _ in range(6)] for _ in range(num_target_units)]
+    tos_marks = [[0 for _ in range(6)] for _ in range(num_target_units)]
 
-    is_2025 = (config.regulation == "2025") if config.regulation else is_2025_cat_layout
+    is_2025 = ("2025" in config.regulation) if config.regulation else is_2025_cat_layout
     part_a_mark = 1 if is_2025 else 2
     part_b_mark = 3 if is_2025 else 13
     part_c_mark = 10 if is_2025 else 14
@@ -711,10 +798,12 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             questions_with_marks.append((item, part_c_mark))
 
     for q, section_mark in questions_with_marks:
-        u_norm = normalize_unit(get_q_field(q, "unit", "Unit I"))
-        if u_norm == target_units[0]:
+        u_norm = normalize_unit(get_q_field(q, "unit", target_units[0]))
+        if num_target_units == 1:
             u_idx = 0
-        elif u_norm == target_units[1]:
+        elif u_norm == target_units[0]:
+            u_idx = 0
+        elif num_target_units > 1 and u_norm == target_units[1]:
             u_idx = 1
         else:
             u_idx = 0
@@ -747,23 +836,28 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if t6 is not None and len(t6.rows) >= 4:
         unit_row_start = 2 if len(t6.rows) == 5 else (3 if len(t6.rows) > 5 else 2)
         total_row_idx = len(t6.rows) - 1
+        max_unit_rows = total_row_idx - unit_row_start
 
-        for u_idx in range(2):
+        for u_idx in range(max_unit_rows):
             row_idx = unit_row_start + u_idx
             if row_idx < total_row_idx and len(t6.rows[row_idx].cells) >= 8:
-                set_cell_text_preserve_style(t6.rows[row_idx].cells[0], unit_labels[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
-                row_sum = 0
-                for k_idx in range(6):
-                    val = tos_counts[u_idx][k_idx]
-                    set_cell_text_preserve_style(t6.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "", align=WD_ALIGN_PARAGRAPH.CENTER)
-                    row_sum += val
-                set_cell_text_preserve_style(t6.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
+                if u_idx < num_target_units:
+                    set_cell_text_preserve_style(t6.rows[row_idx].cells[0], unit_labels[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
+                    row_sum = 0
+                    for k_idx in range(6):
+                        val = tos_counts[u_idx][k_idx]
+                        set_cell_text_preserve_style(t6.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "", align=WD_ALIGN_PARAGRAPH.CENTER)
+                        row_sum += val
+                    set_cell_text_preserve_style(t6.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
+                else:
+                    for col_i in range(8):
+                        set_cell_text_preserve_style(t6.rows[row_idx].cells[col_i], "", align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # Total row in Table 6
         if total_row_idx < len(t6.rows) and len(t6.rows[total_row_idx].cells) >= 8:
             set_cell_text_preserve_style(t6.rows[total_row_idx].cells[0], "Total", align=WD_ALIGN_PARAGRAPH.CENTER)
             for k_idx in range(6):
-                col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(2))
+                col_sum = sum(tos_counts[u_idx][k_idx] for u_idx in range(num_target_units))
                 set_cell_text_preserve_style(t6.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0", align=WD_ALIGN_PARAGRAPH.CENTER)
             grand_total = sum(sum(r) for r in tos_counts)
             set_cell_text_preserve_style(t6.rows[total_row_idx].cells[7], str(grand_total), align=WD_ALIGN_PARAGRAPH.CENTER)
@@ -772,23 +866,28 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if t7 is not None and len(t7.rows) >= 4:
         unit_row_start = 2 if len(t7.rows) == 5 else (3 if len(t7.rows) > 5 else 2)
         total_row_idx = len(t7.rows) - 1
+        max_unit_rows = total_row_idx - unit_row_start
 
-        for u_idx in range(2):
+        for u_idx in range(max_unit_rows):
             row_idx = unit_row_start + u_idx
             if row_idx < total_row_idx and len(t7.rows[row_idx].cells) >= 8:
-                set_cell_text_preserve_style(t7.rows[row_idx].cells[0], unit_labels[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
-                row_sum = 0
-                for k_idx in range(6):
-                    val = tos_marks[u_idx][k_idx]
-                    set_cell_text_preserve_style(t7.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "", align=WD_ALIGN_PARAGRAPH.CENTER)
-                    row_sum += val
-                set_cell_text_preserve_style(t7.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
+                if u_idx < num_target_units:
+                    set_cell_text_preserve_style(t7.rows[row_idx].cells[0], unit_labels[u_idx], align=WD_ALIGN_PARAGRAPH.CENTER)
+                    row_sum = 0
+                    for k_idx in range(6):
+                        val = tos_marks[u_idx][k_idx]
+                        set_cell_text_preserve_style(t7.rows[row_idx].cells[1 + k_idx], str(val) if val > 0 else "", align=WD_ALIGN_PARAGRAPH.CENTER)
+                        row_sum += val
+                    set_cell_text_preserve_style(t7.rows[row_idx].cells[7], str(row_sum), align=WD_ALIGN_PARAGRAPH.CENTER)
+                else:
+                    for col_i in range(8):
+                        set_cell_text_preserve_style(t7.rows[row_idx].cells[col_i], "", align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # Total row in Table 7
         if total_row_idx < len(t7.rows) and len(t7.rows[total_row_idx].cells) >= 8:
             set_cell_text_preserve_style(t7.rows[total_row_idx].cells[0], "Total", align=WD_ALIGN_PARAGRAPH.CENTER)
             for k_idx in range(6):
-                col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(2))
+                col_sum = sum(tos_marks[u_idx][k_idx] for u_idx in range(num_target_units))
                 set_cell_text_preserve_style(t7.rows[total_row_idx].cells[1 + k_idx], str(col_sum) if col_sum > 0 else "0", align=WD_ALIGN_PARAGRAPH.CENTER)
             grand_total = sum(sum(r) for r in tos_marks)
             set_cell_text_preserve_style(t7.rows[total_row_idx].cells[7], str(grand_total), align=WD_ALIGN_PARAGRAPH.CENTER)
@@ -914,7 +1013,7 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
     tos_counts = [[0 for _ in range(6)] for _ in range(5)]
     tos_marks = [[0 for _ in range(6)] for _ in range(5)]
     
-    is_2025 = (config.regulation == "2025") if config.regulation else False
+    is_2025 = ("2025" in config.regulation) if config.regulation else False
     part_a_mark = 1 if is_2025 else 2
     part_b_mark = 3 if is_2025 else 13
     part_c_mark = 10 if is_2025 else 15

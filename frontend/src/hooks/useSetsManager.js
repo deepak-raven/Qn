@@ -13,7 +13,8 @@ export const DEFAULT_CONFIG = {
   max_marks: 50,
   set: 'SET-I',
   date: '',
-  session: ''
+  session: '',
+  total_units: 5
 };
 
 export function cleanDegreeBranch(degInput) {
@@ -157,14 +158,38 @@ function getSlotCounts(examType, regulation) {
   return { partA: 10, partB: 5, partC: 1, defaultMarks: 100, defaultTime: '3 Hours' };
 }
 
-export function getSuggestedUnitForPartASlot(examType, index, regulation) {
+export function getSuggestedUnitForPartASlot(examType, index, regulation, totalUnits = 5) {
+  const is2025 = is2025Regulation(regulation);
+  const unitsCount = Number(totalUnits) || 5;
+
   if (examType === 'CAT-3' || examType === 'IAT-3') {
+    if (is2025) {
+      if (unitsCount === 4) {
+        return ['Unit IV'];
+      }
+      if (unitsCount === 6) {
+        if (index === 0 || index === 1) return ['Unit V'];
+        if (index === 2) return ['Unit V', 'Unit VI'];
+        if (index >= 3 && index <= 4) return ['Unit VI'];
+        return ['Unit V', 'Unit VI'];
+      }
+      if (index === 0 || index === 1) return ['Unit IV'];
+      if (index === 2) return ['Unit IV', 'Unit V'];
+      if (index >= 3 && index <= 4) return ['Unit V'];
+      return ['Unit IV', 'Unit V'];
+    }
     if (index === 0 || index === 1) return ['Unit IV'];
     if (index === 2) return ['Unit IV', 'Unit V'];
     if (index >= 3 && index <= 4) return ['Unit V'];
     return ['Unit IV', 'Unit V'];
   }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
+    if (is2025 && unitsCount === 6) {
+      if (index === 0 || index === 1) return ['Unit III'];
+      if (index === 2) return ['Unit III', 'Unit IV'];
+      if (index >= 3 && index <= 4) return ['Unit IV'];
+      return ['Unit III', 'Unit IV'];
+    }
     if (index === 0 || index === 1) return ['Unit II'];
     if (index >= 2 && index <= 4) return ['Unit III'];
     return ['Unit II', 'Unit III'];
@@ -174,15 +199,25 @@ export function getSuggestedUnitForPartASlot(examType, index, regulation) {
     if (index === 3 || index === 4) return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
-  const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V'];
+  const units = ['Unit I', 'Unit I', 'Unit II', 'Unit II', 'Unit III', 'Unit III', 'Unit IV', 'Unit IV', 'Unit V', 'Unit V', 'Unit VI', 'Unit VI'];
   return [units[index] || `Unit ${Math.floor(index / 2) + 1}`];
 }
 
-export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
+export function getSuggestedUnitForPartBSlot(examType, index, regulation, totalUnits = 5) {
   const is2025 = is2025Regulation(regulation);
+  const unitsCount = Number(totalUnits) || 5;
 
   if (examType === 'CAT-3' || examType === 'IAT-3') {
     if (is2025) {
+      if (unitsCount === 4) {
+        return ['Unit IV'];
+      }
+      if (unitsCount === 6) {
+        if (index === 0 || index === 1) return ['Unit V'];
+        if (index === 2) return ['Unit V', 'Unit VI'];
+        if (index >= 3 && index <= 4) return ['Unit VI'];
+        return ['Unit V', 'Unit VI'];
+      }
       if (index === 0 || index === 1) return ['Unit IV'];
       if (index === 2) return ['Unit IV', 'Unit V'];
       if (index >= 3 && index <= 4) return ['Unit V'];
@@ -194,6 +229,12 @@ export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
     return ['Unit IV', 'Unit V'];
   }
   if (examType === 'CAT-2' || examType === 'IAT-2') {
+    if (is2025 && unitsCount === 6) {
+      if (index === 0 || index === 1) return ['Unit III'];
+      if (index === 2) return ['Unit III', 'Unit IV'];
+      if (index >= 3 && index <= 4) return ['Unit IV'];
+      return ['Unit III', 'Unit IV'];
+    }
     if (is2025) {
       if (index === 0 || index === 1) return ['Unit II'];
       if (index >= 2 && index <= 4) return ['Unit III'];
@@ -215,21 +256,22 @@ export function getSuggestedUnitForPartBSlot(examType, index, regulation) {
     if (index === 1) return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
-  const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+  const units = ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V', 'Unit VI'];
   return [units[index] || `Unit ${index + 1}`];
 }
 
-export function getExpectedUnitForPartASlot(examType, index, regulation) {
-  return getSuggestedUnitForPartASlot(examType, index, regulation);
+export function getExpectedUnitForPartASlot(examType, index, regulation, totalUnits = 5) {
+  return getSuggestedUnitForPartASlot(examType, index, regulation, totalUnits);
 }
 
-export function getExpectedUnitForPartBSlot(examType, index, regulation) {
-  return getSuggestedUnitForPartBSlot(examType, index, regulation);
+export function getExpectedUnitForPartBSlot(examType, index, regulation, totalUnits = 5) {
+  return getSuggestedUnitForPartBSlot(examType, index, regulation, totalUnits);
 }
 
-export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null, regulation) {
+export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null, regulation, totalUnits = 5) {
   const is2021CAT = isCATExam(examType, regulation) && !is2025Regulation(regulation);
   const is2025 = is2025Regulation(regulation);
+  const unitsCount = Number(totalUnits) || 5;
 
   if (examType === 'CAT-3' || examType === 'IAT-3') {
     if (is2021CAT) {
@@ -238,6 +280,20 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
       return ['Unit IV', 'Unit V'];
     }
     if (is2025) {
+      if (unitsCount === 4) {
+        return ['Unit IV'];
+      }
+      if (unitsCount === 6) {
+        if (index === 0) return ['Unit V'];
+        if (index === 1) {
+          if (subKey === 'a') return ['Unit V'];
+          if (subKey === 'b') return ['Unit VI'];
+          return ['Unit V', 'Unit VI'];
+        }
+        if (index === 2) return ['Unit VI'];
+        return ['Unit V', 'Unit VI'];
+      }
+      // 5 units
       if (index === 0) return ['Unit IV'];
       if (index === 1) {
         if (subKey === 'a') return ['Unit IV'];
@@ -258,8 +314,24 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
       return ['Unit II', 'Unit III'];
     }
     if (is2025) {
+      if (unitsCount === 6) {
+        if (index === 0) return ['Unit III'];
+        if (index === 1) {
+          if (subKey === 'a') return ['Unit III'];
+          if (subKey === 'b') return ['Unit IV'];
+          return ['Unit III', 'Unit IV'];
+        }
+        if (index === 2) return ['Unit IV'];
+        return ['Unit III', 'Unit IV'];
+      }
+      // 4 or 5 units: Unit II & Unit III
       if (index === 0) return ['Unit II'];
-      if (index === 1 || index === 2) return ['Unit III'];
+      if (index === 1) {
+        if (subKey === 'a') return ['Unit II'];
+        if (subKey === 'b') return ['Unit III'];
+        return ['Unit II', 'Unit III'];
+      }
+      if (index === 2) return ['Unit III'];
       return ['Unit II', 'Unit III'];
     }
     if (subKey === 'a') return ['Unit II'];
@@ -273,7 +345,12 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
       return ['Unit I', 'Unit II'];
     }
     if (is2025) {
-      if (index === 0 || index === 1) return ['Unit I'];
+      if (index === 0) return ['Unit I'];
+      if (index === 1) {
+        if (subKey === 'a') return ['Unit I'];
+        if (subKey === 'b') return ['Unit II'];
+        return ['Unit I', 'Unit II'];
+      }
       if (index === 2) return ['Unit II'];
       return ['Unit I', 'Unit II'];
     }
@@ -284,8 +361,8 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
   return ['Unit V', 'Unit IV'];
 }
 
-export function getExpectedUnitForPartCSlot(examType, index = 0, subKey = null, regulation) {
-  return getSuggestedUnitForPartCSlot(examType, index, subKey, regulation);
+export function getExpectedUnitForPartCSlot(examType, index = 0, subKey = null, regulation, totalUnits = 5) {
+  return getSuggestedUnitForPartCSlot(examType, index, subKey, regulation, totalUnits);
 }
 
 export function getPartBQuestionNo(examType, index, regulation) {

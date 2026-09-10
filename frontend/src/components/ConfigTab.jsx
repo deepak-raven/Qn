@@ -1,7 +1,34 @@
 import React from 'react';
 import { ChevronRight, Award, Layers } from 'lucide-react';
+import { is2025Regulation } from '../hooks/useSetsManager';
 
 export default function ConfigTab({ config, setConfig, setActiveTab }) {
+  const is2025 = is2025Regulation(config.regulation);
+  const totalUnits = Number(config.total_units) || 5;
+
+  const getRuleDescription = () => {
+    if (config.exam_type === 'MODEL EXAMINATION') return 'Full Syllabus (100 Marks)';
+    if (!is2025) {
+      if (config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3') return 'Unit IV & V (50 Marks)';
+      if (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') return 'Unit II & III (50 Marks)';
+      return 'Unit I & II (50 Marks)';
+    }
+    if (totalUnits === 4) {
+      if (config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3') return 'Unit IV (1 Unit - 50 Marks)';
+      if (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') return 'Unit II & III (1½ Units - 50 Marks)';
+      return 'Unit I & II (1½ Units - 50 Marks)';
+    }
+    if (totalUnits === 6) {
+      if (config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3') return 'Unit V & VI (2 Units - 50 Marks)';
+      if (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') return 'Unit III & IV (2 Units - 50 Marks)';
+      return 'Unit I & II (2 Units - 50 Marks)';
+    }
+    // 5 units (default)
+    if (config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3') return 'Unit IV & V (2 Units - 50 Marks)';
+    if (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') return 'Unit II & III (1½ Units - 50 Marks)';
+    return 'Unit I & II (1½ Units - 50 Marks)';
+  };
+
   return (
     <div className="glass-panel card-body" style={{ maxWidth: '800px', margin: '0 auto' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -43,10 +70,32 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
           
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
             <span className="tag tag-unit" style={{ background: '#fff' }}>
-              Selected Rule: {(config.exam_type === 'CAT-3' || config.exam_type === 'IAT-3') ? 'Unit IV & V (50 Marks)' : (config.exam_type === 'CAT-2' || config.exam_type === 'IAT-2') ? ((config.regulation || '').includes('2025') ? 'Unit III & IV (50 Marks)' : 'Unit II & III (50 Marks)') : (config.exam_type === 'CAT-1' || config.exam_type === 'IAT-1') ? 'Unit I & II (50 Marks)' : 'Full Syllabus (100 Marks)'}
+              Selected Rule: {getRuleDescription()}
             </span>
           </div>
         </div>
+
+        {/* 2025 Regulation Subject Units Selector */}
+        {is2025 && (
+          <div className="form-group" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <label className="form-label" style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '0.35rem' }}>
+              Total Units in Subject (2025 Regulation)
+            </label>
+            <select
+              className="form-select"
+              value={config.total_units || 5}
+              onChange={e => setConfig({ ...config, total_units: parseInt(e.target.value, 10) || 5 })}
+              style={{ fontSize: '0.9rem', padding: '0.5rem', fontWeight: 500 }}
+            >
+              <option value={5}>5 Units — Standard (CAT-1: U1 & U2 [1½ U], CAT-2: U2 & U3 [1½ U], CAT-3: U4 & U5 [2 U])</option>
+              <option value={4}>4 Units (CAT-1: U1 & U2 [1½ U], CAT-2: U2 & U3 [1½ U], CAT-3: U4 [1 U])</option>
+              <option value={6}>6 Units (CAT-1: U1 & U2 [2 U], CAT-2: U3 & U4 [2 U], CAT-3: U5 & U6 [2 U])</option>
+            </select>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+              Syllabus distribution across CAT-1, CAT-2, and CAT-3 automatically adapts based on the total units.
+            </div>
+          </div>
+        )}
 
         <div className="form-group">
           <label className="form-label">Name of Institution</label>

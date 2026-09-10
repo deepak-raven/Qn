@@ -1,5 +1,6 @@
 import React from 'react';
 import { Search, GripVertical } from 'lucide-react';
+import { is2025Regulation } from '../hooks/useSetsManager';
 
 export default function QuestionPool({
   API_BASE,
@@ -108,24 +109,35 @@ export default function QuestionPool({
           <option value="Unit III">Unit III</option>
           <option value="Unit IV">Unit IV</option>
           <option value="Unit V">Unit V</option>
+          <option value="Unit VI">Unit VI</option>
         </select>
       </div>
 
       {/* POOL TAB SUB-SELECTOR */}
       <div className="part-tabs" style={{ marginTop: '0.25rem' }}>
-        {['Part A', 'Part B', 'Part C'].map((label, idx) => {
-          const keys = ['A', 'B', 'C'];
-          const active = activeTabSub === keys[idx];
+        {(is2025Regulation(config?.regulation)
+          ? [
+              { label: 'Part A (1 Mark)', key: 'A' },
+              { label: 'Part A (3 Marks)', key: 'B' },
+              { label: 'Part B (10 Marks)', key: 'C' }
+            ]
+          : [
+              { label: 'Part A', key: 'A' },
+              { label: 'Part B', key: 'B' },
+              { label: 'Part C', key: 'C' }
+            ]
+        ).map((tab, idx) => {
+          const active = activeTabSub === tab.key;
           return (
             <button
               key={idx}
               onClick={() => {
-                setActiveTabSub(keys[idx]);
+                setActiveTabSub(tab.key);
                 setSearchQuery('');
               }}
               className={`tab-btn ${active ? 'active' : ''}`}
             >
-              {label}
+              {tab.label}
             </button>
           );
         })}

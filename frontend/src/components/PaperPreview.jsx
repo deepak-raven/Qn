@@ -44,13 +44,14 @@ export default function PaperPreview({
   const is2025 = is2025Regulation(config.regulation);
   const is2021CAT = isCAT && !is2025;
 
+  const totalUnits = Number(config.total_units) || 5;
   const tosUnits = isCAT3
-    ? ['Unit IV', 'Unit V']
+    ? (is2025 && totalUnits === 4 ? ['Unit IV'] : (is2025 && totalUnits === 6 ? ['Unit V', 'Unit VI'] : ['Unit IV', 'Unit V']))
     : isCAT2 
-    ? (is2021CAT ? ['Unit II', 'Unit III'] : ['Unit III', 'Unit IV']) 
+    ? (is2025 && totalUnits === 6 ? ['Unit III', 'Unit IV'] : ['Unit II', 'Unit III']) 
     : isCAT1 
     ? ['Unit I', 'Unit II'] 
-    : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V'];
+    : (totalUnits === 6 ? ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V', 'Unit VI'] : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V']);
 
   const filteredKlTotalsCount = React.useMemo(() => {
     const totals = { K1: 0, K2: 0, K3: 0, K4: 0, K5: 0, K6: 0 };
@@ -612,7 +613,7 @@ export default function PaperPreview({
                         setFilterUnit('All');
                       }}
                     >
-                      [Drop target for Part A: {getSuggestedUnitForPartASlot(config.exam_type, idx, config.regulation).join('/')}]
+                      [Drop target for Part A: {getSuggestedUnitForPartASlot(config.exam_type, idx, config.regulation, config.total_units).join('/')}]
                     </span>
                   )}
                 </td>
@@ -656,9 +657,9 @@ export default function PaperPreview({
           </tbody>
         </table>
 
-        {/* PART B PREVIEW TABLE */}
+        {/* PART B PREVIEW TABLE (In 2025: PART - A Section 2, 5 x 3 = 15) */}
         <div ref={partBRef} className="paper-part-title">
-          PART &ndash; B ({is2025 ? '5 X 3 = 15' : (isCAT ? '2 X 13 = 26' : `${selectedPartB.length} X 13 = ${selectedPartB.length * 13}`)} MARKS)
+          {is2025 ? 'PART – A (5 X 3 = 15 MARKS)' : `PART – B (${isCAT ? '2 X 13 = 26' : `${selectedPartB.length} X 13 = ${selectedPartB.length * 13}`} MARKS)`}
         </div>
 
         {is2025 ? (
@@ -678,7 +679,7 @@ export default function PaperPreview({
                 const slotRaw = selectedPartB[idx];
                 const item = slotRaw ? (slotRaw.a || slotRaw.b || (slotRaw.text ? slotRaw : null)) : null;
                 const qNo = 6 + idx;
-                const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation);
+                const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation, config.total_units);
 
                 return (
                   <tr 
@@ -730,7 +731,7 @@ export default function PaperPreview({
                             setFilterUnit(Array.isArray(expectedUnit) ? (expectedUnit.length === 1 ? expectedUnit[0] : 'All') : expectedUnit);
                           }}
                         >
-                          [Drop target for Part B Question {qNo} ({Array.isArray(expectedUnit) ? expectedUnit.join(' / ') : expectedUnit})]
+                          [Drop target for {is2025 ? 'Part A (3 Marks)' : 'Part B'} Question {qNo} ({Array.isArray(expectedUnit) ? expectedUnit.join(' / ') : expectedUnit})]
                         </span>
                       )}
                     </td>
@@ -790,7 +791,7 @@ export default function PaperPreview({
             <tbody>
               {selectedPartB.slice(0, isCAT ? 2 : 5).map((slot, idx) => {
                 const qNo = getPartBQuestionNo(config.exam_type, idx, config.regulation);
-                const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation);
+                const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation, config.total_units);
 
                 return (
                   <React.Fragment key={idx}>
@@ -998,9 +999,9 @@ export default function PaperPreview({
           </table>
         )}
 
-        {/* PART C PREVIEW TABLE */}
+        {/* PART C PREVIEW TABLE (In 2025: PART - B 3 x 10 = 30) */}
         <div ref={partCRef} className="paper-part-title">
-          PART &ndash; C ({is2025 ? '3 X 10 = 30' : (isCAT ? '1 X 14 = 14' : '1 X 15 = 15')} MARKS)
+          {is2025 ? 'PART – B (3 X 10 = 30 MARKS)' : `PART – C (${isCAT ? '1 X 14 = 14' : '1 X 15 = 15'} MARKS)`}
         </div>
 
         <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
@@ -1071,11 +1072,11 @@ export default function PaperPreview({
                           style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
                           onClick={() => {
                             setActiveTabSub('C');
-                            const suggested = getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'a', config.regulation);
+                            const suggested = getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'a', config.regulation, config.total_units);
                             setFilterUnit(suggested.length === 1 ? suggested[0] : 'All');
                           }}
                         >
-                          [Drop target for Part C Question {qNo}(a) ({getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'a', config.regulation).join('/')})]
+                          [Drop target for {is2025 ? 'Part B' : 'Part C'} Question {qNo}(a) ({getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'a', config.regulation, config.total_units).join('/')})]
                         </span>
                       )}
                     </td>
@@ -1173,11 +1174,11 @@ export default function PaperPreview({
                           style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontStyle: 'italic', cursor: 'pointer' }}
                           onClick={() => {
                             setActiveTabSub('C');
-                            const suggested = getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'b', config.regulation);
+                            const suggested = getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'b', config.regulation, config.total_units);
                             setFilterUnit(suggested.length === 1 ? suggested[0] : 'All');
                           }}
                         >
-                          [Drop target for Part C Question {qNo}(b) ({getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'b', config.regulation).join('/')})]
+                          [Drop target for {is2025 ? 'Part B' : 'Part C'} Question {qNo}(b) ({getSuggestedUnitForPartCSlot(config.exam_type, pairIdx, 'b', config.regulation, config.total_units).join('/')})]
                         </span>
                       )}
                     </td>

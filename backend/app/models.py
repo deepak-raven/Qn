@@ -19,6 +19,7 @@ class Subject(BaseModel):
     uploader_name: Optional[str] = Field(None, description="Name of the person who uploaded this subject")
     uploaded_by: Optional[str] = Field(None, description="Email address of the staff member who uploaded this subject")
     qb_filename: Optional[str] = Field(None, description="Filename of the uploaded question bank docx")
+    total_units: Optional[int] = Field(5, description="Total units in subject (4, 5, or 6)")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -53,6 +54,7 @@ class PaperConfig(BaseModel):
     set: str = "SET-I"
     date: str = ""
     session: str = ""
+    total_units: Optional[int] = Field(5, description="Total units in subject (4, 5, or 6)")
 
     model_config = ConfigDict(populate_by_name=True)
 
