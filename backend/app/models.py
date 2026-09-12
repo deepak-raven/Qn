@@ -60,9 +60,9 @@ class PaperConfig(BaseModel):
 
 class GenerateRequest(BaseModel):
     config: PaperConfig
-    part_a: List[Question]
-    part_b: List[Any]
-    part_c: List[Any]
+    part_a: List[Any] = []
+    part_b: List[Any] = []
+    part_c: List[Any] = []
 
     model_config = ConfigDict(populate_by_name=True)
 

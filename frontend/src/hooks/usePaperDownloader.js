@@ -24,54 +24,70 @@ export function usePaperDownloader() {
     const is2025 = is2025Regulation(config.regulation);
     const isCAT = isCATExam(config.exam_type, config.regulation);
     const reqPartA = (is2025 || isCAT) ? 5 : 10;
+    const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
 
-    const filledPartA = selectedPartA.filter(Boolean);
-    if (filledPartA.length !== reqPartA) {
-      alert(`Please select exactly ${reqPartA} questions for Part A (currently chosen: ${filledPartA.length})`);
-      return;
+    // Check for unfilled question slots
+    const missingParts = [];
+
+    const filledPartA = (selectedPartA || []).slice(0, reqPartA).filter(Boolean);
+    if (filledPartA.length < reqPartA) {
+      missingParts.push(`Part A: ${filledPartA.length}/${reqPartA} questions chosen (${reqPartA - filledPartA.length} empty)`);
     }
     
     if (is2025) {
-      const filledPartB = selectedPartB.slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean);
+      const filledPartB = (selectedPartB || []).slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean);
       if (filledPartB.length < 5) {
-        alert(`Please select 5 questions for Part B (currently chosen: ${filledPartB.length}).`);
-        return;
+        missingParts.push(`Part B: ${filledPartB.length}/5 questions chosen (${5 - filledPartB.length} empty)`);
       }
 
       const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC];
+      let completePartCCount = 0;
       for (let i = 0; i < 3; i++) {
         const pair = partCPairs[i];
-        if (!pair || !pair.a || !pair.b) {
-          alert(`Please complete both choices (a and b) for Question ${11 + i} in Part C.`);
-          return;
+        if (pair && pair.a && pair.b) {
+          completePartCCount++;
         }
       }
+      if (completePartCCount < 3) {
+        missingParts.push(`Part C: ${completePartCCount}/3 complete either/or pairs`);
+      }
     } else {
-      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
+      let completePartBCount = 0;
       for (let i = 0; i < reqPartBCount; i++) {
-        if (!selectedPartB[i] || !selectedPartB[i].a || !selectedPartB[i].b) {
-          alert(`Please complete both choices (a and b) for Question ${getPartBQuestionNo(config.exam_type, i, config.regulation)} in Part B.`);
-          return;
+        if (selectedPartB[i] && selectedPartB[i].a && selectedPartB[i].b) {
+          completePartBCount++;
         }
+      }
+      if (completePartBCount < reqPartBCount) {
+        missingParts.push(`Part B: ${completePartBCount}/${reqPartBCount} complete either/or pairs`);
       }
 
       const singlePartC = Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC;
-      if (!singlePartC || !singlePartC.a || !singlePartC.b) {
-        alert(`Please complete both choices (a and b) for Question ${getPartCQuestionNo(config.exam_type, 0, config.regulation)} in Part C.`);
+      const isPartCComplete = singlePartC && singlePartC.a && singlePartC.b;
+      if (!isPartCComplete) {
+        missingParts.push(`Part C: Either/or choice incomplete`);
+      }
+    }
+
+    if (missingParts.length > 0) {
+      const proceed = window.confirm(
+        `⚠️ The question paper is not completely filled:\n• ${missingParts.join('\n• ')}\n\nEmpty slots will be left blank in the downloaded Word document.\n\nClick 'OK' to Download Anyway, or 'Cancel' to continue editing.`
+      );
+      if (!proceed) {
         return;
       }
     }
 
     // Check for missing KL in chosen questions
     const missingKlQuestions = [];
-    selectedPartA.slice(0, reqPartA).forEach((q, idx) => {
+    (selectedPartA || []).slice(0, reqPartA).forEach((q, idx) => {
       if (q && (!q.kl || String(q.kl).trim() === '')) {
         missingKlQuestions.push(`Part A Q${idx + 1}`);
       }
     });
 
     if (is2025) {
-      selectedPartB.slice(0, 5).forEach((slot, idx) => {
+      (selectedPartB || []).slice(0, 5).forEach((slot, idx) => {
         const item = (slot?.a || slot?.b || (slot?.text ? slot : null));
         if (item && (!item.kl || String(item.kl).trim() === '')) {
           missingKlQuestions.push(`Part B Q${6 + idx}`);
@@ -83,7 +99,6 @@ export function usePaperDownloader() {
         if (pair?.b && (!pair.b.kl || String(pair.b.kl).trim() === '')) missingKlQuestions.push(`Part C Q${11 + idx}(b)`);
       });
     } else {
-      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
       for (let i = 0; i < reqPartBCount; i++) {
         const qNo = getPartBQuestionNo(config.exam_type, i, config.regulation);
         if (selectedPartB[i]?.a && (!selectedPartB[i].a.kl || String(selectedPartB[i].a.kl).trim() === '')) missingKlQuestions.push(`Part B Q${qNo}(a)`);
@@ -106,16 +121,15 @@ export function usePaperDownloader() {
 
     setDownloading(true);
     try {
-      const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
       const payload = {
         config,
-        part_a: filledPartA,
+        part_a: (selectedPartA || []).slice(0, reqPartA).map(q => q || null),
         part_b: is2025 
-          ? selectedPartB.slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean)
-          : selectedPartB.slice(0, reqPartBCount).map(slot => [slot.a, slot.b]),
+          ? (selectedPartB || []).slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null) || null))
+          : (selectedPartB || []).slice(0, reqPartBCount).map(slot => [slot?.a || null, slot?.b || null]),
         part_c: is2025
-          ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC]).map(pair => [pair?.a, pair?.b])
-          : [[(Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.a, (Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.b]]
+          ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC]).map(pair => [pair?.a || null, pair?.b || null])
+          : [[(Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.a || null, (Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.b || null]]
       };
 
       const res = await fetch(`${API_BASE}/generate-docx`, {

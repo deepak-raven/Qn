@@ -79,7 +79,7 @@ export default function QuestionPool({
         </div>
 
         <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
-          Showing questions from selected subject. Drag items into the paper preview.
+          Showing questions from selected subject. Click any question to fit it into the paper template, or drag and drop.
         </p>
       </div>
 
@@ -143,7 +143,7 @@ export default function QuestionPool({
         })}
       </div>
 
-      {/* DRAGGABLE LIST */}
+      {/* DRAGGABLE & CLICKABLE LIST */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto' }}>
         {filteredPool.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-dimmed)', fontSize: '0.85rem' }}>
@@ -158,8 +158,11 @@ export default function QuestionPool({
                 className={`pool-item ${assigned ? 'assigned' : ''}`}
                 draggable={!assigned}
                 onDragStart={(e) => handleDragStart(e, q)}
+                onClick={() => handleToggleQuestion(q)}
+                style={{ cursor: 'pointer' }}
+                title={assigned ? "Click to remove from paper template" : "Click to select and fit into paper template"}
               >
-                <div className="pool-item-drag-handle">
+                <div className="pool-item-drag-handle" title="Drag to specific slot">
                   <GripVertical size={14} />
                 </div>
                 <div className="pool-item-content">
@@ -184,7 +187,7 @@ export default function QuestionPool({
                     )}
                     {assigned && (
                       <span className="tag tag-unit" style={{ background: 'var(--success-light)', color: 'var(--success)', borderColor: 'var(--success)' }}>
-                        Added
+                        ✓ Added
                       </span>
                     )}
                   </div>
@@ -193,8 +196,9 @@ export default function QuestionPool({
                   <input
                     type="checkbox"
                     checked={assigned}
+                    onClick={(e) => e.stopPropagation()}
                     onChange={() => handleToggleQuestion(q)}
-                    title={assigned ? "Remove question from paper" : "Add question to paper"}
+                    title={assigned ? "Remove question from paper" : "Select and fit question into paper"}
                     style={{
                       width: '16px',
                       height: '16px',

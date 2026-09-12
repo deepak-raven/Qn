@@ -83,6 +83,8 @@ def get_q_field(q, field: str, default: str = "") -> str:
     return str(val) if val is not None else default
 
 def get_q_co(q, default_unit: str = "Unit I") -> str:
+    if not q:
+        return ""
     co = get_q_field(q, "co").strip()
     if co:
         return co
@@ -650,14 +652,10 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     # 3. Part B & Part C based on template table structure
     if is_2025_cat_layout and t_part_b:
         # 2025 Regulation: Part B (Q6..Q10 short questions)
-        flat_b = []
-        for item in part_b:
-            if isinstance(item, list):
-                flat_b.extend([q for q in item if q])
-            elif item:
-                flat_b.append(item)
-
-        for idx, q in enumerate(flat_b[:5]):
+        for idx in range(5):
+            q = part_b[idx] if idx < len(part_b) else None
+            if isinstance(q, (list, tuple)) and len(q) > 0:
+                q = q[0]
             row_idx = 1 + idx
             default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
             if row_idx < len(t_part_b.rows):
@@ -670,89 +668,83 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
         # 2025 Regulation: Part C (Q11a/11b, Q12a/12b, Q13a/13b)
         if t_part_c:
-            flat_c = []
-            for item in part_c:
-                if isinstance(item, list):
-                    flat_c.extend([q for q in item if q])
-                elif item:
-                    flat_c.append(item)
+            pair_rows_c = [(1, 3), (4, 6), (7, 9)]
+            for p_idx in range(3):
+                pair = part_c[p_idx] if p_idx < len(part_c) else None
+                row_a_idx, row_b_idx = pair_rows_c[p_idx]
+                default_u = target_units[0] if (p_idx < 2 or len(target_units) == 1) else target_units[1]
 
-            row_indices = [1, 3, 4, 6, 7, 9] # Q11a, Q11b, Q12a, Q12b, Q13a, Q13b
-            for idx, q in enumerate(flat_c[:6]):
-                if idx < len(row_indices):
-                    r_idx = row_indices[idx]
+                q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else (pair if p_idx == 0 and not isinstance(pair, (list, tuple, dict)) else None))
+                q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
+
+                for r_idx, q_item in [(row_a_idx, q_a), (row_b_idx, q_b)]:
                     if r_idx < len(t_part_c.rows):
                         r = t_part_c.rows[r_idx]
                         unique_cells = []
                         for cell in r.cells:
                             if not any(uc._tc == cell._tc for uc in unique_cells):
                                 unique_cells.append(cell)
-                        default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
                         if len(unique_cells) >= 5:
-                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
-                            set_cell_text_preserve_style(unique_cells[3], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
-                            set_cell_text_preserve_style(unique_cells[4], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
+                            set_cell_text_preserve_style(unique_cells[3], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)
+                            set_cell_text_preserve_style(unique_cells[4], get_q_co(q_item, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
                         else:
                             n_cells = len(r.cells)
                             if n_cells >= 4:
-                                set_cell_text_preserve_style(r.cells[3], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
+                                set_cell_text_preserve_style(r.cells[3], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
                             col_kl = n_cells - 2 if n_cells >= 6 else 2
                             col_co = n_cells - 1 if n_cells >= 6 else 3
                             if col_kl < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_kl], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
+                                set_cell_text_preserve_style(r.cells[col_kl], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)
                             if col_co < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_co], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+                                set_cell_text_preserve_style(r.cells[col_co], get_q_co(q_item, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     else:
         # 2021 Regulation: Part B (Either-Or pairs Q6a/b, Q7a/b)
         if t_part_b:
             pair_rows = [(1, 3), (4, 6)]
-            for idx, pair in enumerate(part_b[:2]):
-                if idx < len(pair_rows) and isinstance(pair, (list, tuple)):
-                    row_a_idx, row_b_idx = pair_rows[idx]
-                    pair_default_u = target_units[idx] if idx < len(target_units) else "Unit I"
-                    if row_a_idx < len(t_part_b.rows) and len(pair) > 0 and pair[0]:
-                        q_a = pair[0]
-                        if len(t_part_b.rows[row_a_idx].cells) > 2:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
-                        if len(t_part_b.rows[row_a_idx].cells) > 3:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
-                        if len(t_part_b.rows[row_a_idx].cells) > 4:
-                            set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_co(q_a, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
-                    if row_b_idx < len(t_part_b.rows) and len(pair) > 1 and pair[1]:
-                        q_b = pair[1]
-                        if len(t_part_b.rows[row_b_idx].cells) > 2:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
-                        if len(t_part_b.rows[row_b_idx].cells) > 3:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
-                        if len(t_part_b.rows[row_b_idx].cells) > 4:
-                            set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_co(q_b, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+            for idx in range(2):
+                pair = part_b[idx] if idx < len(part_b) else None
+                row_a_idx, row_b_idx = pair_rows[idx]
+                pair_default_u = target_units[idx] if idx < len(target_units) else "Unit I"
+                q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else None)
+                q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
+
+                if row_a_idx < len(t_part_b.rows):
+                    if len(t_part_b.rows[row_a_idx].cells) > 2:
+                        set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
+                    if len(t_part_b.rows[row_a_idx].cells) > 3:
+                        set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(t_part_b.rows[row_a_idx].cells) > 4:
+                        set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_co(q_a, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+                if row_b_idx < len(t_part_b.rows):
+                    if len(t_part_b.rows[row_b_idx].cells) > 2:
+                        set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
+                    if len(t_part_b.rows[row_b_idx].cells) > 3:
+                        set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(t_part_b.rows[row_b_idx].cells) > 4:
+                        set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[4], get_q_co(q_b, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
         # 2021 Regulation: Part C (Either-Or pair Q8a/b in Table Part C)
         if t_part_c:
-            flat_c = []
-            for item in part_c:
-                if isinstance(item, (list, tuple)):
-                    flat_c.extend([q for q in item if q])
-                elif item:
-                    flat_c.append(item)
+            pair = part_c[0] if len(part_c) > 0 else None
+            q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else None)
+            q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
 
-            if len(flat_c) >= 1 and len(t_part_c.rows) > 1:
-                q_a = flat_c[0]
+            if len(t_part_c.rows) > 1:
                 if len(t_part_c.rows[1].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                 if len(t_part_c.rows[1].cells) > 3:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[1].cells) > 4:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_co(q_a, target_units[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
-            if len(flat_c) >= 2 and len(t_part_c.rows) > 3:
-                q_b = flat_c[1]
+            if len(t_part_c.rows) > 3:
                 if len(t_part_c.rows[3].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                 if len(t_part_c.rows[3].cells) > 3:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[3].cells) > 4:
-                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_co(q_b, target_units[1]), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_co(q_b, target_units[1] if len(target_units) > 1 else target_units[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # Ensure all Question table KL and CO column cells are centered
     for t in q_tables:
@@ -951,49 +943,51 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         
     # 2. Populate Part A (Table 1)
     t1 = doc.tables[1]
-    for idx, q in enumerate(part_a):
+    for idx in range(10):
+        q = part_a[idx] if idx < len(part_a) else None
         row_idx = 1 + idx
         if row_idx < len(t1.rows):
             set_cell_text_preserve_style(t1.rows[row_idx].cells[1], get_q_field(q, "text"))
             set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_field(q, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
-
-    # If Part A has fewer questions (e.g. 5 for CAT-1/CAT-2), trim extra rows
-    if len(part_a) < 10 and len(t1.rows) > (1 + len(part_a)):
-        remove_table_rows(t1, 1 + len(part_a))
+            default_u = f"Unit {(idx // 2) + 1}"
+            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
             
     # 3. Populate Part B (Table 2)
     t2 = doc.tables[2]
-    for idx, pair in enumerate(part_b):
+    for idx in range(5):
+        pair = part_b[idx] if idx < len(part_b) else None
         row_a_idx = 1 + idx * 3
         row_b_idx = 3 + idx * 3
+        default_u = f"Unit {idx + 1}"
         
-        if row_a_idx < len(t2.rows) and len(pair) > 0:
-            q_a = pair[0]
+        q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else None)
+        q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
+        
+        if row_a_idx < len(t2.rows):
             set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
             set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_field(q_a, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_co(q_a, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
             
-        if row_b_idx < len(t2.rows) and len(pair) > 1:
-            q_b = pair[1]
+        if row_b_idx < len(t2.rows):
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
             set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_field(q_b, "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
-
-    # If Part B has fewer pairs (e.g. 2 for CAT-1/CAT-2), trim extra rows
-    if len(part_b) < 5 and len(t2.rows) > (1 + len(part_b) * 3):
-        remove_table_rows(t2, 1 + len(part_b) * 3)
+            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_co(q_b, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # 4. Populate Part C (Table 3)
     t3 = doc.tables[3]
-    if len(part_c) >= 2:
-        set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(part_c[0], "text"))
-        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_kl(part_c[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
-        set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_field(part_c[0], "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+    pair_c = part_c[0] if len(part_c) > 0 else None
+    q_c_a = pair_c[0] if isinstance(pair_c, (list, tuple)) and len(pair_c) > 0 else (pair_c.get('a') if isinstance(pair_c, dict) else (part_c[0] if len(part_c) > 0 and not isinstance(part_c[0], (list, tuple, dict)) else None))
+    q_c_b = pair_c[1] if isinstance(pair_c, (list, tuple)) and len(pair_c) > 1 else (pair_c.get('b') if isinstance(pair_c, dict) else (part_c[1] if len(part_c) > 1 and not isinstance(part_c[1], (list, tuple, dict)) else None))
+
+    if len(t3.rows) > 1:
+        set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(q_c_a, "text"))
+        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_kl(q_c_a), align=WD_ALIGN_PARAGRAPH.CENTER)
+        set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_co(q_c_a, "Unit V"), align=WD_ALIGN_PARAGRAPH.CENTER)
         
-        set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(part_c[1], "text"))
-        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_kl(part_c[1]), align=WD_ALIGN_PARAGRAPH.CENTER)
-        set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_field(part_c[1], "co"), align=WD_ALIGN_PARAGRAPH.CENTER)
+    if len(t3.rows) > 3:
+        set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(q_c_b, "text"))
+        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_kl(q_c_b), align=WD_ALIGN_PARAGRAPH.CENTER)
+        set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_co(q_c_b, "Unit V"), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # Ensure all Question table KL and CO column cells are centered for model paper
     for t in [t1, t2, t3]:

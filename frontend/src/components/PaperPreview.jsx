@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, GripVertical, RotateCcw } from 'lucide-react';
+import { Trash2, GripVertical, RotateCcw, Download } from 'lucide-react';
 import { getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getSuggestedUnitForPartASlot, getSuggestedUnitForPartBSlot, getSuggestedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation, cleanDegreeBranch, formatYearSem } from '../hooks/useSetsManager';
 
 export default function PaperPreview({
@@ -33,7 +33,9 @@ export default function PaperPreview({
   grandTotalMark,
   partARef,
   partBRef,
-  partCRef
+  partCRef,
+  handleGeneratePaper,
+  downloading
 }) {
   const handleDragOver = (e) => e.preventDefault();
 
@@ -187,8 +189,29 @@ export default function PaperPreview({
           )}
         </div>
         
-        {/* Clear Questions Button */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.85rem', paddingBottom: '0.25rem', whiteSpace: 'nowrap' }}>
+        {/* Actions Bar */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.65rem', paddingBottom: '0.25rem', whiteSpace: 'nowrap' }}>
+          {handleGeneratePaper && (
+            <button
+              onClick={handleGeneratePaper}
+              disabled={downloading}
+              className="btn btn-primary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.28rem 0.65rem',
+                fontSize: '0.78rem',
+                borderRadius: '4px',
+                fontWeight: 600,
+                cursor: downloading ? 'not-allowed' : 'pointer'
+              }}
+              title="Download Question Paper (.docx)"
+            >
+              {downloading ? <RotateCcw size={13} className="animate-spin" /> : <Download size={13} />}
+              <span>Download Paper</span>
+            </button>
+          )}
 
           <button
             onClick={handleClearAllQuestions}
