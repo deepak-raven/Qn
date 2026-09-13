@@ -14,8 +14,43 @@ export const DEFAULT_CONFIG = {
   set: 'SET-I',
   date: '',
   session: '',
-  total_units: 5
+  total_units: 5,
+  prepared_by_name: '',
+  prepared_by_sign: '',
+  verified_by_name: '',
+  verified_by_sign: '',
+  reviewed_by_name: '',
+  reviewed_by_sign: ''
 };
+
+export function normalizeUnit(unitStr) {
+  if (!unitStr) return 'Unit I';
+  const u = String(unitStr).trim().toUpperCase();
+  if (u.includes('VI') || u === 'UNIT 6' || u === '6') return 'Unit VI';
+  if (u.includes('III') || u === 'UNIT 3' || u === '3') return 'Unit III';
+  if (u.includes('II') || u === 'UNIT 2' || u === '2') return 'Unit II';
+  if (u.includes('IV') || u === 'UNIT 4' || u === '4') return 'Unit IV';
+  if (u.includes('V') || u === 'UNIT 5' || u === '5') return 'Unit V';
+  if (u.includes('I') || u === 'UNIT 1' || u === '1') return 'Unit I';
+  return 'Unit I';
+}
+
+export function normalizeKL(klStr) {
+  if (!klStr) return null;
+  const k = String(klStr).trim().toUpperCase();
+  if (k.includes('K1') || k.includes('REMEMBER')) return 'K1';
+  if (k.includes('K2') || k.includes('UNDERSTAND')) return 'K2';
+  if (k.includes('K3') || k.includes('APPLY') || k.includes('APPLI')) return 'K3';
+  if (k.includes('K4') || k.includes('ANALY')) return 'K4';
+  if (k.includes('K5') || k.includes('EVALUAT')) return 'K5';
+  if (k.includes('K6') || k.includes('CREAT')) return 'K6';
+  
+  const digits = k.match(/\d/);
+  if (digits && parseInt(digits[0]) >= 1 && parseInt(digits[0]) <= 6) {
+    return `K${digits[0]}`;
+  }
+  return null;
+}
 
 export function cleanDegreeBranch(degInput) {
   if (!degInput) return 'B.E/CSE';
@@ -358,7 +393,9 @@ export function getSuggestedUnitForPartCSlot(examType, index = 0, subKey = null,
     if (subKey === 'b') return ['Unit II'];
     return ['Unit I', 'Unit II'];
   }
-  return ['Unit V', 'Unit IV'];
+  if (subKey === 'a') return ['Unit IV', 'Unit I', 'Unit II', 'Unit III'];
+  if (subKey === 'b') return ['Unit V', 'Unit III', 'Unit II', 'Unit I'];
+  return ['Unit IV', 'Unit V'];
 }
 
 export function getExpectedUnitForPartCSlot(examType, index = 0, subKey = null, regulation, totalUnits = 5) {

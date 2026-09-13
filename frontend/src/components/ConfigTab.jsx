@@ -222,6 +222,83 @@ export default function ConfigTab({ config, setConfig, setActiveTab }) {
           </div>
         </div>
 
+        {/* Staff Signatures & Verification Section */}
+        <div style={{ background: '#f8fafc', padding: '1.25rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+          <h4 style={{ margin: '0 0 1rem 0', fontSize: '0.95rem', color: 'var(--text-main)', fontWeight: 700 }}>
+            Staff Signatures & Verification (Footer Table)
+          </h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Prepared by (Staff Name / Institution / Department)</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  value={config.prepared_by_name || ''}
+                  onChange={e => setConfig({ ...config, prepared_by_name: e.target.value })}
+                  placeholder="e.g. Dr. K. Raman / Jaya Engineering College / CSE"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Sign & Date</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  value={config.prepared_by_sign || ''}
+                  onChange={e => setConfig({ ...config, prepared_by_sign: e.target.value })}
+                  placeholder="e.g. Signed 03-07-2026"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Verified by (Staff Name / Department)</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  value={config.verified_by_name || ''}
+                  onChange={e => setConfig({ ...config, verified_by_name: e.target.value })}
+                  placeholder="e.g. Prof. M. Suresh / CSE"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Sign & Date</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  value={config.verified_by_sign || ''}
+                  onChange={e => setConfig({ ...config, verified_by_sign: e.target.value })}
+                  placeholder="e.g. Signed 04-07-2026"
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '1rem' }}>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Reviewed by (HOD / Academic Reviewer)</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  value={config.reviewed_by_name || ''}
+                  onChange={e => setConfig({ ...config, reviewed_by_name: e.target.value })}
+                  placeholder="e.g. Dr. S. Anitha, HOD / CSE"
+                />
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>Sign & Date</label>
+                <input 
+                  type="text" 
+                  className="form-input"
+                  value={config.reviewed_by_sign || ''}
+                  onChange={e => setConfig({ ...config, reviewed_by_sign: e.target.value })}
+                  placeholder="e.g. Signed 05-07-2026"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <button className="btn btn-primary" onClick={() => setActiveTab('questions')} style={{ alignSelf: 'flex-end', marginTop: '1rem' }}>
           Go back to selection <ChevronRight size={16} />
         </button>

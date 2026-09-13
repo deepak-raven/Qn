@@ -148,6 +148,7 @@ export function usePaperDownloader() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+        return true;
       } else {
         let errorDetail = 'Unknown error';
         try {
@@ -165,6 +166,7 @@ export function usePaperDownloader() {
           errorDetail = await res.text().catch(() => 'Server error');
         }
         alert(`Generation failed: ${errorDetail}`);
+        return false;
       }
     } catch (err) {
       if (err.message && err.message.includes('Failed to fetch')) {
@@ -172,10 +174,37 @@ export function usePaperDownloader() {
       } else {
         alert(`Network error during generation: ${err.message}`);
       }
+      return false;
     } finally {
       setDownloading(false);
     }
   };
 
-  return { downloading, generatePaper };
+  const generateAllSets = async (setsObject) => {
+    if (!setsObject || Object.keys(setsObject).length === 0) {
+      alert('No paper sets found to download.');
+      return;
+    }
+
+    const setKeys = Object.keys(setsObject);
+    let successCount = 0;
+
+    for (const setId of setKeys) {
+      const setData = setsObject[setId];
+      if (!setData) continue;
+      const setConfig = { ...(setData.config || {}), set: setId };
+      
+      const success = await generatePaper(
+        setConfig,
+        setData.selectedPartA || [],
+        setData.selectedPartB || [],
+        setData.selectedPartC || []
+      );
+      if (success) successCount++;
+      // Short delay between downloads so browser doesn't block multiple files
+      await new Promise(res => setTimeout(res, 600));
+    }
+  };
+
+  return { downloading, generatePaper, generateAllSets };
 }

@@ -8,8 +8,8 @@ from bson import ObjectId
 # Configure DNS resolver to avoid local DNS timeout on mongodb+srv SRV lookups
 try:
     import dns.resolver
-    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
-    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1', '8.8.4.4']
+    resolver = dns.resolver.Resolver(configure=True)
+    dns.resolver.default_resolver = resolver
 except Exception:
     pass
 

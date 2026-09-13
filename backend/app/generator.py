@@ -892,6 +892,32 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                     for p in cell.paragraphs:
                         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
+    # 6. Populate Staff Signatures Table (Table 8 / Footer table)
+    _populate_signature_table(doc, config)
+
+
+def _populate_signature_table(doc, config: PaperConfig):
+    for t in doc.tables:
+        t_text = " ".join(c.text.strip() for row in t.rows for c in row.cells).upper()
+        if "PREPARED BY" in t_text or "ACADEMIC INSTITUTION" in t_text or "SIGN WITH DATE" in t_text:
+            for row in t.rows:
+                row_label = row.cells[0].text.strip().upper() if len(row.cells) > 0 else ""
+                if "PREPARED" in row_label:
+                    if len(row.cells) > 1 and getattr(config, "prepared_by_name", None):
+                        set_cell_text_preserve_style(row.cells[1], config.prepared_by_name, align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(row.cells) > 2 and getattr(config, "prepared_by_sign", None):
+                        set_cell_text_preserve_style(row.cells[2], config.prepared_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER)
+                elif "VERIFIED" in row_label:
+                    if len(row.cells) > 1 and getattr(config, "verified_by_name", None):
+                        set_cell_text_preserve_style(row.cells[1], config.verified_by_name, align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(row.cells) > 2 and getattr(config, "verified_by_sign", None):
+                        set_cell_text_preserve_style(row.cells[2], config.verified_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER)
+                elif "REVIEWED" in row_label or "APPROVED" in row_label:
+                    if len(row.cells) > 1 and getattr(config, "reviewed_by_name", None):
+                        set_cell_text_preserve_style(row.cells[1], config.reviewed_by_name, align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(row.cells) > 2 and getattr(config, "reviewed_by_sign", None):
+                        set_cell_text_preserve_style(row.cells[2], config.reviewed_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER)
+
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
     # 1. Replace metadata placeholders
@@ -1095,6 +1121,9 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
                 for cell in row.cells:
                     for p in cell.paragraphs:
                         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # 8. Populate Staff Signatures Table if present in model template
+    _populate_signature_table(doc, config)
 
 
 def generate_question_paper(
