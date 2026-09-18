@@ -94,7 +94,8 @@ def get_q_co(q, default_unit: str = "Unit I") -> str:
         "Unit II": "CO2",
         "Unit III": "CO3",
         "Unit IV": "CO4",
-        "Unit V": "CO5"
+        "Unit V": "CO5",
+        "Unit VI": "CO6"
     }
     return unit_co_map.get(u, "CO1")
 
@@ -640,7 +641,12 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     if t_part_a:
         for idx, q in enumerate(part_a[:5]):
             row_idx = 1 + idx
-            default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
+            if len(target_units) == 1:
+                default_u = target_units[0]
+            elif is_cat2 and total_units in [4, 5]:
+                default_u = target_units[0] if idx < 2 else target_units[1]
+            else:
+                default_u = target_units[0] if idx < 3 else target_units[1]
             if row_idx < len(t_part_a.rows):
                 if len(t_part_a.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
@@ -657,7 +663,12 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             if isinstance(q, (list, tuple)) and len(q) > 0:
                 q = q[0]
             row_idx = 1 + idx
-            default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
+            if len(target_units) == 1:
+                default_u = target_units[0]
+            elif is_cat2 and total_units in [4, 5]:
+                default_u = target_units[0] if idx < 2 else target_units[1]
+            else:
+                default_u = target_units[0] if idx < 3 else target_units[1]
             if row_idx < len(t_part_b.rows):
                 if len(t_part_b.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
@@ -672,7 +683,12 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             for p_idx in range(3):
                 pair = part_c[p_idx] if p_idx < len(part_c) else None
                 row_a_idx, row_b_idx = pair_rows_c[p_idx]
-                default_u = target_units[0] if (p_idx < 2 or len(target_units) == 1) else target_units[1]
+                if len(target_units) == 1:
+                    default_u = target_units[0]
+                elif is_cat2 and total_units in [4, 5]:
+                    default_u = target_units[0] if p_idx < 1 else target_units[1]
+                else:
+                    default_u = target_units[0] if p_idx < 2 else target_units[1]
 
                 q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else (pair if p_idx == 0 and not isinstance(pair, (list, tuple, dict)) else None))
                 q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
@@ -684,6 +700,7 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                         for cell in r.cells:
                             if not any(uc._tc == cell._tc for uc in unique_cells):
                                 unique_cells.append(cell)
+
                         if len(unique_cells) >= 5:
                             set_cell_text_preserve_style(unique_cells[2], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
                             set_cell_text_preserve_style(unique_cells[3], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)

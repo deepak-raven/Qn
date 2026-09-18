@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { LogIn, UserPlus, AlertCircle, Mail, CheckCircle, RefreshCw, ArrowLeft } from 'lucide-react';
+import { LogIn, UserPlus, AlertCircle, Mail, CheckCircle, RefreshCw, ArrowLeft, ShieldCheck } from 'lucide-react';
 import logoImg from '../assets/image.png';
 
-export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onResendVerification, onCheckVerification }) {
+export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onResendVerification, onCheckVerification, onNavigate }) {
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -327,6 +327,38 @@ export default function LoginPage({ onLogin, onRegister, onGoogleLogin, onResend
               </svg>
               {googleLoading ? 'Connecting Google...' : 'Continue with Google'}
             </button>
+
+            {/* Admin Portal Access Link */}
+            {onNavigate && (
+              <div style={{
+                marginTop: '1.75rem',
+                paddingTop: '1.25rem',
+                borderTop: '1px solid #f1f5f9',
+                textAlign: 'center'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate('/admin')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    transition: 'color 0.15s ease'
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.color = '#94a3b8'; }}
+                >
+                  <ShieldCheck size={13} />
+                  <span>Admin Portal</span>
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>

@@ -53,7 +53,7 @@ export default function PaperPreview({
     ? (is2025 && totalUnits === 6 ? ['Unit III', 'Unit IV'] : ['Unit II', 'Unit III']) 
     : isCAT1 
     ? ['Unit I', 'Unit II'] 
-    : (totalUnits === 6 ? ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V', 'Unit VI'] : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V']);
+    : (totalUnits === 6 ? ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V', 'Unit VI'] : (totalUnits === 4 ? ['Unit I', 'Unit II', 'Unit III', 'Unit IV'] : ['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V']));
 
   const filteredKlTotalsCount = React.useMemo(() => {
     const totals = { K1: 0, K2: 0, K3: 0, K4: 0, K5: 0, K6: 0 };

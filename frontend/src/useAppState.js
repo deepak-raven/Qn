@@ -300,8 +300,8 @@ export function useAppState() {
         regulation: targetReg,
         total_units: subUnits,
         semester: semesterTypeStr,
-        exam_type: 'CAT-3',
-        exam_name: 'CONTINUOUS ASSESSMENT TEST - III',
+        exam_type: is2025 ? 'CAT-1' : 'CAT-3',
+        exam_name: is2025 ? 'CONTINUOUS ASSESSMENT TEST - I' : 'CONTINUOUS ASSESSMENT TEST - III',
         time: '90 Minutes',
         max_marks: 50,
         degree_branch_sem: degreeSem
@@ -348,6 +348,7 @@ export function useAppState() {
                 subject_code: code,
                 subject_name: subName || currentCfg.subject_name || code,
                 regulation: subReg,
+                total_units: sub?.total_units ? Number(sub.total_units) : (Number(currentCfg.total_units) || 5),
                 semester: currentCfg.semester || semesterTypeStr,
                 degree_branch_sem: currentCfg.degree_branch_sem || degreeSem,
                 exam_type: finalExamType,
@@ -806,7 +807,7 @@ export function useAppState() {
             const is2025 = is2025Regulation(config.regulation);
             const isCAT = isCATExam(config.exam_type, config.regulation);
             const qNo = is2025 ? (11 + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
-            alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in Part C Question ${qNo}(${subKey}).`);
+            alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in ${is2025 ? 'Part B' : 'Part C'} Question ${qNo}(${subKey}).`);
             return;
           }
 

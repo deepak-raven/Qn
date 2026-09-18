@@ -104,12 +104,9 @@ export default function QuestionPool({
           style={{ flex: 1, fontSize: '0.8rem', padding: '0.4rem 0.5rem' }}
         >
           <option value="All">All Units</option>
-          <option value="Unit I">Unit I</option>
-          <option value="Unit II">Unit II</option>
-          <option value="Unit III">Unit III</option>
-          <option value="Unit IV">Unit IV</option>
-          <option value="Unit V">Unit V</option>
-          <option value="Unit VI">Unit VI</option>
+          {['Unit I', 'Unit II', 'Unit III', 'Unit IV', 'Unit V', 'Unit VI'].slice(0, Number(config?.total_units) || 5).map(u => (
+            <option key={u} value={u}>{u}</option>
+          ))}
         </select>
       </div>
 
