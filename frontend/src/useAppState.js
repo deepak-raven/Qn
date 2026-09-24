@@ -1,10 +1,53 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useSetsManager, DEFAULT_CONFIG, sanitizeLoadedConfig, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getExpectedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation } from './hooks/useSetsManager';
+import { useSetsManager, DEFAULT_CONFIG, sanitizeLoadedConfig, getExpectedUnitForPartASlot, getExpectedUnitForPartBSlot, getExpectedUnitForPartCSlot, getPartBQuestionNo, getPartCQuestionNo, isCATExam, is2025Regulation, normalizeKL } from './hooks/useSetsManager';
 import { useTOSCalculator, normalizeUnit } from './hooks/useTOSCalculator';
 import { usePaperDownloader } from './hooks/usePaperDownloader';
 import { generateAutoDualSets } from './hooks/useAutoPaperGenerator';
-
 import { API_BASE } from './config';
+
+export function sanitizeQuestionKL(q, defaultPart = 'A', is2025 = false) {
+  if (!q) return q;
+  const rawKL = q.kl ? String(q.kl).trim() : '';
+  if (rawKL) {
+    return { ...q, kl: normalizeKL(rawKL) || rawKL };
+  }
+  const part = (q.part || defaultPart).toUpperCase();
+  let defaultKL = 'K1';
+  if (part === 'A') defaultKL = 'K1';
+  else if (part === 'B') defaultKL = (is2025 || q.marks === 3) ? 'K2' : 'K3';
+  else if (part === 'C') defaultKL = 'K4';
+  return { ...q, kl: defaultKL };
+}
+
+const sanitizeSetQuestions = (setObj, is2025) => {
+  if (!setObj) return setObj;
+  return {
+    ...setObj,
+    selectedPartA: (setObj.selectedPartA || []).map(q => sanitizeQuestionKL(q, 'A', is2025)),
+    selectedPartB: (setObj.selectedPartB || []).map(slot => {
+      if (!slot) return slot;
+      if (slot.a !== undefined || slot.b !== undefined) {
+        return {
+          a: sanitizeQuestionKL(slot.a, 'B', is2025),
+          b: sanitizeQuestionKL(slot.b, 'B', is2025)
+        };
+      }
+      return sanitizeQuestionKL(slot, 'B', is2025);
+    }),
+    selectedPartC: Array.isArray(setObj.selectedPartC)
+      ? setObj.selectedPartC.map(slot => {
+          if (!slot) return slot;
+          return {
+            a: sanitizeQuestionKL(slot.a, 'C', is2025),
+            b: sanitizeQuestionKL(slot.b, 'C', is2025)
+          };
+        })
+      : {
+          a: sanitizeQuestionKL(setObj.selectedPartC?.a, 'C', is2025),
+          b: sanitizeQuestionKL(setObj.selectedPartC?.b, 'C', is2025)
+        }
+  };
+};
 
 
 export function useAppState() {
@@ -312,10 +355,22 @@ export function useAppState() {
       };
       return {
         'SET-I': {
-          config: freshConfig,
+          config: { ...freshConfig, set: 'SET-I' },
           selectedPartA: freshPartA,
           selectedPartB: freshPartB,
           selectedPartC: freshPartC
+        },
+        'SET-II': {
+          config: { ...freshConfig, set: 'SET-II' },
+          selectedPartA: Array(is2025 ? 5 : 10).fill(null),
+          selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
+          selectedPartC: is2025 ? Array(3).fill(null).map(() => ({ a: null, b: null })) : { a: null, b: null }
+        },
+        'SET-III': {
+          config: { ...freshConfig, set: 'SET-III' },
+          selectedPartA: Array(is2025 ? 5 : 10).fill(null),
+          selectedPartB: Array(5).fill(null).map(() => ({ a: null, b: null })),
+          selectedPartC: is2025 ? Array(3).fill(null).map(() => ({ a: null, b: null })) : { a: null, b: null }
         }
       };
     };
@@ -342,7 +397,7 @@ export function useAppState() {
             const wasStale2025Cat = !is2025 && currentCfg.exam_type === 'CAT-1' && (currentCfg.max_marks === 50 || currentCfg.time === '90 Minutes');
             const finalExamType = wasStale2025Cat ? 'MODEL EXAMINATION' : (currentCfg.exam_type || (is2025 ? 'CAT-1' : 'MODEL EXAMINATION'));
 
-            updatedSets[setId] = {
+            const rawSet = {
               ...updatedSets[setId],
               selectedPartA: (!is2025 && updatedSets[setId].selectedPartA?.length < 10) ? Array(10).fill(null) : updatedSets[setId].selectedPartA,
               selectedPartC: (!is2025 && Array.isArray(updatedSets[setId].selectedPartC)) ? { a: null, b: null } : updatedSets[setId].selectedPartC,
@@ -360,6 +415,7 @@ export function useAppState() {
                 max_marks: finalExamType === 'MODEL EXAMINATION' ? 100 : currentCfg.max_marks
               }
             };
+            updatedSets[setId] = sanitizeSetQuestions(rawSet, is2025);
           });
           setSets(updatedSets);
           setCurrentSetId(savedForSub.currentSetId || 'SET-I');
@@ -379,8 +435,10 @@ export function useAppState() {
       const res = await fetch(`${API_BASE}/questions?${qParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setQuestions(data);
-        return data;
+        const is2025Sub = subReg.includes('2025');
+        const sanitized = (data || []).map(q => sanitizeQuestionKL(q, q.part || 'A', is2025Sub));
+        setQuestions(sanitized);
+        return sanitized;
       }
       return [];
     } catch (err) {
@@ -733,8 +791,9 @@ export function useAppState() {
       e.preventDefault();
       try {
         const payload = JSON.parse(e.dataTransfer.getData('application/json'));
-        const q = payload.question;
-        if (!q) return;
+        const rawQ = payload.question;
+        if (!rawQ) return;
+        const q = sanitizeQuestionKL(rawQ, part, config.regulation?.includes('2025'));
         if (q.part !== part) {
           alert(`You can only drop Part ${part} questions here.`);
           return;

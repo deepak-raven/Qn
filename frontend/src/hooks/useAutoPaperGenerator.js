@@ -4,7 +4,8 @@ import {
   getExpectedUnitForPartASlot,
   getExpectedUnitForPartBSlot,
   getExpectedUnitForPartCSlot,
-  normalizeUnit
+  normalizeUnit,
+  normalizeKL
 } from './useSetsManager.js';
 
 // Fisher-Yates non-sequential random shuffle
@@ -20,6 +21,20 @@ function shuffleArray(array) {
 function getQuestionId(q) {
   if (!q) return null;
   return q._id || q.id || q.text;
+}
+
+function ensureQuestionKL(q, defaultPart = 'A', is2025 = false) {
+  if (!q) return q;
+  const rawKL = q.kl ? String(q.kl).trim() : '';
+  if (rawKL) {
+    return { ...q, kl: normalizeKL(rawKL) || rawKL };
+  }
+  const part = (q.part || defaultPart).toUpperCase();
+  let defaultKL = 'K1';
+  if (part === 'A') defaultKL = 'K1';
+  else if (part === 'B') defaultKL = is2025 ? 'K2' : 'K3';
+  else if (part === 'C') defaultKL = 'K4';
+  return { ...q, kl: defaultKL };
 }
 
 /**
@@ -101,7 +116,8 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
 
       const picked = pickQuestion(candidates, ['K1', 'K2'], currentSetUsedIds);
       if (picked) {
-        selectedPartA.push(picked);
+        const withKL = ensureQuestionKL(picked, 'A', is2025);
+        selectedPartA.push(withKL);
         const qid = getQuestionId(picked);
         currentSetUsedIds.add(qid);
         globalUsedIds.add(qid);
@@ -128,7 +144,8 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
 
         const picked = pickQuestion(candidates, ['K2', 'K3', 'K4'], currentSetUsedIds);
         if (picked) {
-          selectedPartB.push(picked);
+          const withKL = ensureQuestionKL(picked, 'B', is2025);
+          selectedPartB.push(withKL);
           const qid = getQuestionId(picked);
           currentSetUsedIds.add(qid);
           globalUsedIds.add(qid);
@@ -166,7 +183,10 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
           globalUsedIds.add(qidB);
         }
 
-        selectedPartB.push({ a: pickedA, b: pickedB });
+        selectedPartB.push({ 
+          a: ensureQuestionKL(pickedA, 'B', is2025), 
+          b: ensureQuestionKL(pickedB, 'B', is2025) 
+        });
       }
     }
 
@@ -209,7 +229,10 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
           globalUsedIds.add(qidB);
         }
 
-        selectedPartC.push({ a: pickedA, b: pickedB });
+        selectedPartC.push({ 
+          a: ensureQuestionKL(pickedA, 'C', is2025), 
+          b: ensureQuestionKL(pickedB, 'C', is2025) 
+        });
       }
     } else {
       // 2021 Regulation: 1 either-or pair (e.g. Q16a/b or Q8a/b)
@@ -270,7 +293,11 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
         globalUsedIds.add(qidB);
       }
 
-      selectedPartC = isCAT ? [{ a: pickedA, b: pickedB }] : { a: pickedA, b: pickedB };
+      const pairC = { 
+        a: ensureQuestionKL(pickedA, 'C', is2025), 
+        b: ensureQuestionKL(pickedB, 'C', is2025) 
+      };
+      selectedPartC = isCAT ? [pairC] : pairC;
     }
 
     return {
@@ -286,13 +313,19 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
   const set1 = buildSingleSet('SET-I', baseConfig);
   // Generate SET-II with remaining disjoint pool
   const set2 = buildSingleSet('SET-II', baseConfig);
+  // Generate SET-III with remaining disjoint pool
+  const set3 = buildSingleSet('SET-III', baseConfig);
 
   // Compute stats and overlap check
   const set1Ids = new Set(set1.questionIds);
   const set2Ids = new Set(set2.questionIds);
+  const set3Ids = new Set(set3.questionIds);
   let overlapCount = 0;
   set2Ids.forEach(id => {
     if (set1Ids.has(id)) overlapCount++;
+  });
+  set3Ids.forEach(id => {
+    if (set1Ids.has(id) || set2Ids.has(id)) overlapCount++;
   });
 
   const patternInfo = {
@@ -300,12 +333,12 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
     totalPoolSize: allQuestions.length,
     set1TotalCount: set1.questionIds.length,
     set2TotalCount: set2.questionIds.length,
+    set3TotalCount: set3.questionIds.length,
     overlapCount: overlapCount,
-    overlapPercentage: set1.questionIds.length > 0 ? ((overlapCount / (set1.questionIds.length + set2.questionIds.length)) * 100).toFixed(1) : "0.0",
     rules: [
       {
         title: "0% Cross-Set Overlap (Disjoint Selection)",
-        description: `Questions selected for SET-I were excluded when generating SET-II (${overlapCount} duplicates detected).`
+        description: `Questions selected for earlier sets were excluded when generating subsequent sets (${overlapCount} duplicates detected).`
       },
       {
         title: "Anti-Sequential Stratified Randomization",
@@ -333,7 +366,8 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
   return {
     sets: {
       'SET-I': set1,
-      'SET-II': set2
+      'SET-II': set2,
+      'SET-III': set3
     },
     patternInfo
   };

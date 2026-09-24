@@ -11,7 +11,7 @@ from docx.table import _Cell
 from docx.shared import Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import parse_xml
-from docx.oxml.ns import nsdecls
+from docx.oxml.ns import nsdecls, qn
 from typing import List, Dict, Any, Optional
 from app.models import PaperConfig, Question
 
@@ -99,32 +99,95 @@ def get_q_co(q, default_unit: str = "Unit I") -> str:
     return unit_co_map.get(u, "CO1")
 
 def get_q_kl(q, default: str = "") -> str:
+    if not q:
+        return default
     kl = get_q_field(q, "kl").strip()
     if kl:
         return normalize_kl(kl) or kl
-    return default
+    part = get_q_field(q, "part", "A").upper()
+    marks = get_q_field(q, "marks", "1")
+    if part == "A":
+        return "K1"
+    elif part == "B":
+        return "K2" if str(marks) == "3" else "K3"
+    elif part == "C":
+        return "K4"
+    return default or "K1"
 
-def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAGRAPH] = None, image_data: Optional[str] = None):
+def clean_text_content(text: str) -> str:
+    if not text:
+        return ""
+    text = str(text).replace('\r', '')
+    lines = [line.strip() for line in text.split('\n') if line.strip()]
+    return "\n".join(lines)
+
+def set_cell_text_preserve_style(
+    cell, 
+    text: str, 
+    align: Optional[WD_ALIGN_PARAGRAPH] = None, 
+    image_data: Optional[str] = None,
+    font_size_pt: float = 11,
+    bold: bool = False,
+    space_before: float = 2.0,
+    space_after: float = 2.0,
+    line_spacing: float = 1.08
+):
     """
-    Clears the text in a cell while preserving its original cell borders and styles.
-    Overwrites the text of the first run in the first paragraph, and removes other runs.
-    If image_data is provided, embeds the diagram/figure directly into the cell.
+    Clears the text in a cell while preserving its original cell borders,
+    and applies standard uniform font size, line spacing, paragraph spacing,
+    and vertical alignment.
     """
+    while len(cell.paragraphs) > 1:
+        p_elem = cell.paragraphs[-1]._p
+        p_elem.getparent().remove(p_elem)
+
     if len(cell.paragraphs) == 0:
-        cell.add_paragraph()
-    p = cell.paragraphs[0]
+        p = cell.add_paragraph()
+    else:
+        p = cell.paragraphs[0]
+
     if align is not None:
         p.alignment = align
+
+    p.paragraph_format.space_before = Pt(space_before)
+    p.paragraph_format.space_after = Pt(space_after)
+    p.paragraph_format.line_spacing = line_spacing
+
+    cleaned = clean_text_content(text)
+    p.text = ""
     
-    if len(p.runs) > 0:
-        first_run = p.runs[0]
-        first_run.text = text
-        for r in p.runs[1:]:
-            r.text = ""
+    if "\n" in cleaned:
+        lines = cleaned.split("\n")
+        for idx, line in enumerate(lines):
+            if idx > 0:
+                p_extra = cell.add_paragraph()
+                if align is not None:
+                    p_extra.alignment = align
+                p_extra.paragraph_format.space_before = Pt(1.0)
+                p_extra.paragraph_format.space_after = Pt(space_after if idx == len(lines) - 1 else 1.0)
+                p_extra.paragraph_format.line_spacing = line_spacing
+                run = p_extra.add_run(line)
+            else:
+                p.paragraph_format.space_after = Pt(1.0 if len(lines) > 1 else space_after)
+                run = p.add_run(line)
+            run.font.name = "Times New Roman"
+            run.font.size = Pt(font_size_pt)
+            run.bold = bold
     else:
-        run = p.add_run(text)
+        run = p.add_run(cleaned)
         run.font.name = "Times New Roman"
-        run.font.size = Pt(12)
+        run.font.size = Pt(font_size_pt)
+        run.bold = bold
+
+    # Remove individual cell margins and set vertical alignment to center in tcPr
+    tcPr = cell._tc.get_or_add_tcPr()
+    for child in list(tcPr):
+        if child.tag.endswith('vAlign') or child.tag.endswith(':vAlign') or child.tag == 'vAlign':
+            tcPr.remove(child)
+        if child.tag.endswith('tcMar') or child.tag.endswith(':tcMar') or child.tag == 'tcMar':
+            tcPr.remove(child)
+    v_elem = parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>')
+    tcPr.append(v_elem)
 
     if image_data:
         try:
@@ -133,12 +196,86 @@ def set_cell_text_preserve_style(cell, text: str, align: Optional[WD_ALIGN_PARAG
             img_bytes = base64.b64decode(raw_b64)
             p_img = cell.add_paragraph()
             p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            p_img.paragraph_format.space_before = Pt(4)
+            p_img.paragraph_format.space_before = Pt(3)
             p_img.paragraph_format.space_after = Pt(2)
+            p_img.paragraph_format.line_spacing = 1.0
             run_img = p_img.add_run()
             run_img.add_picture(io.BytesIO(img_bytes), width=Inches(2.5))
         except Exception as img_err:
             logger.warning(f"Could not insert diagram into question cell: {img_err}")
+
+
+def standardize_question_table(table, col_type: str = "part_a"):
+    """
+    Standardizes row heights, cell vertical alignment, paragraph spacing,
+    and column widths across all rows and cells in a Question table so that
+    spacing is perfectly uniform across every question.
+    """
+    if not table or len(table.rows) == 0:
+        return
+
+    # 1. Standardize row heights, cell vertical alignment & paragraph spacing
+    for r_idx, row in enumerate(table.rows):
+        trPr = row._tr.get_or_add_trPr()
+        for child in list(trPr):
+            if child.tag.endswith('trHeight') or child.tag.endswith(':trHeight') or child.tag == 'trHeight':
+                trPr.remove(child)
+            if child.tag.endswith('cantSplit') or child.tag.endswith(':cantSplit') or child.tag == 'cantSplit':
+                trPr.remove(child)
+        h_elem = parse_xml(f'<w:trHeight {nsdecls("w")} w:val="260" w:hRule="atLeast"/>')
+        trPr.append(h_elem)
+        cs_elem = parse_xml(f'<w:cantSplit {nsdecls("w")}/>')
+        trPr.append(cs_elem)
+
+        for c_idx, cell in enumerate(row.cells):
+            tcPr = cell._tc.get_or_add_tcPr()
+            for child in list(tcPr):
+                if child.tag.endswith('tcMar') or child.tag.endswith(':tcMar') or child.tag == 'tcMar':
+                    tcPr.remove(child)
+                if child.tag.endswith('vAlign') or child.tag.endswith(':vAlign') or child.tag == 'vAlign':
+                    tcPr.remove(child)
+            v_elem = parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>')
+            tcPr.append(v_elem)
+
+            # Remove empty trailing paragraphs
+            while len(cell.paragraphs) > 1 and not cell.paragraphs[-1].text.strip() and not cell.paragraphs[-1]._p.xpath('.//w:drawing'):
+                p_elem = cell.paragraphs[-1]._p
+                p_elem.getparent().remove(p_elem)
+
+            for p in cell.paragraphs:
+                p.paragraph_format.space_before = Pt(2.0)
+                p.paragraph_format.space_after = Pt(2.0)
+                p.paragraph_format.line_spacing = 1.08
+                for r in p.runs:
+                    r.font.name = "Times New Roman"
+                    if r_idx == 0:
+                        r.font.size = Pt(11)
+                        r.bold = True
+                    else:
+                        r.font.size = Pt(11)
+
+    # 2. Standardize column widths with explicit tcW dxa values so Q.No header never breaks
+    num_cols = len(table.columns)
+    if num_cols == 4:
+        col_widths_in = [0.70, 4.25, 0.65, 0.90]
+    elif num_cols == 5:
+        col_widths_in = [0.60, 0.45, 3.90, 0.65, 0.90]
+    else:
+        col_widths_in = None
+
+    if col_widths_in:
+        for row in table.rows:
+            for i, w_val in enumerate(col_widths_in):
+                if i < len(row.cells):
+                    cell = row.cells[i]
+                    cell.width = Inches(w_val)
+                    tcPr = cell._tc.get_or_add_tcPr()
+                    for child in list(tcPr):
+                        if child.tag.endswith('tcW') or child.tag.endswith(':tcW') or child.tag == 'tcW':
+                            tcPr.remove(child)
+                    w_dxa = int(w_val * 1440)
+                    tcW_elem = parse_xml(f'<w:tcW {nsdecls("w")} w:w="{w_dxa}" w:type="dxa"/>')
+                    tcPr.append(tcW_elem)
 
 
 def clean_degree_branch(deg_input: str) -> str:
@@ -561,13 +698,15 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
         is_2025_cat_layout = True
     is_2025 = ("2025" in config.regulation) if config.regulation else is_2025_cat_layout
 
-    if is_2025:
-        for p in doc.paragraphs:
-            p_txt = p.text.upper()
+    for p in doc.paragraphs:
+        p_txt = p.text.upper()
+        if is_2025:
             if "PART" in p_txt or "MARKS" in p_txt:
                 if ("1" in p_txt and "5" in p_txt) and ("3" not in p_txt and "10" not in p_txt and "15" not in p_txt and "30" not in p_txt):
                     p.text = "PART – A (5 x 1 = 5 Marks)"
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p.paragraph_format.space_before = Pt(4)
+                    p.paragraph_format.space_after = Pt(2)
                     for r in p.runs:
                         r.font.name = "Times New Roman"
                         r.font.size = Pt(13)
@@ -575,6 +714,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 elif ("3" in p_txt and "15" in p_txt) or ("5 X 3" in p_txt):
                     p.text = "PART – A (5 x 3 = 15 Marks)"
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p.paragraph_format.space_before = Pt(4)
+                    p.paragraph_format.space_after = Pt(2)
                     for r in p.runs:
                         r.font.name = "Times New Roman"
                         r.font.size = Pt(13)
@@ -582,10 +723,33 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 elif ("10" in p_txt and "30" in p_txt) or ("3 X 10" in p_txt) or (re.search(r'\bPART\s*[\u2013\u2014\-–]?\s*[BC]\b', p_txt) and ("MARK" in p_txt or "=" in p_txt)):
                     p.text = "PART – B (3 x 10 = 30 Marks)"
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p.paragraph_format.page_break_before = True
+                    p.paragraph_format.space_before = Pt(4)
+                    p.paragraph_format.space_after = Pt(2)
                     for r in p.runs:
                         r.font.name = "Times New Roman"
                         r.font.size = Pt(13)
                         r.bold = True
+        else:
+            # 2021 Regulation CAT: Part B starts on page 2
+            if ("PART" in p_txt and "B" in p_txt) or ("2 X 13" in p_txt) or ("26 MARKS" in p_txt):
+                p.paragraph_format.page_break_before = True
+                p.paragraph_format.space_before = Pt(4)
+                p.paragraph_format.space_after = Pt(2)
+
+        # For both 2025 and 2021 CAT: Table of Specifications starts on page 3
+        if "TABLE OF SPECIFICATIONS" in p_txt and ("QUESTION" in p_txt or ("WISE" in p_txt and "MARKS" not in p_txt) or "SYLLABUS" in p_txt):
+            p.paragraph_format.page_break_before = True
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+        elif "TABLE OF SPECIFICATIONS" in p_txt and "MARKS" in p_txt:
+            p.paragraph_format.page_break_before = False
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+        elif "QB APPROVED BY HOD" in p_txt:
+            p.paragraph_format.page_break_before = False
+            p.paragraph_format.space_before = Pt(2)
+            p.paragraph_format.space_after = Pt(2)
 
     total_units = getattr(config, "total_units", 5) or 5
     if isinstance(total_units, str) and total_units.isdigit():
@@ -638,10 +802,18 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 
     # 2. Part A
     if t_part_a:
+        if len(t_part_a.rows) > 0 and len(t_part_a.rows[0].cells) >= 4:
+            set_cell_text_preserve_style(t_part_a.rows[0].cells[0], "Q.No.", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+            set_cell_text_preserve_style(t_part_a.rows[0].cells[1], "Questions", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+            set_cell_text_preserve_style(t_part_a.rows[0].cells[2], "KL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+            set_cell_text_preserve_style(t_part_a.rows[0].cells[3], "CO Attainment" if "ATTAINMENT" in t_part_a.rows[0].cells[3].text.upper() else "CO", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
         for idx, q in enumerate(part_a[:5]):
             row_idx = 1 + idx
             default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
             if row_idx < len(t_part_a.rows):
+                if len(t_part_a.rows[row_idx].cells) > 0:
+                    set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[0], f"{idx + 1}.", align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_a.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_a.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                 if len(t_part_a.rows[row_idx].cells) > 2:
@@ -652,6 +824,12 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
     # 3. Part B & Part C based on template table structure
     if is_2025_cat_layout and t_part_b:
         # 2025 Regulation: Part B (Q6..Q10 short questions)
+        if len(t_part_b.rows) > 0 and len(t_part_b.rows[0].cells) >= 4:
+            set_cell_text_preserve_style(t_part_b.rows[0].cells[0], "Q.No.", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+            set_cell_text_preserve_style(t_part_b.rows[0].cells[1], "Questions", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+            set_cell_text_preserve_style(t_part_b.rows[0].cells[2], "KL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+            set_cell_text_preserve_style(t_part_b.rows[0].cells[3], "CO Attainment" if "ATTAINMENT" in t_part_b.rows[0].cells[3].text.upper() else "CO", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
         for idx in range(5):
             q = part_b[idx] if idx < len(part_b) else None
             if isinstance(q, (list, tuple)) and len(q) > 0:
@@ -659,6 +837,8 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             row_idx = 1 + idx
             default_u = target_units[0] if (idx < 3 or len(target_units) == 1) else target_units[1]
             if row_idx < len(t_part_b.rows):
+                if len(t_part_b.rows[row_idx].cells) > 0:
+                    set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[0], f"{6 + idx}.", align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_b.rows[row_idx].cells) > 1:
                     set_cell_text_preserve_style(t_part_b.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
                 if len(t_part_b.rows[row_idx].cells) > 2:
@@ -672,32 +852,40 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             for p_idx in range(3):
                 pair = part_c[p_idx] if p_idx < len(part_c) else None
                 row_a_idx, row_b_idx = pair_rows_c[p_idx]
+                row_or_idx = row_a_idx + 1
                 default_u = target_units[0] if (p_idx < 2 or len(target_units) == 1) else target_units[1]
 
                 q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else (pair if p_idx == 0 and not isinstance(pair, (list, tuple, dict)) else None))
                 q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
 
-                for r_idx, q_item in [(row_a_idx, q_a), (row_b_idx, q_b)]:
-                    if r_idx < len(t_part_c.rows):
-                        r = t_part_c.rows[r_idx]
-                        unique_cells = []
-                        for cell in r.cells:
-                            if not any(uc._tc == cell._tc for uc in unique_cells):
-                                unique_cells.append(cell)
-                        if len(unique_cells) >= 5:
-                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
-                            set_cell_text_preserve_style(unique_cells[3], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)
-                            set_cell_text_preserve_style(unique_cells[4], get_q_co(q_item, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
-                        else:
-                            n_cells = len(r.cells)
-                            if n_cells >= 4:
-                                set_cell_text_preserve_style(r.cells[3], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
-                            col_kl = n_cells - 2 if n_cells >= 6 else 2
-                            col_co = n_cells - 1 if n_cells >= 6 else 3
-                            if col_kl < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_kl], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)
-                            if col_co < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_co], get_q_co(q_item, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+                if row_a_idx < len(t_part_c.rows):
+                    r_a = t_part_c.rows[row_a_idx]
+                    if len(r_a.cells) > 0:
+                        set_cell_text_preserve_style(r_a.cells[0], f"{11 + p_idx}.", align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(r_a.cells) > 1:
+                        set_cell_text_preserve_style(r_a.cells[1], "(a)", align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(r_a.cells) > 2:
+                        set_cell_text_preserve_style(r_a.cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
+                    if len(r_a.cells) > 3:
+                        set_cell_text_preserve_style(r_a.cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(r_a.cells) > 4:
+                        set_cell_text_preserve_style(r_a.cells[4], get_q_co(q_a, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+                if row_or_idx < len(t_part_c.rows):
+                    for c in t_part_c.rows[row_or_idx].cells:
+                        if "(OR)" in c.text.upper() or "OR" in c.text.upper():
+                            set_cell_text_preserve_style(c, "(OR)", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
+                if row_b_idx < len(t_part_c.rows):
+                    r_b = t_part_c.rows[row_b_idx]
+                    if len(r_b.cells) > 1:
+                        set_cell_text_preserve_style(r_b.cells[1], "(b)", align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(r_b.cells) > 2:
+                        set_cell_text_preserve_style(r_b.cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
+                    if len(r_b.cells) > 3:
+                        set_cell_text_preserve_style(r_b.cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(r_b.cells) > 4:
+                        set_cell_text_preserve_style(r_b.cells[4], get_q_co(q_b, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     else:
         # 2021 Regulation: Part B (Either-Or pairs Q6a/b, Q7a/b)
@@ -706,18 +894,31 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             for idx in range(2):
                 pair = part_b[idx] if idx < len(part_b) else None
                 row_a_idx, row_b_idx = pair_rows[idx]
+                row_or_idx = row_a_idx + 1
                 pair_default_u = target_units[idx] if idx < len(target_units) else "Unit I"
                 q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else None)
                 q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
 
                 if row_a_idx < len(t_part_b.rows):
+                    if len(t_part_b.rows[row_a_idx].cells) > 0:
+                        set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[0], f"{6 + idx}.", align=WD_ALIGN_PARAGRAPH.CENTER)
+                    if len(t_part_b.rows[row_a_idx].cells) > 1:
+                        set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[1], "(a)", align=WD_ALIGN_PARAGRAPH.CENTER)
                     if len(t_part_b.rows[row_a_idx].cells) > 2:
                         set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                     if len(t_part_b.rows[row_a_idx].cells) > 3:
                         set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
                     if len(t_part_b.rows[row_a_idx].cells) > 4:
                         set_cell_text_preserve_style(t_part_b.rows[row_a_idx].cells[4], get_q_co(q_a, pair_default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+                if row_or_idx < len(t_part_b.rows):
+                    for c in t_part_b.rows[row_or_idx].cells:
+                        if "(OR)" in c.text.upper() or "OR" in c.text.upper():
+                            set_cell_text_preserve_style(c, "(OR)", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
                 if row_b_idx < len(t_part_b.rows):
+                    if len(t_part_b.rows[row_b_idx].cells) > 1:
+                        set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[1], "(b)", align=WD_ALIGN_PARAGRAPH.CENTER)
                     if len(t_part_b.rows[row_b_idx].cells) > 2:
                         set_cell_text_preserve_style(t_part_b.rows[row_b_idx].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                     if len(t_part_b.rows[row_b_idx].cells) > 3:
@@ -732,13 +933,25 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
             q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
 
             if len(t_part_c.rows) > 1:
+                if len(t_part_c.rows[1].cells) > 0:
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[0], "8.", align=WD_ALIGN_PARAGRAPH.CENTER)
+                if len(t_part_c.rows[1].cells) > 1:
+                    set_cell_text_preserve_style(t_part_c.rows[1].cells[1], "(a)", align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[1].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
                 if len(t_part_c.rows[1].cells) > 3:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[1].cells) > 4:
                     set_cell_text_preserve_style(t_part_c.rows[1].cells[4], get_q_co(q_a, target_units[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+            if len(t_part_c.rows) > 2:
+                for c in t_part_c.rows[2].cells:
+                    if "(OR)" in c.text.upper() or "OR" in c.text.upper():
+                        set_cell_text_preserve_style(c, "(OR)", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
             if len(t_part_c.rows) > 3:
+                if len(t_part_c.rows[3].cells) > 1:
+                    set_cell_text_preserve_style(t_part_c.rows[3].cells[1], "(b)", align=WD_ALIGN_PARAGRAPH.CENTER)
                 if len(t_part_c.rows[3].cells) > 2:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
                 if len(t_part_c.rows[3].cells) > 3:
@@ -746,12 +959,20 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
                 if len(t_part_c.rows[3].cells) > 4:
                     set_cell_text_preserve_style(t_part_c.rows[3].cells[4], get_q_co(q_b, target_units[1] if len(target_units) > 1 else target_units[0]), align=WD_ALIGN_PARAGRAPH.CENTER)
 
+    # Standardize and align all question tables with uniform row heights and cell spacing
+    if t_part_a:
+        standardize_question_table(t_part_a, "part_a")
+    if t_part_b:
+        standardize_question_table(t_part_b, "part_b")
+    if t_part_c:
+        standardize_question_table(t_part_c, "part_c")
+
     # Ensure all Question table KL and CO column cells are centered
     for t in q_tables:
         if len(t.rows) > 0:
             for col_idx, c in enumerate(t.rows[0].cells):
                 col_name = c.text.strip().upper()
-                if "CO" in col_name or "KL" in col_name:
+                if "CO" in col_name or "KL" in col_name or "Q.NO" in col_name:
                     for row in t.rows[1:]:
                         if col_idx < len(row.cells):
                             for p in row.cells[col_idx].paragraphs:
@@ -899,24 +1120,35 @@ def _generate_cat_paper(doc, config: PaperConfig, part_a: List[Question], part_b
 def _populate_signature_table(doc, config: PaperConfig):
     for t in doc.tables:
         t_text = " ".join(c.text.strip() for row in t.rows for c in row.cells).upper()
-        if "PREPARED BY" in t_text or "ACADEMIC INSTITUTION" in t_text or "SIGN WITH DATE" in t_text:
+        if "PREPARED BY" in t_text or "ACADEMIC INSTITUTION" in t_text or "SIGN WITH DATE" in t_text or "VERIFIED BY" in t_text:
             for row in t.rows:
+                trPr = row._tr.get_or_add_trPr()
+                trPr.append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+                for cell in row.cells:
+                    tcPr = cell._tc.get_or_add_tcPr()
+                    for tcMar in tcPr.findall(qn('w:tcMar')):
+                        tcPr.remove(tcMar)
+                    for p in cell.paragraphs:
+                        p.paragraph_format.space_before = Pt(2)
+                        p.paragraph_format.space_after = Pt(2)
+                        p.paragraph_format.line_spacing = 1.05
+
                 row_label = row.cells[0].text.strip().upper() if len(row.cells) > 0 else ""
                 if "PREPARED" in row_label:
                     if len(row.cells) > 1 and getattr(config, "prepared_by_name", None):
-                        set_cell_text_preserve_style(row.cells[1], config.prepared_by_name, align=WD_ALIGN_PARAGRAPH.CENTER)
+                        set_cell_text_preserve_style(row.cells[1], config.prepared_by_name, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                     if len(row.cells) > 2 and getattr(config, "prepared_by_sign", None):
-                        set_cell_text_preserve_style(row.cells[2], config.prepared_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER)
+                        set_cell_text_preserve_style(row.cells[2], config.prepared_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                 elif "VERIFIED" in row_label:
                     if len(row.cells) > 1 and getattr(config, "verified_by_name", None):
-                        set_cell_text_preserve_style(row.cells[1], config.verified_by_name, align=WD_ALIGN_PARAGRAPH.CENTER)
+                        set_cell_text_preserve_style(row.cells[1], config.verified_by_name, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                     if len(row.cells) > 2 and getattr(config, "verified_by_sign", None):
-                        set_cell_text_preserve_style(row.cells[2], config.verified_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER)
+                        set_cell_text_preserve_style(row.cells[2], config.verified_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                 elif "REVIEWED" in row_label or "APPROVED" in row_label:
                     if len(row.cells) > 1 and getattr(config, "reviewed_by_name", None):
-                        set_cell_text_preserve_style(row.cells[1], config.reviewed_by_name, align=WD_ALIGN_PARAGRAPH.CENTER)
+                        set_cell_text_preserve_style(row.cells[1], config.reviewed_by_name, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                     if len(row.cells) > 2 and getattr(config, "reviewed_by_sign", None):
-                        set_cell_text_preserve_style(row.cells[2], config.reviewed_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER)
+                        set_cell_text_preserve_style(row.cells[2], config.reviewed_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
 
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
@@ -932,6 +1164,7 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
 
     for p in doc.paragraphs:
         p_text = p.text
+        p_txt = p_text.upper()
         if "Sub. Code" in p_text or "Sub.Code" in p_text or "Sub.Name" in p_text:
             if sub_code and sub_name:
                 p.text = f"Sub. Code/Sub.Name: {sub_code}/ {sub_name}"
@@ -947,6 +1180,22 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
                 parts.append(sem_val)
             full_deg = " / ".join(parts) if parts else "BE/BTECH"
             p.text = f"Degree/Branch/Sem: {full_deg}"
+        elif ("PART" in p_txt and "B" in p_txt) or ("5 X 13" in p_txt) or ("65 MARKS" in p_txt):
+            p.paragraph_format.page_break_before = True
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+        elif "TABLE OF SPECIFICATIONS" in p_txt and ("QUESTION" in p_txt or ("WISE" in p_txt and "MARKS" not in p_txt)):
+            p.paragraph_format.page_break_before = True
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+        elif "TABLE OF SPECIFICATIONS" in p_txt and "MARKS" in p_txt:
+            p.paragraph_format.page_break_before = False
+            p.paragraph_format.space_before = Pt(4)
+            p.paragraph_format.space_after = Pt(2)
+        elif "QB APPROVED BY HOD" in p_txt:
+            p.paragraph_format.page_break_before = False
+            p.paragraph_format.space_before = Pt(2)
+            p.paragraph_format.space_after = Pt(2)
 
     if config.subject_code:
         replace_text_runs(doc, "OCS353", config.subject_code)
@@ -969,58 +1218,124 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
         
     # 2. Populate Part A (Table 1)
     t1 = doc.tables[1]
+    if len(t1.rows) > 0 and len(t1.rows[0].cells) >= 4:
+        set_cell_text_preserve_style(t1.rows[0].cells[0], "Q.No.", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t1.rows[0].cells[1], "Questions", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t1.rows[0].cells[2], "KL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t1.rows[0].cells[3], "CO Attainment" if "ATTAINMENT" in t1.rows[0].cells[3].text.upper() else "CO", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
     for idx in range(10):
         q = part_a[idx] if idx < len(part_a) else None
         row_idx = 1 + idx
         if row_idx < len(t1.rows):
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[1], get_q_field(q, "text"))
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t1.rows[row_idx].cells) > 0:
+                set_cell_text_preserve_style(t1.rows[row_idx].cells[0], f"{idx + 1}.", align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t1.rows[row_idx].cells) > 1:
+                set_cell_text_preserve_style(t1.rows[row_idx].cells[1], get_q_field(q, "text"), image_data=get_q_field(q, "image_data"))
+            if len(t1.rows[row_idx].cells) > 2:
+                set_cell_text_preserve_style(t1.rows[row_idx].cells[2], get_q_kl(q), align=WD_ALIGN_PARAGRAPH.CENTER)
             default_u = f"Unit {(idx // 2) + 1}"
-            set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t1.rows[row_idx].cells) > 3:
+                set_cell_text_preserve_style(t1.rows[row_idx].cells[3], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
             
     # 3. Populate Part B (Table 2)
     t2 = doc.tables[2]
+    if len(t2.rows) > 0 and len(t2.rows[0].cells) >= 5:
+        set_cell_text_preserve_style(t2.rows[0].cells[0], "Q.No.", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t2.rows[0].cells[1], "Sub", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t2.rows[0].cells[2], "Questions", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t2.rows[0].cells[3], "KL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t2.rows[0].cells[4], "CO Attainment" if "ATTAINMENT" in t2.rows[0].cells[4].text.upper() else "CO", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
     for idx in range(5):
         pair = part_b[idx] if idx < len(part_b) else None
         row_a_idx = 1 + idx * 3
+        row_or_idx = 2 + idx * 3
         row_b_idx = 3 + idx * 3
         default_u = f"Unit {idx + 1}"
+        q_num = 11 + idx
         
         q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else None)
         q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
         
         if row_a_idx < len(t2.rows):
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], get_q_field(q_a, "text"))
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
-            set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_co(q_a, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_a_idx].cells) > 0:
+                set_cell_text_preserve_style(t2.rows[row_a_idx].cells[0], f"{q_num}.", align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_a_idx].cells) > 1:
+                set_cell_text_preserve_style(t2.rows[row_a_idx].cells[1], "(a)", align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_a_idx].cells) > 2:
+                set_cell_text_preserve_style(t2.rows[row_a_idx].cells[2], get_q_field(q_a, "text"), image_data=get_q_field(q_a, "image_data"))
+            if len(t2.rows[row_a_idx].cells) > 3:
+                set_cell_text_preserve_style(t2.rows[row_a_idx].cells[3], get_q_kl(q_a), align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_a_idx].cells) > 4:
+                set_cell_text_preserve_style(t2.rows[row_a_idx].cells[4], get_q_co(q_a, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
             
+        if row_or_idx < len(t2.rows):
+            for c in t2.rows[row_or_idx].cells:
+                if "(OR)" in c.text.upper() or "OR" in c.text.upper():
+                    set_cell_text_preserve_style(c, "(OR)", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
         if row_b_idx < len(t2.rows):
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], get_q_field(q_b, "text"))
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
-            set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_co(q_b, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_b_idx].cells) > 1:
+                set_cell_text_preserve_style(t2.rows[row_b_idx].cells[1], "(b)", align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_b_idx].cells) > 2:
+                set_cell_text_preserve_style(t2.rows[row_b_idx].cells[2], get_q_field(q_b, "text"), image_data=get_q_field(q_b, "image_data"))
+            if len(t2.rows[row_b_idx].cells) > 3:
+                set_cell_text_preserve_style(t2.rows[row_b_idx].cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
+            if len(t2.rows[row_b_idx].cells) > 4:
+                set_cell_text_preserve_style(t2.rows[row_b_idx].cells[4], get_q_co(q_b, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
     # 4. Populate Part C (Table 3)
     t3 = doc.tables[3]
+    if len(t3.rows) > 0 and len(t3.rows[0].cells) >= 5:
+        set_cell_text_preserve_style(t3.rows[0].cells[0], "Q.No.", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t3.rows[0].cells[1], "Sub", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t3.rows[0].cells[2], "Questions", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t3.rows[0].cells[3], "KL", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+        set_cell_text_preserve_style(t3.rows[0].cells[4], "CO Attainment" if "ATTAINMENT" in t3.rows[0].cells[4].text.upper() else "CO", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
+
     pair_c = part_c[0] if len(part_c) > 0 else None
     q_c_a = pair_c[0] if isinstance(pair_c, (list, tuple)) and len(pair_c) > 0 else (pair_c.get('a') if isinstance(pair_c, dict) else (part_c[0] if len(part_c) > 0 and not isinstance(part_c[0], (list, tuple, dict)) else None))
     q_c_b = pair_c[1] if isinstance(pair_c, (list, tuple)) and len(pair_c) > 1 else (pair_c.get('b') if isinstance(pair_c, dict) else (part_c[1] if len(part_c) > 1 and not isinstance(part_c[1], (list, tuple, dict)) else None))
 
     if len(t3.rows) > 1:
-        set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(q_c_a, "text"))
-        set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_kl(q_c_a), align=WD_ALIGN_PARAGRAPH.CENTER)
-        set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_co(q_c_a, "Unit V"), align=WD_ALIGN_PARAGRAPH.CENTER)
+        if len(t3.rows[1].cells) > 0:
+            set_cell_text_preserve_style(t3.rows[1].cells[0], "16.", align=WD_ALIGN_PARAGRAPH.CENTER)
+        if len(t3.rows[1].cells) > 1:
+            set_cell_text_preserve_style(t3.rows[1].cells[1], "(a)", align=WD_ALIGN_PARAGRAPH.CENTER)
+        if len(t3.rows[1].cells) > 2:
+            set_cell_text_preserve_style(t3.rows[1].cells[2], get_q_field(q_c_a, "text"), image_data=get_q_field(q_c_a, "image_data"))
+        if len(t3.rows[1].cells) > 3:
+            set_cell_text_preserve_style(t3.rows[1].cells[3], get_q_kl(q_c_a), align=WD_ALIGN_PARAGRAPH.CENTER)
+        if len(t3.rows[1].cells) > 4:
+            set_cell_text_preserve_style(t3.rows[1].cells[4], get_q_co(q_c_a, "Unit V"), align=WD_ALIGN_PARAGRAPH.CENTER)
         
-    if len(t3.rows) > 3:
-        set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(q_c_b, "text"))
-        set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_kl(q_c_b), align=WD_ALIGN_PARAGRAPH.CENTER)
-        set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_co(q_c_b, "Unit V"), align=WD_ALIGN_PARAGRAPH.CENTER)
+    if len(t3.rows) > 2:
+        for c in t3.rows[2].cells:
+            if "(OR)" in c.text.upper() or "OR" in c.text.upper():
+                set_cell_text_preserve_style(c, "(OR)", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)
 
-    # Ensure all Question table KL and CO column cells are centered for model paper
+    if len(t3.rows) > 3:
+        if len(t3.rows[3].cells) > 1:
+            set_cell_text_preserve_style(t3.rows[3].cells[1], "(b)", align=WD_ALIGN_PARAGRAPH.CENTER)
+        if len(t3.rows[3].cells) > 2:
+            set_cell_text_preserve_style(t3.rows[3].cells[2], get_q_field(q_c_b, "text"), image_data=get_q_field(q_c_b, "image_data"))
+        if len(t3.rows[3].cells) > 3:
+            set_cell_text_preserve_style(t3.rows[3].cells[3], get_q_kl(q_c_b), align=WD_ALIGN_PARAGRAPH.CENTER)
+        if len(t3.rows[3].cells) > 4:
+            set_cell_text_preserve_style(t3.rows[3].cells[4], get_q_co(q_c_b, "Unit V"), align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    # Standardize and align all question tables with uniform row heights and cell spacing
+    standardize_question_table(t1, "part_a")
+    standardize_question_table(t2, "part_b")
+    standardize_question_table(t3, "part_c")
+
+    # Ensure all Question table KL and CO and Q.No column cells are centered for model paper
     for t in [t1, t2, t3]:
         if len(t.rows) > 0:
             for col_idx, c in enumerate(t.rows[0].cells):
                 col_name = c.text.strip().upper()
-                if "CO" in col_name or "KL" in col_name:
+                if "CO" in col_name or "KL" in col_name or "Q.NO" in col_name:
                     for row in t.rows[1:]:
                         if col_idx < len(row.cells):
                             for p in row.cells[col_idx].paragraphs:

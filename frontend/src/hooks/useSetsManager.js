@@ -466,10 +466,19 @@ export function useSetsManager(initialSets = null, initialSetId = 'SET-I') {
           config: sanitizeLoadedConfig(setData?.config || DEFAULT_CONFIG)
         };
       });
+      // Ensure at least SET-I, SET-II, and SET-III exist
+      if (!sanitized['SET-II']) {
+        sanitized['SET-II'] = createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-II' });
+      }
+      if (!sanitized['SET-III']) {
+        sanitized['SET-III'] = createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-III' });
+      }
       return sanitized;
     }
     return {
-      'SET-I': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-I' })
+      'SET-I': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-I' }),
+      'SET-II': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-II' }),
+      'SET-III': createDefaultSetData({ ...DEFAULT_CONFIG, set: 'SET-III' })
     };
   });
   const [currentSetId, setCurrentSetId] = useState(() => {
@@ -561,12 +570,12 @@ export function useSetsManager(initialSets = null, initialSetId = 'SET-I') {
 
   const handleCreateNewSet = () => {
     const existingSetIds = Object.keys(sets);
-    if (existingSetIds.length >= 3) {
-      alert("Maximum of 3 sets (SET-I, SET-II, SET-III) allowed.");
+    if (existingSetIds.length >= 5) {
+      alert("Maximum of 5 sets allowed.");
       return;
     }
 
-    const romanNumerals = ['SET-I', 'SET-II', 'SET-III'];
+    const romanNumerals = ['SET-I', 'SET-II', 'SET-III', 'SET-IV', 'SET-V'];
     let nextSetId = null;
     for (const num of romanNumerals) {
       if (!existingSetIds.includes(num)) {
@@ -575,8 +584,7 @@ export function useSetsManager(initialSets = null, initialSetId = 'SET-I') {
       }
     }
     if (!nextSetId) {
-      alert("Maximum of 3 sets allowed.");
-      return;
+      nextSetId = `SET-${existingSetIds.length + 1}`;
     }
 
     const newSetData = createDefaultSetData({ ...config, set: nextSetId });
