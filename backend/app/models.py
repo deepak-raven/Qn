@@ -55,6 +55,12 @@ class PaperConfig(BaseModel):
     date: str = ""
     session: str = ""
     total_units: Optional[int] = Field(5, description="Total units in subject (4, 5, or 6)")
+    prepared_by_name: Optional[str] = ""
+    prepared_by_sign: Optional[str] = ""
+    verified_by_name: Optional[str] = ""
+    verified_by_sign: Optional[str] = ""
+    reviewed_by_name: Optional[str] = ""
+    reviewed_by_sign: Optional[str] = ""
 
     model_config = ConfigDict(populate_by_name=True)
 

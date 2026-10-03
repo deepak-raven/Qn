@@ -82,6 +82,13 @@ if not os.path.exists(MODEL_TEMPLATE_PATH) and os.path.exists(PARENT_MODEL_PATH)
     shutil.copy(PARENT_MODEL_PATH, MODEL_TEMPLATE_PATH)
     logger.info(f"Copied template file from parent directory to: {MODEL_TEMPLATE_PATH}")
 
+MODEL_2025_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "model_2025.docx")
+PARENT_MODEL_2025_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "model_2025.docx"))
+
+if not os.path.exists(MODEL_2025_TEMPLATE_PATH) and os.path.exists(PARENT_MODEL_2025_PATH):
+    shutil.copy(PARENT_MODEL_2025_PATH, MODEL_2025_TEMPLATE_PATH)
+    logger.info(f"Copied 2025 model template file from parent directory to: {MODEL_2025_TEMPLATE_PATH}")
+
 TEMPLATE_PATH = CAT_2021_TEMPLATE_PATH
 CAT_TEMPLATE_PATH = CAT_2021_TEMPLATE_PATH
 QB_TEMPLATE_PATH = os.path.join(TEMPLATES_DIR, "Question_Bank_Template.docx")
@@ -529,11 +536,15 @@ async def generate_docx(payload: GenerateRequest, background_tasks: BackgroundTa
     
     is_2025 = "2025" in reg_val
     is_cat3 = exam_type in ["CAT-3", "IAT-3"]
-    is_cat = exam_type in ["CAT-1", "CAT-2", "CAT-3", "IAT-1", "IAT-2", "IAT-3"] or is_2025
+    is_cat = exam_type in ["CAT-1", "CAT-2", "CAT-3", "IAT-1", "IAT-2", "IAT-3"]
 
     if is_2025:
-        # Single template dynamically used for all 2025 CAT exams (CAT-1, CAT-2, CAT-3)
-        template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+        if is_cat:
+            # Single template dynamically used for all 2025 CAT exams (CAT-1, CAT-2, CAT-3)
+            template_to_use = CAT_2025_TEMPLATE_PATH if os.path.exists(CAT_2025_TEMPLATE_PATH) else CAT_2021_TEMPLATE_PATH
+        else:
+            # 2025 Model Examination template (10 MCQ, 10 Short Ans, 5 Either/Or)
+            template_to_use = MODEL_2025_TEMPLATE_PATH if os.path.exists(MODEL_2025_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH
     elif is_cat:
         # Single template dynamically used for all 2021 CAT exams (CAT-1, CAT-2, CAT-3)
         template_to_use = CAT_2021_TEMPLATE_PATH if os.path.exists(CAT_2021_TEMPLATE_PATH) else MODEL_TEMPLATE_PATH

@@ -61,6 +61,9 @@ def parse_part_marks_from_text(text: str):
                 if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
                     # In 2025 Regulation, the third section is "PART B (10 marks)" which maps to Part C slot
                     return 'C', 10
+                elif re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
+                    # In 2025 Regulation Model Exam, PART B is 12 marks which maps to Part C slot
+                    return 'C', 12
                 elif re.search(r'\b(?:three|3)\s*marks?\b', line_clean):
                     return 'B', 3
                 elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
@@ -90,6 +93,8 @@ def parse_part_marks_from_text(text: str):
                 return 'B', 3
             if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
                 return 'C', 10
+            if re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
+                return 'C', 12
             if re.search(r'\b(?:thirteen|13)\s*marks?\b', line_clean):
                 return 'B', 13
             if re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean):
@@ -125,9 +130,11 @@ def infer_co_from_unit(unit_str: Optional[str]) -> str:
     return "CO1"
 
 
-def infer_bloom_from_text(question_text: str, part: str = 'A') -> str:
+def infer_bloom_from_text(question_text: str, part: str = 'A', marks: Optional[int] = None) -> str:
+    p_norm = (part or 'A').upper()
+    default_kl = 'K1' if p_norm == 'A' else ('K2' if marks == 3 else ('K3' if p_norm == 'B' else 'K4'))
     if not question_text:
-        return ""
+        return default_kl
     q_low = question_text.lower().strip()
     
     # Check leading question starter verb first (e.g., 'Explain the...', 'Define the...')
@@ -161,7 +168,7 @@ def infer_bloom_from_text(question_text: str, part: str = 'A') -> str:
     if re.search(r'\b(define|state|list|tell|recite|recall|identify|label|tabulate|quote|name|what is|what are|who|when|where|mention)\b', q_low):
         return 'K1'
         
-    return ""
+    return default_kl
 
 
 def extract_inline_metadata(raw_text: str) -> tuple:
@@ -548,9 +555,9 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
 
                 # Extract inline metadata if present in question text
                 clean_q_text, in_kl, in_co, in_marks = extract_inline_metadata(raw_q_text)
-                final_kl = raw_kl or in_kl or infer_bloom_from_text(clean_q_text, current_part)
-                final_co = raw_co or in_co or infer_co_from_unit(current_unit)
                 final_marks = in_marks or row_marks or current_marks
+                final_kl = raw_kl or in_kl or infer_bloom_from_text(clean_q_text, current_part, final_marks) or ("K1" if current_part == 'A' else ("K2" if current_part == 'B' else "K4"))
+                final_co = raw_co or in_co or infer_co_from_unit(current_unit)
 
                 # Extract image/diagram from question cell if present
                 img_data = None
@@ -619,9 +626,9 @@ def parse_question_bank_docx(file_bytes: bytes, subject_code: str, semester: str
 
             if is_question_starter_line(text) or (len(text) > 10 and not any(k in text_low for k in ['subject code', 'subject name', 'year / semester', 'regulation:'])):
                 clean_q, in_kl, in_co, in_m = extract_inline_metadata(text)
-                final_kl = in_kl or infer_bloom_from_text(clean_q, current_part)
-                final_co = in_co or infer_co_from_unit(current_unit)
                 final_m = in_m or current_marks
+                final_kl = in_kl or infer_bloom_from_text(clean_q, current_part, final_m) or ("K1" if current_part == 'A' else ("K2" if current_part == 'B' else "K4"))
+                final_co = in_co or infer_co_from_unit(current_unit)
 
                 if len(clean_q) >= 5:
                     questions.append({
@@ -799,9 +806,9 @@ def parse_question_bank_pdf(file_bytes: bytes, subject_code: str, semester: str)
 
                     if is_question_starter_line(line_str) or not questions:
                         clean_q, in_kl, in_co, in_m = extract_inline_metadata(line_str)
-                        final_kl = in_kl or ""
-                        final_co = in_co or infer_co_from_unit(c_unit)
                         final_m = in_m or c_marks
+                        final_kl = in_kl or infer_bloom_from_text(clean_q, c_part, final_m) or ("K1" if c_part == 'A' else ("K2" if c_part == 'B' else "K4"))
+                        final_co = in_co or infer_co_from_unit(c_unit)
 
                         if len(clean_q) >= 5:
                             questions.append({

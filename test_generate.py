@@ -60,7 +60,7 @@ response = requests.post('http://localhost:8000/api/generate-docx', json=payload
 
 print("Status Code:", response.status_code)
 if response.status_code == 200:
-    output_path = r'c:\Users\Deepak\Projects\Qn\Generated_Paper_Test.docx'
+    output_path = 'Generated_Paper_Test.docx'
     with open(output_path, 'wb') as f:
         f.write(response.content)
     print(f"Success! Generated question paper saved to: {output_path}")

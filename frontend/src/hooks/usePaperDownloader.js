@@ -23,33 +23,41 @@ export function usePaperDownloader() {
 
     const is2025 = is2025Regulation(config.regulation);
     const isCAT = isCATExam(config.exam_type, config.regulation);
-    const reqPartA = (is2025 || isCAT) ? 5 : 10;
-    const reqPartBCount = (isCAT && !is2025) ? 2 : 5;
+    // 2025 Model: Part A = 10 (1m MCQ), Part A-2 = 10 (3m short), Part B = 5 pairs (12m either/or)
+    // 2025 CAT:   Part A = 5  (1m),     Part B  = 5 (3m short),   Part C = 3 pairs (10m either/or)
+    // 2021 CAT:   Part A = 5  (2m),     Part B  = 2 (13m pairs),  Part C = 1 pair  (14m either/or)
+    // 2021 Model: Part A = 10 (2m),     Part B  = 5 (13m pairs),  Part C = 1 pair  (15m either/or)
+    const is2025Model = is2025 && !isCAT;
+    const reqPartA = isCAT ? 5 : 10;
+    const reqPartBCount = is2025Model ? 10 : (isCAT && !is2025) ? 2 : 5;
+    const reqPartCPairs = is2025Model ? 5 : is2025 ? 3 : 1;
 
     // Check for unfilled question slots
     const missingParts = [];
 
     const filledPartA = (selectedPartA || []).slice(0, reqPartA).filter(Boolean);
     if (filledPartA.length < reqPartA) {
-      missingParts.push(`Part A: ${filledPartA.length}/${reqPartA} questions chosen (${reqPartA - filledPartA.length} empty)`);
+      missingParts.push(`Part A (1 Mark): ${filledPartA.length}/${reqPartA} questions chosen (${reqPartA - filledPartA.length} empty)`);
     }
     
     if (is2025) {
-      const filledPartB = (selectedPartB || []).slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean);
-      if (filledPartB.length < 5) {
-        missingParts.push(`Part B: ${filledPartB.length}/5 questions chosen (${5 - filledPartB.length} empty)`);
+      // Part A Section 2 / Part B (3-mark short answer)
+      const filledPartB = (selectedPartB || []).slice(0, reqPartBCount).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null))).filter(Boolean);
+      if (filledPartB.length < reqPartBCount) {
+        missingParts.push(`Part A (3 Marks): ${filledPartB.length}/${reqPartBCount} questions chosen (${reqPartBCount - filledPartB.length} empty)`);
       }
 
-      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC];
+      // Part B / Part C (either/or pairs, 12 marks)
+      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, reqPartCPairs) : [selectedPartC];
       let completePartCCount = 0;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < reqPartCPairs; i++) {
         const pair = partCPairs[i];
         if (pair && pair.a && pair.b) {
           completePartCCount++;
         }
       }
-      if (completePartCCount < 3) {
-        missingParts.push(`Part C: ${completePartCCount}/3 complete either/or pairs`);
+      if (completePartCCount < reqPartCPairs) {
+        missingParts.push(`Part B (12 Marks): ${completePartCCount}/${reqPartCPairs} complete either/or pairs`);
       }
     } else {
       let completePartBCount = 0;
@@ -87,16 +95,17 @@ export function usePaperDownloader() {
     });
 
     if (is2025) {
-      (selectedPartB || []).slice(0, 5).forEach((slot, idx) => {
+      (selectedPartB || []).slice(0, reqPartBCount).forEach((slot, idx) => {
         const item = (slot?.a || slot?.b || (slot?.text ? slot : null));
         if (item && (!item.kl || String(item.kl).trim() === '')) {
-          missingKlQuestions.push(`Part B Q${6 + idx}`);
+          missingKlQuestions.push(`Part A (3M) Q${(isCAT ? 6 : 11) + idx}`);
         }
       });
-      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC];
+      const partCPairs = Array.isArray(selectedPartC) ? selectedPartC.slice(0, reqPartCPairs) : [selectedPartC];
+      const partCStartQ = isCAT ? 11 : 21;
       partCPairs.forEach((pair, idx) => {
-        if (pair?.a && (!pair.a.kl || String(pair.a.kl).trim() === '')) missingKlQuestions.push(`Part C Q${11 + idx}(a)`);
-        if (pair?.b && (!pair.b.kl || String(pair.b.kl).trim() === '')) missingKlQuestions.push(`Part C Q${11 + idx}(b)`);
+        if (pair?.a && (!pair.a.kl || String(pair.a.kl).trim() === '')) missingKlQuestions.push(`Part B Q${partCStartQ + idx}(a)`);
+        if (pair?.b && (!pair.b.kl || String(pair.b.kl).trim() === '')) missingKlQuestions.push(`Part B Q${partCStartQ + idx}(b)`);
       });
     } else {
       for (let i = 0; i < reqPartBCount; i++) {
@@ -125,10 +134,10 @@ export function usePaperDownloader() {
         config,
         part_a: (selectedPartA || []).slice(0, reqPartA).map(q => q || null),
         part_b: is2025 
-          ? (selectedPartB || []).slice(0, 5).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null) || null))
+          ? (selectedPartB || []).slice(0, reqPartBCount).map(slot => (slot?.a || slot?.b || (slot?.text ? slot : null) || null))
           : (selectedPartB || []).slice(0, reqPartBCount).map(slot => [slot?.a || null, slot?.b || null]),
         part_c: is2025
-          ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 3) : [selectedPartC]).map(pair => [pair?.a || null, pair?.b || null])
+          ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, reqPartCPairs) : [selectedPartC]).map(pair => [pair?.a || null, pair?.b || null])
           : [[(Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.a || null, (Array.isArray(selectedPartC) ? selectedPartC[0] : selectedPartC)?.b || null]]
       };
 
@@ -148,6 +157,7 @@ export function usePaperDownloader() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
+        return true;
       } else {
         let errorDetail = 'Unknown error';
         try {
@@ -165,6 +175,7 @@ export function usePaperDownloader() {
           errorDetail = await res.text().catch(() => 'Server error');
         }
         alert(`Generation failed: ${errorDetail}`);
+        return false;
       }
     } catch (err) {
       if (err.message && err.message.includes('Failed to fetch')) {
@@ -172,10 +183,37 @@ export function usePaperDownloader() {
       } else {
         alert(`Network error during generation: ${err.message}`);
       }
+      return false;
     } finally {
       setDownloading(false);
     }
   };
 
-  return { downloading, generatePaper };
+  const generateAllSets = async (setsObject) => {
+    if (!setsObject || Object.keys(setsObject).length === 0) {
+      alert('No paper sets found to download.');
+      return;
+    }
+
+    const setKeys = Object.keys(setsObject);
+    let successCount = 0;
+
+    for (const setId of setKeys) {
+      const setData = setsObject[setId];
+      if (!setData) continue;
+      const setConfig = { ...(setData.config || {}), set: setId };
+      
+      const success = await generatePaper(
+        setConfig,
+        setData.selectedPartA || [],
+        setData.selectedPartB || [],
+        setData.selectedPartC || []
+      );
+      if (success) successCount++;
+      // Short delay between downloads so browser doesn't block multiple files
+      await new Promise(res => setTimeout(res, 600));
+    }
+  };
+
+  return { downloading, generatePaper, generateAllSets };
 }
