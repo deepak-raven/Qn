@@ -16,7 +16,8 @@ export default function Header({
   selectedPartC,
   handleGeneratePaper,
   downloading,
-  auth
+  auth,
+  onNavigate
 }) {
   const { user, logout, isAdmin } = auth || {};
 
@@ -56,7 +57,11 @@ export default function Header({
       gap: '1rem'
     }}>
       {/* 1. Left Section: Logo & Branding */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+      <div 
+        onClick={() => onNavigate && onNavigate(isAdmin ? '/admin' : '/')}
+        style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', cursor: 'pointer' }}
+        title={isAdmin ? 'Admin Dashboard' : 'Faculty Dashboard'}
+      >
         <img 
           src={logoImg} 
           alt="Jaya Engineering College Logo" 
@@ -82,7 +87,10 @@ export default function Header({
         {isAdmin ? (
           <li 
             className={`nav-item ${activeTab === 'admin' ? 'active' : ''}`}
-            onClick={() => setActiveTab('admin')}
+            onClick={() => {
+              setActiveTab('admin');
+              if (onNavigate) onNavigate('/admin');
+            }}
           >
             <ShieldCheck size={18} />
             Admin Storage & Control
