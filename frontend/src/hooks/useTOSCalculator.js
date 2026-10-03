@@ -87,13 +87,15 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
       }
     };
 
+    const is2025Model = is2025 && !isCAT;
     const partAMarks = is2025 ? 1 : 2;
     const partBMarks = is2025 ? 3 : 13;
-    const partCMarks = is2025 ? 10 : (isCAT ? 14 : 15);
+    // 2025 Model: 5 x 12 = 60; 2025 CAT: 3 x 10 = 30; 2021 CAT: 1 x 14; 2021 Model: 1 x 15
+    const partCMarks = is2025Model ? 12 : (is2025 ? 10 : (isCAT ? 14 : 15));
 
-    selectedPartA.slice(0, (is2025 || isCAT) ? 5 : 10).filter(Boolean).forEach(q => addQuestion(q, partAMarks));
+    selectedPartA.slice(0, isCAT ? 5 : 10).filter(Boolean).forEach(q => addQuestion(q, partAMarks));
 
-    const reqPartBSlots = (isCAT && !is2025) ? 2 : 5;
+    const reqPartBSlots = is2025Model ? 10 : ((isCAT && !is2025) ? 2 : 5);
     selectedPartB.slice(0, reqPartBSlots).forEach(slot => {
       if (!slot) return;
       if (slot.a) addQuestion(slot.a, partBMarks);
@@ -101,9 +103,10 @@ export function useTOSCalculator(selectedPartA, selectedPartB, selectedPartC, co
       if (!slot.a && !slot.b && slot.text) addQuestion(slot, partBMarks);
     });
 
+    const reqPartCPairs = is2025Model ? 5 : (is2025 ? 3 : 1);
     const targetPartC = (isCAT && !is2025)
       ? (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])
-      : selectedPartC;
+      : (Array.isArray(selectedPartC) ? selectedPartC.slice(0, reqPartCPairs) : [selectedPartC]);
 
     if (Array.isArray(targetPartC)) {
       targetPartC.forEach(slot => {

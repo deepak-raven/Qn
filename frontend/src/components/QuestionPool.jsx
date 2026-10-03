@@ -147,7 +147,7 @@ export default function QuestionPool({
           ? [
               { label: 'Part A (1 Mark)', key: 'A' },
               { label: 'Part A (3 Marks)', key: 'B' },
-              { label: 'Part B (10 Marks)', key: 'C' }
+              { label: 'Part B (12 Marks)', key: 'C' }
             ]
           : [
               { label: 'Part A', key: 'A' },

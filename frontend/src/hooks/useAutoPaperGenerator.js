@@ -50,10 +50,15 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
   const is2025 = is2025Regulation(baseConfig.regulation);
   const isCAT = isCATExam(baseConfig.exam_type, baseConfig.regulation);
   const totalUnits = Number(baseConfig.total_units) || 5;
+  const is2025Model = is2025 && !isCAT;
 
-  const reqPartA = (is2025 || isCAT) ? 5 : 10;
-  const reqPartBCount = is2025 ? 5 : ((isCAT && !is2025) ? 2 : 5);
-  const reqPartCCount = is2025 ? 3 : 1;
+  // 2025 Model: Part A=10(1m MCQ), Part A-2=10(3m short), Part B=5 pairs(12m either/or)
+  // 2025 CAT:   Part A=5(1m),     Part B=5(3m short),    Part C=3 pairs(10m either/or)
+  // 2021 CAT:   Part A=5(2m),     Part B=2(13m pairs),   Part C=1 pair(14m either/or)
+  // 2021 Model: Part A=10(2m),    Part B=5(13m pairs),   Part C=1 pair(15m either/or)
+  const reqPartA = isCAT ? 5 : 10;
+  const reqPartBCount = is2025Model ? 10 : (is2025 ? 5 : (isCAT ? 2 : 5));
+  const reqPartCCount = is2025Model ? 5 : (is2025 ? 3 : 1);
 
   // Track all used question IDs across both sets to guarantee ZERO duplicates
   const globalUsedIds = new Set();
@@ -129,8 +134,8 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
     // 2. POPULATE PART B
     const selectedPartB = [];
     if (is2025) {
-      // 2025 CAT: 5 individual 3-mark questions (Q6..Q10)
-      for (let i = 0; i < 5; i++) {
+      // 2025 Model: 10 individual 3-mark questions (Q11-Q20); 2025 CAT: 5 (Q6-Q10)
+      for (let i = 0; i < reqPartBCount; i++) {
         const expectedUnits = getExpectedUnitForPartBSlot(setConfig.exam_type, i, setConfig.regulation, totalUnits);
         const allowedNorm = expectedUnits.map(normalizeUnit);
 
@@ -193,9 +198,9 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
     // 3. POPULATE PART C
     let selectedPartC;
     if (is2025) {
-      // 2025 CAT: 3 either-or pairs (Q11, Q12, Q13)
+      // 2025 Model: 5 either-or pairs (Q21-Q25, 12m); 2025 CAT: 3 pairs (Q11-Q13, 10m)
       selectedPartC = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < reqPartCCount; i++) {
         const expectedA = getExpectedUnitForPartCSlot(setConfig.exam_type, i, 'a', setConfig.regulation, totalUnits).map(normalizeUnit);
         const expectedB = getExpectedUnitForPartCSlot(setConfig.exam_type, i, 'b', setConfig.regulation, totalUnits).map(normalizeUnit);
 
@@ -351,7 +356,9 @@ export function generateAutoDualSets(allQuestions = [], baseConfig = {}) {
       {
         title: "Bloom's Cognitive Level Balancing",
         description: is2025
-          ? "Part A (1-Mark) focuses on K1/K2 recall; Part B (3-Marks) targets K2-K4 comprehension & application; Part C (10-Marks) challenges K4-K6 analysis & synthesis."
+          ? (is2025Model
+              ? "Part A (1-Mark MCQ) focuses on K1/K2 recall; Part A (3-Marks) targets K2-K4 comprehension & application; Part B (12-Marks) challenges K4-K6 analysis & synthesis."
+              : "Part A (1-Mark) focuses on K1/K2 recall; Part B (3-Marks) targets K2-K4 comprehension & application; Part C (10-Marks) challenges K4-K6 analysis & synthesis.")
           : "Part A targets K1/K2 understanding; Part B balances K2-K4 application/analysis; Part C challenges K4-K6 critical evaluation."
       },
       {

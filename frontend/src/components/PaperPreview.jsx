@@ -573,8 +573,14 @@ export default function PaperPreview({
 
         {/* PART A PREVIEW TABLE */}
         <div ref={partARef} className="paper-part-title">
-          PART &ndash; A ({is2025 ? '5 X 1 = 5' : `${selectedPartA.slice(0, isCAT ? 5 : 10).length} X 2 = ${selectedPartA.slice(0, isCAT ? 5 : 10).length * 2}`} MARKS)<br />
-          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>ANSWER ALL THE QUESTIONS</span>
+          {is2025 ? (
+            isCAT ? 'PART – A (5 X 1 = 5 MARKS)' : 'PART – A (10 X 1 = 10 MARKS)'
+          ) : (
+            `PART – A (${isCAT ? '5 X 2 = 10' : `${selectedPartA.slice(0, isCAT ? 5 : 10).length} X 2 = ${selectedPartA.slice(0, isCAT ? 5 : 10).length * 2}`} MARKS)`
+          )}<br />
+          <span style={{ fontSize: '0.9rem', fontWeight: 'normal', fontStyle: 'italic' }}>
+            {is2025 ? 'ANSWER ALL THE QUESTIONS (MULTIPLE CHOICE QUESTIONS)' : 'ANSWER ALL THE QUESTIONS'}
+          </span>
         </div>
 
         <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
@@ -588,7 +594,7 @@ export default function PaperPreview({
             </tr>
           </thead>
           <tbody>
-            {selectedPartA.slice(0, (is2025 || isCAT) ? 5 : 10).map((item, idx) => (
+            {selectedPartA.slice(0, isCAT ? 5 : 10).map((item, idx) => (
               <tr 
                 key={idx}
                 onDragOver={handleDragOver}
@@ -685,13 +691,13 @@ export default function PaperPreview({
           </tbody>
         </table>
 
-        {/* PART B PREVIEW TABLE (In 2025: PART - A Section 2, 5 x 3 = 15) */}
+        {/* PART B PREVIEW TABLE (In 2025 Model: PART - A Section 2, 10 x 3 = 30; In 2025 CAT: 5 x 3 = 15) */}
         <div ref={partBRef} className="paper-part-title">
-          {is2025 ? 'PART – A (5 X 3 = 15 MARKS)' : `PART – B (${isCAT ? '2 X 13 = 26' : `${selectedPartB.length} X 13 = ${selectedPartB.length * 13}`} MARKS)`}
+          {is2025 ? (isCAT ? 'PART – A (5 X 3 = 15 MARKS)' : 'PART – A (10 X 3 = 30 MARKS)') : `PART – B (${isCAT ? '2 X 13 = 26' : `${selectedPartB.length} X 13 = ${selectedPartB.length * 13}`} MARKS)`}
         </div>
 
         {is2025 ? (
-          /* CAT 2025 PART B: 5 Single Questions (Q6 to Q10, 3 Marks each) */
+          /* 2025 PART A Section 2: CAT = 5 Questions (Q6-Q10), Model = 10 Questions (Q11-Q20), 3 Marks each */
           <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
             <thead>
               <tr>
@@ -703,10 +709,10 @@ export default function PaperPreview({
               </tr>
             </thead>
             <tbody>
-              {Array(5).fill(null).map((_, idx) => {
+              {Array(isCAT ? 5 : 10).fill(null).map((_, idx) => {
                 const slotRaw = selectedPartB[idx];
                 const item = slotRaw ? (slotRaw.a || slotRaw.b || (slotRaw.text ? slotRaw : null)) : null;
-                const qNo = 6 + idx;
+                const qNo = isCAT ? (6 + idx) : (11 + idx);
                 const expectedUnit = getSuggestedUnitForPartBSlot(config.exam_type, idx, config.regulation, config.total_units);
 
                 return (
@@ -1027,9 +1033,9 @@ export default function PaperPreview({
           </table>
         )}
 
-        {/* PART C PREVIEW TABLE (In 2025: PART - B 3 x 10 = 30) */}
+        {/* PART C PREVIEW TABLE (In 2025 Model: PART - B 5 x 12 = 60; In 2025 CAT: PART - B 3 x 10 = 30) */}
         <div ref={partCRef} className="paper-part-title">
-          {is2025 ? 'PART – B (3 X 10 = 30 MARKS)' : `PART – C (${isCAT ? '1 X 14 = 14' : '1 X 15 = 15'} MARKS)`}
+          {is2025 ? (isCAT ? 'PART – B (3 X 10 = 30 MARKS)' : 'PART – B (5 X 12 = 60 MARKS)') : `PART – C (${isCAT ? '1 X 14 = 14' : '1 X 15 = 15'} MARKS)`}
         </div>
 
         <table className="paper-table" style={{ marginBottom: '1.5rem' }}>
@@ -1045,9 +1051,9 @@ export default function PaperPreview({
           </thead>
           <tbody>
             {(is2025 ? (
-              Array.isArray(selectedPartC) ? selectedPartC : [selectedPartC, { a: null, b: null }, { a: null, b: null }]
-            ).slice(0, 3) : (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])).map((pairSlot, pairIdx) => {
-              const qNo = is2025 ? (11 + pairIdx) : (isCAT ? (8 + pairIdx) : getPartCQuestionNo(config.exam_type, pairIdx, config.regulation));
+              Array.isArray(selectedPartC) ? selectedPartC : Array(isCAT ? 3 : 5).fill(null).map(() => ({ a: null, b: null }))
+            ).slice(0, isCAT ? 3 : 5) : (Array.isArray(selectedPartC) ? selectedPartC.slice(0, 1) : [selectedPartC])).map((pairSlot, pairIdx) => {
+              const qNo = is2025 ? (isCAT ? (11 + pairIdx) : (21 + pairIdx)) : (isCAT ? (8 + pairIdx) : getPartCQuestionNo(config.exam_type, pairIdx, config.regulation));
               const slotA = pairSlot?.a;
               const slotB = pairSlot?.b;
 

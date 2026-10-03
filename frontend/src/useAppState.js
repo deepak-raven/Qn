@@ -510,7 +510,7 @@ export function useAppState() {
           const qUnitNorm = normalizeUnit(q.unit);
 
           if (targetPart === 'A') {
-            const reqCount = (is2025 || isCAT) ? 5 : 10;
+            const reqCount = isCAT ? 5 : 10;
             let targetIdx = -1;
 
             // 1. Try finding unit blueprint matched empty slot
@@ -545,13 +545,14 @@ export function useAppState() {
 
           } else if (targetPart === 'B') {
             if (is2025) {
-              // 2025 Regulation: 5 single question slots (Q6..Q10)
+              // 2025 Regulation: Single question slots (5 for CAT, 10 for Model)
+              const reqPartBCount = isCAT ? 5 : 10;
               const partB = [...(set.selectedPartB || [])];
-              while (partB.length < 5) partB.push(null);
+              while (partB.length < reqPartBCount) partB.push(null);
 
               let targetIdx = -1;
               // 1. Try finding unit blueprint matched empty slot
-              for (let i = 0; i < 5; i++) {
+              for (let i = 0; i < reqPartBCount; i++) {
                 const expectedUnits = getExpectedUnitForPartBSlot(config.exam_type, i, config.regulation, config.total_units);
                 const allowedNorm = expectedUnits.map(normalizeUnit);
                 const slot = partB[i];
@@ -564,7 +565,7 @@ export function useAppState() {
 
               // 2. Fallback to any empty slot
               if (targetIdx === -1) {
-                for (let i = 0; i < 5; i++) {
+                for (let i = 0; i < reqPartBCount; i++) {
                   const slot = partB[i];
                   const isSlotFilled = slot && (slot.a || slot.b || slot.text || slot._id);
                   if (!isSlotFilled) {
@@ -575,7 +576,7 @@ export function useAppState() {
               }
 
               if (targetIdx === -1) {
-                alert(`All Part B question slots (5/5) are already filled. Please clear a slot to add this question.`);
+                alert(`All Part B question slots (${reqPartBCount}/${reqPartBCount}) are already filled. Please clear a slot to add this question.`);
                 return {};
               }
 
@@ -637,15 +638,16 @@ export function useAppState() {
 
           } else if (targetPart === 'C') {
             if (is2025) {
-              // 2025 Regulation: 3 either-or pairs (Q11, Q12, Q13)
+              // 2025 Regulation: Either-or pairs (3 pairs for CAT, 5 pairs for Model)
+              const reqPartCPairs = isCAT ? 3 : 5;
               let partC = Array.isArray(set.selectedPartC) ? [...set.selectedPartC] : [];
-              while (partC.length < 3) partC.push({ a: null, b: null });
+              while (partC.length < reqPartCPairs) partC.push({ a: null, b: null });
 
               let targetIdx = -1;
               let targetSubKey = 'a';
 
               // 1. Try finding unit blueprint matched slot
-              for (let i = 0; i < 3; i++) {
+              for (let i = 0; i < reqPartCPairs; i++) {
                 const expectedA = getExpectedUnitForPartCSlot(config.exam_type, i, 'a', config.regulation, config.total_units).map(normalizeUnit);
                 const expectedB = getExpectedUnitForPartCSlot(config.exam_type, i, 'b', config.regulation, config.total_units).map(normalizeUnit);
                 const slot = partC[i] || { a: null, b: null };
@@ -663,7 +665,7 @@ export function useAppState() {
 
               // 2. Fallback to any empty slot
               if (targetIdx === -1) {
-                for (let i = 0; i < 3; i++) {
+                for (let i = 0; i < reqPartCPairs; i++) {
                   const slot = partC[i] || { a: null, b: null };
                   if (!isFilled(slot.a)) {
                     targetIdx = i;
@@ -678,7 +680,7 @@ export function useAppState() {
               }
 
               if (targetIdx === -1) {
-                alert(`All Part C question slots (3 pairs) are already filled. Please clear a slot to add this question.`);
+                alert(`All Part C question slots (${reqPartCPairs} pairs) are already filled. Please clear a slot to add this question.`);
                 return {};
               }
 
@@ -838,9 +840,12 @@ export function useAppState() {
           }
 
           updateCurrentSet(set => {
+            const is2025 = is2025Regulation(config.regulation);
+            const isCAT = isCATExam(config.exam_type, config.regulation);
+            const reqPartBSlots = is2025 ? (isCAT ? 5 : 10) : (isCAT ? 2 : 5);
             let next = [...(set.selectedPartB || [])];
-            while (next.length < 5) {
-              next.push({ a: null, b: null });
+            while (next.length < reqPartBSlots) {
+              next.push(is2025 ? null : { a: null, b: null });
             }
             if (payload.type === 'preview_b') {
               const sourceSlotIdx = payload.slotIdx;
@@ -879,7 +884,7 @@ export function useAppState() {
           if (!allowedNorm.includes(normalizeUnit(q.unit))) {
             const is2025 = is2025Regulation(config.regulation);
             const isCAT = isCATExam(config.exam_type, config.regulation);
-            const qNo = is2025 ? (11 + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
+            const qNo = is2025 ? ((isCAT ? 11 : 21) + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
             alert(`Only questions from ${expectedUnits.join(' or ')} can be placed in Part C Question ${qNo}(${subKey}).`);
             return;
           }
@@ -891,10 +896,9 @@ export function useAppState() {
               ? [...set.selectedPartC] 
               : [{ a: set.selectedPartC?.a || null, b: set.selectedPartC?.b || null }];
 
-            if (isCAT || is2025) {
-              while (next.length < (is2025 ? 3 : 1)) {
-                next.push({ a: null, b: null });
-              }
+            const reqPartCPairs = is2025 ? (isCAT ? 3 : 5) : 1;
+            while (next.length < reqPartCPairs) {
+              next.push({ a: null, b: null });
             }
             const isCArray = Array.isArray(next);
 
@@ -907,8 +911,8 @@ export function useAppState() {
               if (isCArray) {
                 const temp = next[index] ? next[index][subKey] : null;
                 if (temp && !sourceAllowedNorm.includes(normalizeUnit(temp.unit))) {
-                  const sourceQNo = is2025 ? (11 + sourcePairIdx) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, sourcePairIdx, config.regulation));
-                  const targetQNo = is2025 ? (11 + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
+                  const sourceQNo = is2025 ? ((isCAT ? 11 : 21) + sourcePairIdx) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, sourcePairIdx, config.regulation));
+                  const targetQNo = is2025 ? ((isCAT ? 11 : 21) + index) : (isCAT ? 8 : getPartCQuestionNo(config.exam_type, index, config.regulation));
                   alert(`Swap failed: Question ${targetQNo}(${subKey}) (${temp.unit}) cannot be placed in Question ${sourceQNo}(${sourceSubKey}) (${sourceExpectedUnits.join(' or ')} expected).`);
                   return {};
                 }

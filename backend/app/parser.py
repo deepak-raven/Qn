@@ -61,6 +61,9 @@ def parse_part_marks_from_text(text: str):
                 if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
                     # In 2025 Regulation, the third section is "PART B (10 marks)" which maps to Part C slot
                     return 'C', 10
+                elif re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
+                    # In 2025 Regulation Model Exam, PART B is 12 marks which maps to Part C slot
+                    return 'C', 12
                 elif re.search(r'\b(?:three|3)\s*marks?\b', line_clean):
                     return 'B', 3
                 elif re.search(r'\b(?:sixteen|16)\s*marks?\b', line_clean):
@@ -90,6 +93,8 @@ def parse_part_marks_from_text(text: str):
                 return 'B', 3
             if re.search(r'\b(?:ten|10)\s*marks?\b', line_clean):
                 return 'C', 10
+            if re.search(r'\b(?:twelve|12)\s*marks?\b', line_clean):
+                return 'C', 12
             if re.search(r'\b(?:thirteen|13)\s*marks?\b', line_clean):
                 return 'B', 13
             if re.search(r'\b(?:fourteen|14)\s*marks?\b', line_clean):
