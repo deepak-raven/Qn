@@ -1003,22 +1003,17 @@ def _generate_cat_paper(
             for p_idx in range(3):
                 pair = part_c[p_idx] if p_idx < len(part_c) else None
                 row_a_idx, row_b_idx = pair_rows_c[p_idx]
-<<<<<<< HEAD
                 row_or_idx = row_a_idx + 1
-                default_u = target_units[0] if (p_idx < 2 or len(target_units) == 1) else target_units[1]
-=======
                 if len(target_units) == 1:
                     default_u = target_units[0]
                 elif is_cat2 and total_units in [4, 5]:
                     default_u = target_units[0] if p_idx < 1 else target_units[1]
                 else:
                     default_u = target_units[0] if p_idx < 2 else target_units[1]
->>>>>>> f853d37993d495467e82ebe1ab27cbb378cc974c
 
                 q_a = pair[0] if isinstance(pair, (list, tuple)) and len(pair) > 0 else (pair.get('a') if isinstance(pair, dict) else (pair if p_idx == 0 and not isinstance(pair, (list, tuple, dict)) else None))
                 q_b = pair[1] if isinstance(pair, (list, tuple)) and len(pair) > 1 else (pair.get('b') if isinstance(pair, dict) else None)
 
-<<<<<<< HEAD
                 if row_a_idx < len(t_part_c.rows):
                     r_a = t_part_c.rows[row_a_idx]
                     if len(r_a.cells) > 0:
@@ -1045,30 +1040,6 @@ def _generate_cat_paper(
                         set_cell_text_preserve_style(r_b.cells[3], get_q_kl(q_b), align=WD_ALIGN_PARAGRAPH.CENTER)
                     if len(r_b.cells) > 4:
                         set_cell_text_preserve_style(r_b.cells[4], get_q_co(q_b, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
-=======
-                for r_idx, q_item in [(row_a_idx, q_a), (row_b_idx, q_b)]:
-                    if r_idx < len(t_part_c.rows):
-                        r = t_part_c.rows[r_idx]
-                        unique_cells = []
-                        for cell in r.cells:
-                            if not any(uc._tc == cell._tc for uc in unique_cells):
-                                unique_cells.append(cell)
-
-                        if len(unique_cells) >= 5:
-                            set_cell_text_preserve_style(unique_cells[2], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
-                            set_cell_text_preserve_style(unique_cells[3], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)
-                            set_cell_text_preserve_style(unique_cells[4], get_q_co(q_item, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
-                        else:
-                            n_cells = len(r.cells)
-                            if n_cells >= 4:
-                                set_cell_text_preserve_style(r.cells[3], get_q_field(q_item, "text"), image_data=get_q_field(q_item, "image_data"))
-                            col_kl = n_cells - 2 if n_cells >= 6 else 2
-                            col_co = n_cells - 1 if n_cells >= 6 else 3
-                            if col_kl < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_kl], get_q_kl(q_item), align=WD_ALIGN_PARAGRAPH.CENTER)
-                            if col_co < n_cells:
-                                set_cell_text_preserve_style(r.cells[col_co], get_q_co(q_item, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
->>>>>>> f853d37993d495467e82ebe1ab27cbb378cc974c
 
     else:
         # 2021 Regulation: Part B (Either-Or pairs Q6a/b, Q7a/b)

@@ -25,8 +25,15 @@ def main():
     # npm needs shell=True or npm.cmd on Windows to resolve properly
     frontend_cmd = ['npm', 'run', 'dev']
 
+    port = os.environ.get("PORT", "8001")
+    backend_env = os.environ.copy()
+    backend_env["PORT"] = str(port)
+
+    frontend_env = os.environ.copy()
+    frontend_env["VITE_API_BASE_URL"] = f"http://localhost:{port}/api"
+
     print("=" * 60)
-    print("Starting backend and frontend services...")
+    print(f"Starting backend (port {port}) and frontend services...")
     print(f"Backend CMD:  {' '.join(backend_cmd)}")
     print(f"Frontend CMD: {' '.join(frontend_cmd)}")
     print("=" * 60)
@@ -37,7 +44,8 @@ def main():
         backend_proc = subprocess.Popen(
             backend_cmd,
             cwd=os.path.join(root_dir, 'backend'),
-            shell=is_windows
+            shell=is_windows,
+            env=backend_env
         )
         processes.append(('Backend', backend_proc))
         
@@ -45,7 +53,8 @@ def main():
         frontend_proc = subprocess.Popen(
             frontend_cmd,
             cwd=os.path.join(root_dir, 'frontend'),
-            shell=is_windows
+            shell=is_windows,
+            env=frontend_env
         )
         processes.append(('Frontend', frontend_proc))
 

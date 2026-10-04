@@ -1,4 +1,4 @@
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api';
 let cleanBase = rawApiBase.trim().replace(/\/+$/, '');
 if (!cleanBase.endsWith('/api')) {
   cleanBase = `${cleanBase}/api`;
