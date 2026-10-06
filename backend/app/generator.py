@@ -1303,20 +1303,20 @@ def _populate_signature_table(doc, config: PaperConfig):
 
                 row_label = row.cells[0].text.strip().upper() if len(row.cells) > 0 else ""
                 if "PREPARED" in row_label:
-                    if len(row.cells) > 1 and getattr(config, "prepared_by_name", None):
-                        set_cell_text_preserve_style(row.cells[1], config.prepared_by_name, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
-                    if len(row.cells) > 2 and getattr(config, "prepared_by_sign", None):
-                        set_cell_text_preserve_style(row.cells[2], config.prepared_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
+                    if len(row.cells) > 1:
+                        set_cell_text_preserve_style(row.cells[1], (getattr(config, "prepared_by_name", "") or "").strip(), align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
+                    if len(row.cells) > 2:
+                        set_cell_text_preserve_style(row.cells[2], (getattr(config, "prepared_by_sign", "") or "").strip(), align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                 elif "VERIFIED" in row_label:
-                    if len(row.cells) > 1 and getattr(config, "verified_by_name", None):
-                        set_cell_text_preserve_style(row.cells[1], config.verified_by_name, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
-                    if len(row.cells) > 2 and getattr(config, "verified_by_sign", None):
-                        set_cell_text_preserve_style(row.cells[2], config.verified_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
+                    if len(row.cells) > 1:
+                        set_cell_text_preserve_style(row.cells[1], (getattr(config, "verified_by_name", "") or "").strip(), align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
+                    if len(row.cells) > 2:
+                        set_cell_text_preserve_style(row.cells[2], (getattr(config, "verified_by_sign", "") or "").strip(), align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
                 elif "REVIEWED" in row_label or "APPROVED" in row_label:
-                    if len(row.cells) > 1 and getattr(config, "reviewed_by_name", None):
-                        set_cell_text_preserve_style(row.cells[1], config.reviewed_by_name, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
-                    if len(row.cells) > 2 and getattr(config, "reviewed_by_sign", None):
-                        set_cell_text_preserve_style(row.cells[2], config.reviewed_by_sign, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
+                    if len(row.cells) > 1:
+                        set_cell_text_preserve_style(row.cells[1], (getattr(config, "reviewed_by_name", "") or "").strip(), align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
+                    if len(row.cells) > 2:
+                        set_cell_text_preserve_style(row.cells[2], (getattr(config, "reviewed_by_sign", "") or "").strip(), align=WD_ALIGN_PARAGRAPH.CENTER, space_before=2.0, space_after=2.0)
 
 
 def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part_b: List[List[Question]], part_c: List[Question]):
@@ -1344,6 +1344,14 @@ def _generate_model_paper(doc, config: PaperConfig, part_a: List[Question], part
             p.paragraph_format.page_break_before = True
             p.paragraph_format.space_before = Pt(4)
             p.paragraph_format.space_after = Pt(2)
+        elif "ANSWER ALL" in p_txt:
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(4)
+            for r in p.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(11)
+                r.italic = True
         elif "TABLE OF SPECIFICATIONS" in p_txt and ("QUESTION" in p_txt or ("WISE" in p_txt and "MARKS" not in p_txt)):
             p.paragraph_format.page_break_before = True
             p.paragraph_format.space_before = Pt(4)
@@ -1637,6 +1645,14 @@ def _generate_2025_model_paper(doc, config: PaperConfig, part_a: List[Question],
             p.paragraph_format.page_break_before = True
             p.paragraph_format.space_before = Pt(4)
             p.paragraph_format.space_after = Pt(2)
+        elif "ANSWER ALL" in p_txt:
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p.paragraph_format.space_before = Pt(0)
+            p.paragraph_format.space_after = Pt(4)
+            for r in p.runs:
+                r.font.name = "Times New Roman"
+                r.font.size = Pt(11)
+                r.italic = True
         elif "TABLE OF SPECIFICATIONS" in p_txt and ("QUESTION" in p_txt or ("WISE" in p_txt and "MARKS" not in p_txt)):
             p.paragraph_format.page_break_before = True
             p.paragraph_format.space_before = Pt(4)
@@ -1658,9 +1674,9 @@ def _generate_2025_model_paper(doc, config: PaperConfig, part_a: List[Question],
             if "Q.NO" in header and ("QUESTION" in header or "QUESTIONS" in header):
                 q_tables.append(t)
 
-    t_pa1 = q_tables[0] if len(q_tables) > 0 else (doc.tables[2] if len(doc.tables) > 2 else None)
-    t_pa3 = q_tables[1] if len(q_tables) > 1 else (doc.tables[3] if len(doc.tables) > 3 else None)
-    t_pb = q_tables[2] if len(q_tables) > 2 else (doc.tables[4] if len(doc.tables) > 4 else None)
+    t_pa1 = q_tables[0] if len(q_tables) > 0 else (doc.tables[3] if len(doc.tables) > 3 else None)
+    t_pa3 = q_tables[1] if len(q_tables) > 1 else (doc.tables[4] if len(doc.tables) > 4 else None)
+    t_pb = q_tables[2] if len(q_tables) > 2 else (doc.tables[5] if len(doc.tables) > 5 else None)
 
     # 2. Populate Part A (1 Mark MCQ: Q1 to Q10)
     if t_pa1:
@@ -1711,7 +1727,7 @@ def _generate_2025_model_paper(doc, config: PaperConfig, part_a: List[Question],
                 if len(row.cells) > 3:
                     set_cell_text_preserve_style(row.cells[3], get_q_co(q, default_u), align=WD_ALIGN_PARAGRAPH.CENTER)
 
-        standardize_question_table(t_pa3, "part_b")
+        standardize_question_table(t_pa3, "part_a")
 
     # 4. Populate Part B (12 Marks Either-Or: Q21 to Q25)
     if t_pb:

@@ -126,7 +126,7 @@ export default function Header({
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
         {/* Progress & Generate Button for Faculty */}
         {!isAdmin && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '0.35rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', padding: '0.35rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', fontWeight: 600 }}>
               <span style={{ color: partACount === reqPartA ? 'var(--success)' : 'var(--text-muted)' }}>
                 Part A: <strong>{partACount}/{reqPartA}</strong>
@@ -138,16 +138,6 @@ export default function Header({
                 Part C: <strong>{partCCount}/{reqPartC}</strong>
               </span>
             </div>
-
-            <button 
-              className="btn btn-primary" 
-              style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem' }}
-              onClick={handleGeneratePaper}
-              disabled={downloading}
-            >
-              {downloading ? <RefreshCw size={14} className="animate-spin" /> : <Download size={14} />}
-              Generate docx
-            </button>
           </div>
         )}
 
